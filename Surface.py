@@ -14,7 +14,7 @@ class Surface():
     stretched in the y direction.
     """
     # The surface class for descrete surfaces
-    global_size=1
+    global_size=[1,1]
     dimentions=0
     is_descrete=True
     profile=np.array([])
@@ -23,14 +23,9 @@ class Surface():
         self.init_checks(kwargs)
         # check for file
         
-    def init_checks(kwargs):
+    def init_checks(self, kwargs):
+        # add anything you want to run for all surface types here
         a=1
-        
-    def set_properties(self, material_type='elastic', properties=(200,0.3)):
-        # allowed types are rigid, elastic, plastic, epp, ve, ? 
-        self.matType=material_type
-        self.properties=properties
-        
     
     #def set_size(self, grid_size=0, global_size=0):
         
@@ -39,15 +34,33 @@ class Surface():
         # plots the surfae options to use any of the plotting methods including 
         # PSD and FFT methods 
         if plot_type=='surface' or plot_type=='scatter' or plot_type=='wf':
+            x=np.arange(-0.5*self.global_size[0],
+                    0.5*self.global_size[0],self.grid_size)
+            y=np.arange(-0.5*self.global_size[1],
+                        0.5*self.global_size[1],self.grid_size)
+            (X,Y)=np.meshgrid(x,y)
             import matplotlib.pyplot as plt
             from mpl_toolkits.mplot3d import Axes3D
             fig = plt.figure()
             ax = fig.add_subplot(111, projection='3d')
+            ax.plot_surface(X,Y,self.profile)
             
-#    def fft_surface(self):
-#        
-#    def plot_FFT_surface(self):
-#        
+    def fft_surface(self):
+        try:
+            if self.dimentions==1:
+                transform=np.fft.fft(self.profile)
+            else:
+                transform=np.fft.fft2(self.profile)
+        except AttributeError:
+            raise AttributeError('Surface must have a defined profile for fft'
+                                 ' to be used')
+        return transform
+    
+    def plot_FFT_surface(self):#TODO fill in this
+        self.global_size
+        self.grid_size
+        
+
 #    def psd_surface(self):
 #        
 #    def plot_PSD_surface(self):
@@ -58,16 +71,20 @@ class Surface():
 #        
 #    def check_surface(self):
 #        
-#    def roughness(self):
+#    def roughness(self, type):
 #        
-#    def __add__(self, other):
+
 #
 #    def stretch(self, ratio):
+#    def re_sample(self, new_size):
+#    def __add__(self, other):
+#    def __subtract__(self, other):
+#    def __times__(self, other): 
 
 """ the follwing class definitions are all sub classes of surfaces for useful 
 analytically described surfaces, each class overides the __init__ method and 
 provides a descretise_surface method the is_descrete flag should also be set to 
-false until the descretise_surface method has been run. init_checks should be
+false until the descretise method has been run. init_checks should be
 called first in the init method to check for dimentions and material property 
 assignments"""
     
@@ -75,10 +92,11 @@ class FlatSurface(Surface): #done
     is_descrete=False
     surface_type='plane'
     
-    def __init__(self, slope, **kwargs):
+    def __init__(self, slope, dimentions=2, **kwargs):
         
         self.init_checks(kwargs)
         
+        self.dimentions=dimentions
         if type(slope) is list:
             self.slope=slope
         elif type(slope) is int or type(slope) is float:
@@ -86,7 +104,8 @@ class FlatSurface(Surface): #done
             if self.dimentions==2:
                 warnings.warn("Assumed 0 slope in Y direction for"
                               " analytical flat surface")
-    def descretise_surface(self, spacing, centre):
+    def descretise(self, spacing, centre):
+        self.grid_size=spacing
         if self.dimentions==0:
             raise ValueError(
                     'Cannot descritise 0 dimentional surface')
@@ -105,10 +124,11 @@ class FlatSurface(Surface): #done
 class RoundSurface(Surface):
     is_descrete=False
     surface_type='round'
-    def __init__(self, radius, **kwargs):
+    def __init__(self, radius, dimentions=2, **kwargs):
         
         self.init_checks(kwargs)
         
+        self.dimentions=dimentions
         if type(radius) is list:
             if len(radius)==(self.dimentions+1):
                 self.radius=radius
@@ -119,7 +139,7 @@ class RoundSurface(Surface):
         elif type(radius) is int or type(radius) is float:
             self.radius=[radius]*(self.dimentions+1)
             
-    def descretise_surface(self, spacing, centre):
+    def descretise(self, spacing, centre):
         #1d
         #(x/xr)^2+(z/zr)^2=1
         #(1-(x/rx)^2)^0.5*rz
@@ -127,6 +147,7 @@ class RoundSurface(Surface):
         #(x/rx)^2+(y/ry)^2+(z/rz)^2=1
         #1-(x/rx)^2-(y/ry)^2=(z/rz)^2
         #(1--(y/ry)^2)^0.5*rz
+        self.grid_size=spacing
         x=np.arange(-0.5*self.global_size[0],
                     0.5*self.global_size[0],self.grid_size)
         if self.dimentions==1:
@@ -144,10 +165,11 @@ class PyramidSurface(Surface):
     is_descrete=False
     surface_type='pyramid'
     
-    def __init__(self, lengths, **kwargs):
+    def __init__(self, lengths, dimentions=2, **kwargs):
         
         self.init_checks(kwargs)
         
+        self.dimentions=dimentions
         if type(lengths) is list:
             if len(lengths)==(self.dimentions+1):
                 self.lengths=lengths
@@ -158,10 +180,11 @@ class PyramidSurface(Surface):
         elif type(lengths) is int or type(lengths) is float:
             self.lengths=[lengths]*(self.dimentions+1)
             
-    def descretise_surface(self, spacing):
+    def descretise(self, spacing):
         #TODO check that ther is no gap around the edge, if so scale so there is not 
         #x/xl+y/yl+z/zl=1
         #(1-x/xl-y/yl)*zl=z
+        self.grid_size=spacing
         x=np.arange(-0.5*self.global_size[0],
                     0.5*self.global_size[0],self.grid_size)
         if self.dimentions==1:
@@ -177,15 +200,17 @@ class PyramidSurface(Surface):
 class GausianNoiseSurface(Surface): #done
     is_descrete=False
     surface_type='gausianNoise'
-    def __init__(self, mu=0, sigma=1, **kwargs):
+    def __init__(self, mu=0, sigma=1, dimentions=2, **kwargs):
         
         self.init_checks(kwargs)
         
+        self.dimentions=dimentions
         self.gn_mu=mu
         self.gn_sigma=sigma
         
-    def descretise_surface(self, spacing):
-        nPts=[length/spacing for length in self.global_size]
+    def descretise(self, spacing):
+        self.grid_size=spacing
+        nPts=[round(length/spacing) for length in self.global_size]
         if self.dimentions==1:
             profile=np.random.randn(nPts[0])
         elif self.dimentions==2:
@@ -196,10 +221,11 @@ class GausianNoiseSurface(Surface): #done
 class FlatNoiseSurface(Surface): #done
     is_descrete=False
     surface_type='flatNoise'
-    def __init__(self, noise_range=[0,1], **kwargs):
+    def __init__(self, noise_range=[0,1], dimentions=2, **kwargs):
         
         self.init_checks(kwargs)
         
+        self.dimentions=dimentions
         if type(noise_range) is list and len(noise_range)==2:
             self.fn_range=noise_range
         elif type(noise_range) is int or type(noise_range) is float:
@@ -209,8 +235,9 @@ class FlatNoiseSurface(Surface): #done
             raise ValueError(msg)
         
     
-    def descretise_surface(self, spacing):
-        nPts=[length/spacing for length in self.global_size]
+    def descretise(self, spacing):
+        self.grid_size=spacing
+        nPts=[round(length/spacing) for length in self.global_size]
         
         if self.dimentions==1:
             profile=np.random.rand(nPts[0])
@@ -223,10 +250,11 @@ class DiscreteFrequencySurface(Surface):#TODO make work better with 2d surface, 
     is_descrete=False
     surface_type='discreteFreq'
     
-    def __init__(self, frequencies, amptitudes=[1], phases_rads=[0], **kwargs):
+    def __init__(self, frequencies, amptitudes=[1], phases_rads=[0], dimentions=2, **kwargs):
         
         self.init_checks(kwargs)
         
+        self.dimentions=dimentions
         if type(frequencies) is list or type(frequencies) is np.ndarray:
             self.frequencies=frequencies
         else:
@@ -250,7 +278,8 @@ class DiscreteFrequencySurface(Surface):#TODO make work better with 2d surface, 
                                      np.exp(1j*phases_rads[idx]))
                 self.amptitudes=cplx_amps
             
-    def descretise_surface(self, spacing):
+    def descretise(self, spacing):
+        self.grid_size=spacing
         #TODO write this section
         x=np.arange(-0.5*self.global_size[0],
                     0.5*self.global_size[0],self.grid_size)
@@ -280,7 +309,8 @@ class ContinuousFrequencySurface(DiscreteFrequencySurface): #make work better wi
     surface_type='continuousFreq'
         #TODO write this function
         
-    def descretise_surface(self, spacing):
+    def descretise(self, spacing):
+        self.grid_size=spacing
         x=np.arange(-0.5*self.global_size[0],
                     0.5*self.global_size[0],self.grid_size)
         #TODO write this function probably use an inverse FFT need to read up 
