@@ -84,7 +84,8 @@ class Surface():
     def plot_fft(self):#TODO fill in this
         self.global_size
         self.grid_size
-        
+    
+    
     def low_pass_filter(self, filter_alpha=4):
         import scipy.signal
         """ credit to Hu et al.
@@ -112,11 +113,22 @@ class Surface():
             bessel_func=scipy.special.j0(2*np.pi*filter_alpha*
                                          distance_to_centre)
             filter_array=(filter_alpha*bessel_func/distance_to_centre)
-            self.surf(filter_array)
+            filter_array[int(np.ceil(filter_size[0]/2))-1,
+                         int(np.ceil(filter_size[1]/2))-1]=np.pi*filter_alpha**2 ## check here it might be better/ essential to do this after FFT
+            #lanczos window 
+            thresh=0.2
+            mw=1.6/0.2*filter_alpha
+            window=np.sinc(mw*2*(distance_to_centre+(filter_size[0]-1)/2)/(filter_size[0]-1)-1)
+            window[window<thresh]=0
+            filter_array=filter_array*window
+            filter_array=filter_array/np.sum(np.sum(filter_array))
+            self.surf(window)
+            
             for i in range(surf_size[0]):
                 for j in range(surf_size[1]):
                     self.profile[i][j]=np.sum(filter_array*padded_profile[
                             i:i+filter_size[0],j:j+filter_size[0]])
+            self.surf(self.profile)
         else:
             msg=('Surface must be descretised before filtering')
             raise ValueError(msg)
@@ -144,7 +156,7 @@ class Surface():
 #    def __add__(self, other):
 #    def __subtract__(self, other):
 #    def __times__(self, other): 
-    def surf(Z,xmax=0,ymax=0):
+    def surf(self,Z,xmax=0,ymax=0):
         import matplotlib.pyplot as plt
         from mpl_toolkits.mplot3d import Axes3D
         fig = plt.figure()
@@ -406,4 +418,4 @@ class ContinuousFrequencySurface(DiscreteFrequencySurface): #make work better wi
 if __name__ == "__main__":
     A=GausianNoiseSurface()
     A.descretise(0.01)
-    A.low_pass_filter(4)
+    A.low_pass_filter(0.1)
