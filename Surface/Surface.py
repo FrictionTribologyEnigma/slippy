@@ -64,11 +64,7 @@ class Surface():
             y=np.arange(-0.5*self.global_size[1],
                         0.5*self.global_size[1],self.grid_size)
             (X,Y)=np.meshgrid(x,y)
-            import matplotlib.pyplot as plt
-            from mpl_toolkits.mplot3d import Axes3D
-            fig = plt.figure()
-            ax = fig.add_subplot(111, projection='3d')
-            ax.plot_surface(X,Y,self.profile)
+            self.surf(self.profile,X,Y)
             
     def fft(self):
         try:
@@ -85,62 +81,81 @@ class Surface():
         self.global_size
         self.grid_size
     
-    
-    def low_pass_filter(self, filter_alpha=4):
-        import scipy.signal
-        """ credit to Hu et al.
-        Tonder YZHaK. Simulation of 3-D random rough surface by 2-D digital 
-        filter and Fourier analysis. International journal of machine tools 
-        and manufacture. 1992;32(1):83-90.
-        length is length of the filter and alpha is the low pass 
-        cut off frequency
-        """
-        if self.is_descrete:
-            surf_size=self.profile.shape
-            #next odd number for size
-            filter_size=[int(2*(np.floor(ss/2)+0.5)) for ss in surf_size]
-            ammount_to_pad=[2*(int(np.floor(fs/2)),) for fs in filter_size]
-            padded_profile=np.pad(self.profile,ammount_to_pad,'wrap')
-            
-            filt_x=list(range(-1*int(np.ceil(filter_size[0]/2))+1,
-                              int(np.ceil(filter_size[0]/2))))
-            filt_y=list(range(-1*int(np.ceil(filter_size[1]/2))+1,
-                              int(np.ceil(filter_size[1]/2))))
-            
-            (filt_x_grid,filt_y_grid)=np.meshgrid(filt_x,filt_y)
-            distance_to_centre=np.sqrt(filt_x_grid**2+filt_y_grid**2)
-            
-            bessel_func=scipy.special.j0(2*np.pi*filter_alpha*
-                                         distance_to_centre)
-            filter_array=(filter_alpha*bessel_func/distance_to_centre)
-            filter_array[int(np.ceil(filter_size[0]/2))-1,
-                         int(np.ceil(filter_size[1]/2))-1]=np.pi*filter_alpha**2 ## check here it might be better/ essential to do this after FFT
-            #lanczos window 
-            thresh=0.2
-            mw=1.6/0.2*filter_alpha
-            window=np.sinc(mw*2*(distance_to_centre+(filter_size[0]-1)/2)/(filter_size[0]-1)-1)
-            window[window<thresh]=0
-            filter_array=filter_array*window
-            filter_array=filter_array/np.sum(np.sum(filter_array))
-            self.surf(window)
-            
-            for i in range(surf_size[0]):
-                for j in range(surf_size[1]):
-                    self.profile[i][j]=np.sum(filter_array*padded_profile[
-                            i:i+filter_size[0],j:j+filter_size[0]])
-            self.surf(self.profile)
-        else:
-            msg=('Surface must be descretised before filtering')
-            raise ValueError(msg)
 #TODO make below pretty
-    def acf(self):
-        output=scipy.signal.correlate2d(self.profile,self.profile,'same')
+    def acf(self, surf_in=False):
+        import scipy.signal
+        if not surf_in:
+            surf_in=self.profile
+        surf_in=np.asarray(surf_in)
+        x=surf_in.shape[0]
+        y=surf_in.shape[1]
+        output=(scipy.signal.correlate(surf_in,surf_in,'same')/(x*y))
         return output
     
     def plot_acf(self):
         acf=self.acf()
         self.surf(acf)
 #TODO all below
+    def birmingham(self, parameter_name, curved_surface=False): #TODO finish this!
+# ================================================================= ============
+#         Taken from: Metrology and Properties of Engineering Surfaces
+#         Editors: Mainsah, E., Greenwood, james, Chetwynd, Derek (Eds.)
+#         surface measurment and characterisation pg 23 onwards
+# =============================================================================
+        
+        # recursive call to allw lists of parmeters to be retived at once
+        
+        if type(parameter_name) is list:
+            out=[]
+            for par_name in parameter_name:
+                out.append(self.birmingham(parameter_name))
+            return out
+        
+        # First remove the base line, linear fit for flat surfaces or 
+        # biquadratic polynomial for curved surfaces 
+        
+        parameter_name=parameter_name.lower()
+        N=self.global_size[0]/self.grid_size
+        M=self.global_size[0]/self.grid_size
+        x = np.arange(N)
+        y = np.arange(M)
+        X, Y = np.meshgrid(x, y, copy=False)
+        X = X.flatten()
+        Y = Y.flatten()
+        if curved_surface:
+            A = np.array([X*0+1, X, Y, X**2, X**2*Y, X**2*Y**2, Y**2, X*Y**2, X*Y]).T
+            B = self.profile.flatten()
+            coeff, r, rank, s = np.linalg.lstsq(A, B)
+        else:
+            A = np.array([X*0+1, X, Y]).T
+            B = self.profile.flatten()
+            coeff, r, rank, s = np.linalg.lstsq(A, B)
+        fit=np.reshape(np.dot(A,coeff),[N,M])
+        eta=self.profile-fit
+        
+        # return parameter of interst 
+        
+        if parameter_name=='sq': #root mean square
+            out=np.sqrt(np.mean(eta**2))
+        elif parameter_name=='sa': #mean amptitude
+            out=np.sqrt(np.mean(eta))
+        elif parameter_name=='ssk': #skewness
+            sq=np.sqrt(np.mean(eta**2))
+            out=np.mean(sta**3)/sq**3
+        elif parameter_name=='sku': #kurtosis
+            sq=np.sqrt(np.mean(eta**2))
+            out=np.mean(sta**4)/sq**4
+        elif parameter_name=='sz': #tenpoint height
+            
+        # step 1 remove a least squares linear fit or second order polynomal fit(if curved surface)
+        #sq is root mean square
+        #sa is average amptitude
+        #sz is ten point height (sum|5 highest| +sum|5 lowest|)/5
+        #ssk is skewness (3rd moment):
+        #1/(MNsq^3)*sum(sum(eta^3))
+        #Sku is kurtosis (4th moment)
+        #1/(MNsq^4)*sum(sum(eta^4))
+        
 #    def plot_psd()
 #    def psd(self)
 #    def plotQQ(self, distribution)
@@ -150,7 +165,6 @@ class Surface():
 #    def read_from_file(self, filename):
 #    def match(self, filename, **kwargs)
 #    def check_surface(self):
-#    def roughness(self, type):
 #    def stretch(self, ratio):
 #    def re_sample(self, new_size):
 #    def __add__(self, other):
@@ -315,6 +329,42 @@ class GausianNoiseSurface(Surface): #done
             profile=np.random.randn(nPts[0],nPts[1])
         self.profile=profile*self.gn_sigma+self.gn_mu
         self.is_descrete=True
+    
+    def specify_ACF(self, ACF_or_type, *args):
+        size=self.global_size
+        spacing=self.grid_size
+        nPts=[int(sz/spacing) for sz in size]
+        if type(ACF_or_type) is str:
+            k=np.arange(-nPts[0]/2,nPts[0]/2)
+            l=np.arange(-nPts[1]/2,nPts[1]/2)
+            [K,L]=np.meshgrid(k,l)
+            
+            if ACF_or_type=='exp':
+                sigma=args[0]
+                beta_x=args[1]/spacing
+                beta_y=args[2]/spacing
+                ACF=sigma**2*np.exp(-2.3*np.sqrt((K/beta_x)**2+(L/beta_y)**2))
+                self.surf(ACF)
+            else:
+                ValueError("ACF_or_type must be array like or valid type")
+        else:
+            ACF=np.asarray(ACF_or_type)
+            if not ACF.shape==size:
+                #pad ACF with 0s equally on both sides
+                size_difference=[]
+                is_neg=[]
+                for i in range(len(size)):
+                    size_difference.append(size[i],ACF.shape[i])
+                    is_neg.append(size_difference[0]<0)
+                if any(is_neg):
+                    ValueError("ACF size should be smaller than the profile"
+                               " size")
+                np.pad(ACF,[ceil(size_difference[0]),floor(size_difference[0]), 
+                          ceil(size_difference[0]), floor(size_difference[0])],
+                       'constant')
+        
+        filter_tf=np.sqrt(np.fft.fft2(ACF))
+        self.profile=np.abs(np.fft.ifft2((np.fft.fft2(self.profile)*filter_tf)))
         
 class FlatNoiseSurface(GausianNoiseSurface): #done
     is_descrete=False
@@ -336,7 +386,7 @@ class FlatNoiseSurface(GausianNoiseSurface): #done
     def descretise(self, spacing=False):
         if spacing:    
             self.grid_size=spacing
-            
+        nPts=[round(length/spacing) for length in self.global_size]
         self.descretise_checks()
         if self.dimentions==1:
             profile=np.random.rand(nPts[0],1)
@@ -412,10 +462,11 @@ class ContinuousFrequencySurface(DiscreteFrequencySurface): #make work better wi
                     0.5*self.global_size[0],self.grid_size)
         #TODO write this function probably use an inverse FFT need to read up 
         # for 2d surfacesfor now just used np.eye * amps
-
-
         
 if __name__ == "__main__":
     A=GausianNoiseSurface()
+    #A.plot_acf()
+    A.global_size=[1.01,1.01]
     A.descretise(0.01)
-    A.low_pass_filter(0.1)
+    A.specify_ACF('exp', 0.5,0.5,0.5)
+    A.birmingham('Sa')
