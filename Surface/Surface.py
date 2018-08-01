@@ -96,14 +96,14 @@ class Surface():
         acf=self.acf()
         self.surf(acf)
 #TODO all below
-    def birmingham(self, parameter_name, curved_surface=False): #TODO finish this!
+    def birmingham(self, parameter_name, curved_surface=False, *args): #TODO finish this!
 # ================================================================= ============
 #         Taken from: Metrology and Properties of Engineering Surfaces
 #         Editors: Mainsah, E., Greenwood, james, Chetwynd, Derek (Eds.)
 #         surface measurment and characterisation pg 23 onwards
 # =============================================================================
         
-        # recursive call to allw lists of parmeters to be retived at once
+        # recursive call to allow lists of parmeters to be retived at once
         
         if type(parameter_name) is list:
             out=[]
@@ -141,12 +141,25 @@ class Surface():
             out=np.sqrt(np.mean(eta))
         elif parameter_name=='ssk': #skewness
             sq=np.sqrt(np.mean(eta**2))
-            out=np.mean(sta**3)/sq**3
+            out=np.mean(eta**3)/sq**3
         elif parameter_name=='sku': #kurtosis
             sq=np.sqrt(np.mean(eta**2))
-            out=np.mean(sta**4)/sq**4
+            out=np.mean(eta**4)/sq**4
         elif parameter_name=='sz': #tenpoint height
+            sorted_heights=np.sort(eta.flatten())
+            out=(np.sum(np.abs(sorted_heights[0:5])+np.abs(sorted_heights[-6:-1])))/5
+        elif parameter_name in ['','','','']:
+            summits=self.find_summits()
             
+    def find_summits(self, filter_cut_off):
+        # summits are found by low pass filtering at the required scale then 
+        # finding summits
+        filtered_profile=self.low_pass_filter(True)
+        
+        
+    def low_pass_filter(self, copy=False):
+        ############# put low pass surface filter in here
+        
         # step 1 remove a least squares linear fit or second order polynomal fit(if curved surface)
         #sq is root mean square
         #sa is average amptitude
