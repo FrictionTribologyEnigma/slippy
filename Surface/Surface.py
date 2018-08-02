@@ -16,9 +16,12 @@ class Surface():
     """
     # The surface class for descrete surfaces
     global_size=[1,1]
+    grid_size=0.01
     dimentions=0
     is_descrete=True
     profile=np.array([])
+    pts_each_direction=[]
+    
     def __init__(self,*args,**kwargs):
         # initialisation surface
         self.init_checks(kwargs)
@@ -46,6 +49,8 @@ class Surface():
             total_pts=1
             for pts in pts_each_direction:
                 total_pts *= pts
+            self.total_pts=total_pts
+            self.pts_each_direction=pts_each_direction
         except AttributeError:
             msg='Global size must be set before descretisation'
             raise AttributeError(msg)
@@ -157,7 +162,24 @@ class Surface():
         filtered_profile=self.low_pass_filter(True)
         
         
-    def low_pass_filter(self, copy=False):
+    def low_pass_filter(self, cut_off_freq, copy=False):
+        import scipy.signal
+        sz=self.pts_each_direction
+        x=np.arange(1, sz[0]+1)
+        y=np.arange(1, sz[1]+1)
+        X,Y=np.meshgrid(x,y)
+        D=np.sqrt(X**2+Y**2)
+        ws=2*np.pi/self.grid_size
+        wc=cut_off_freq*2*np.pi
+        h=(wc/ws)*scipy.special.j1(2*np.pi*(wc/ws)*D)/D
+        filtered_profile=scipy.signal.convolve2d(self.profile,h,'same','wrap')
+        self.surf(filtered_profile)
+        if copy:
+            return filtered_profile
+        else:
+            self.profile=filtered_profile
+            return
+        
         ############# put low pass surface filter in here
         
         # step 1 remove a least squares linear fit or second order polynomal fit(if curved surface)
@@ -480,6 +502,5 @@ if __name__ == "__main__":
     A=GausianNoiseSurface()
     #A.plot_acf()
     A.global_size=[1.01,1.01]
-    A.descretise(0.01)
-    A.specify_ACF('exp', 0.5,0.5,0.5)
-    A.birmingham('Sa')
+    A.descretise(0.003)
+    A.low_pass_filter(15)
