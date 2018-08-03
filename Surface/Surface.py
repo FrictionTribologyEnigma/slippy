@@ -29,7 +29,10 @@ class Surface():
         
     def init_checks(self, kwargs=False):
         # add anything you want to run for all surface types here
-        a=1
+        if kwargs:
+            allowed_keys = ['global_size', 'grid_size', 'dimentions', 
+                            'is_descrete', 'profile', 'pts_each_direction']
+            self.__dict__.update((k, v) for k, v in kwargs.items() if k in allowed_keys)
     
     def descretise_checks(self):
         if self.is_descrete:
@@ -156,11 +159,24 @@ class Surface():
         elif parameter_name in ['','','','']:
             summits=self.find_summits()
             
-    def find_summits(self, filter_cut_off):
+    def find_summits(self, filter_cut_off, eight_nearest=True):
         # summits are found by low pass filtering at the required scale then 
-        # finding summits
-        filtered_profile=self.low_pass_filter(True)
-        
+        # finding points which are higher than 4 or 8 nearest neigbours
+        if filter_cut_off:
+            filtered_profile=self.low_pass_filter(filter_cut_off, True)
+        else:
+            filtered_profile=self.profile
+        summits=np.ones(self.profile[1:-2,1:-2].shape, dtype=bool)
+        if eight_nearest:
+            x=[-1,+1,0,0,-1,-1,+1,+1]
+            y=[0,0,-1,+1,-1,+1,-1,+1]
+        else:
+            x=[-1,+1,0,0]
+            y=[0,0,-1,+1]
+        for i in range(len(x)):
+            summits=summits & (filtered_profile[1:-2,1:-2]>
+                               filtered_profile[1+x[i]:-2+x[i],1+y[i]:-2+y[i]])
+        return summits
         
     def low_pass_filter(self, cut_off_freq, copy=False):
         import scipy.signal
@@ -179,32 +195,113 @@ class Surface():
         else:
             self.profile=filtered_profile
             return
-        
-        ############# put low pass surface filter in here
-        
-        # step 1 remove a least squares linear fit or second order polynomal fit(if curved surface)
-        #sq is root mean square
-        #sa is average amptitude
-        #sz is ten point height (sum|5 highest| +sum|5 lowest|)/5
-        #ssk is skewness (3rd moment):
-        #1/(MNsq^3)*sum(sum(eta^3))
-        #Sku is kurtosis (4th moment)
-        #1/(MNsq^4)*sum(sum(eta^4))
-        
+    def plot_histogram(self, n_bins='auto'):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots(figsize=[8,6])
+        ax.set_title("Histogram of height data for surface")
+        ax.set_xlabel("Height")
+        ax.set_ylabel("N-pts")
+        if n_bins=='auto':
+            ax.hist(self.profile)
+        else:
+            ax.hist(self.profile, bins=n_bins) 
+        plt.show()
+    
 #    def plot_psd()
 #    def psd(self)
 #    def plotQQ(self, distribution)
-#    def histogram(self):
-#    def plot_histogram
 #    def fill_holes(self):
 #    def read_from_file(self, filename):
 #    def match(self, filename, **kwargs)
 #    def check_surface(self):
 #    def stretch(self, ratio):
-#    def re_sample(self, new_size):
-#    def __add__(self, other):
-#    def __subtract__(self, other):
-#    def __times__(self, other): 
+    def resample(self, new_grid_size, copy=False, kind='cubic'):
+        import scipy.interpolate
+        x0=np.arrange(0, self.global_size[0], self.grid_size)
+        y0=np.arrange(0, self.global_size[1], self.grid_size)
+        X0,Y0=np.meshgrid(x0,y0)
+        inter_func=scipy.interpolate.interp2d(X0, Y0, self.profile, kind=kind)
+        x1=np.arrange(0, self.global_size[0], new_grid_size)
+        y1=np.arrange(0, self.global_size[1], new_grid_size)
+        X1,Y1=np.meshgrid(x1,y1)
+        inter_profile=inter_func(X1,Y1)
+        if copy:
+            return inter_profile
+        else:
+            self.profile=inter_profile
+            self.grid_size=new_grid_size
+            self.pts_each_direction=[len(x1),len(y1)]
+        
+    def __add__(self, other):
+        if all(self.global_size==other.global_size):
+            if self.grid_size==other.grid_size:
+                out=Surface(profile=self.profile+other.profile, 
+                            global_size=self.global_size, 
+                            grid_size=self.grid_size, 
+                            is_descrete=self.is_descrete, 
+                            pts_each_direction=self.pts_each_direction, 
+                            total_pts=self.total_pts)
+                return out
+            else:
+                msg="Surface sizes do not match: resampling"
+                warnings.warn(msg)
+                ## resample surface with coarser grid then add again
+                if self.grid_size>other.grid_size:
+                    self.resample(other.grid_size, False)
+                else:
+                    other.resample(self.grid_size)
+                    
+                return self+other
+        elif all(self.pts_each_direction==other.pts_each_direction):
+            msg=("number of points in surface matches by size of surfaces are"
+                "not the same, this operation will add the surfaces point by" 
+                "point but this may cause errors")
+            warnings.warn(msg)
+            out=Surface(profile=self.profile+other.profile, 
+                            global_size=self.global_size, 
+                            grid_size=self.grid_size, 
+                            is_descrete=self.is_descrete, 
+                            pts_each_direction=self.pts_each_direction, 
+                            total_pts=self.total_pts)
+            return out
+        else:
+            ValueError('surfaces are not compatible sizes cannot add')
+            
+    def __subtract__(self, other):
+        if all(self.global_size==other.global_size):
+            if self.grid_size==other.grid_size:
+                out=Surface(profile=self.profile-other.profile, 
+                            global_size=self.global_size, 
+                            grid_size=self.grid_size, 
+                            is_descrete=self.is_descrete, 
+                            pts_each_direction=self.pts_each_direction, 
+                            total_pts=self.total_pts)
+                return out
+            else:
+                msg="Surface sizes do not match: resampling"
+                warnings.warn(msg)
+                ## resample surface with coarser grid then add again
+                if self.grid_size>other.grid_size:
+                    self.resample(other.grid_size, False)
+                else:
+                    other.resample(self.grid_size)
+                    
+                return self-other
+        elif all(self.pts_each_direction==other.pts_each_direction):
+            msg=("number of points in surface matches by size of surfaces are"
+                "not the same, this operation will subtract the surfaces point by" 
+                "point but this may cause errors")
+            warnings.warn(msg)
+            out=Surface(profile=self.profile-other.profile, 
+                            global_size=self.global_size, 
+                            grid_size=self.grid_size, 
+                            is_descrete=self.is_descrete, 
+                            pts_each_direction=self.pts_each_direction, 
+                            total_pts=self.total_pts)
+            return out
+        else:
+            ValueError('surfaces are not compatible sizes cannot subtract')
+        
     def surf(self,Z,xmax=0,ymax=0):
         import matplotlib.pyplot as plt
         from mpl_toolkits.mplot3d import Axes3D
