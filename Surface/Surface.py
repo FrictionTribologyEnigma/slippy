@@ -47,7 +47,7 @@ class Surface():
             msg='A grid size must be provided before descretisation'
             raise AttributeError(msg)
         try:
-            pts_each_direction=[np.floor(gs/spacing) for gs in 
+            pts_each_direction=[int(gs/spacing) for gs in 
                                     self.global_size]
             total_pts=1
             for pts in pts_each_direction:
@@ -233,7 +233,7 @@ class Surface():
             self.pts_each_direction=[len(x1),len(y1)]
         
     def __add__(self, other):
-        if all(self.global_size==other.global_size):
+        if self.global_size==other.global_size:
             if self.grid_size==other.grid_size:
                 out=Surface(profile=self.profile+other.profile, 
                             global_size=self.global_size, 
@@ -252,7 +252,7 @@ class Surface():
                     other.resample(self.grid_size)
                     
                 return self+other
-        elif all(self.pts_each_direction==other.pts_each_direction):
+        elif self.pts_each_direction==other.pts_each_direction:
             msg=("number of points in surface matches by size of surfaces are"
                 "not the same, this operation will add the surfaces point by" 
                 "point but this may cause errors")
@@ -267,7 +267,7 @@ class Surface():
         else:
             ValueError('surfaces are not compatible sizes cannot add')
             
-    def __subtract__(self, other):
+    def __sub__(self, other):
         if all(self.global_size==other.global_size):
             if self.grid_size==other.grid_size:
                 out=Surface(profile=self.profile-other.profile, 
@@ -302,13 +302,17 @@ class Surface():
         else:
             ValueError('surfaces are not compatible sizes cannot subtract')
         
-    def surf(self,Z,xmax=0,ymax=0):
+    def surf(self,Z=False,xmax=0,ymax=0):
+        if not Z:
+            Z=self.profile
+            xmax=float(self.global_size[0])
+            ymax=float(self.global_size[1])
         import matplotlib.pyplot as plt
         from mpl_toolkits.mplot3d import Axes3D
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
-        x=range(Z.shape[0])
-        y=range(Z.shape[1])
+        x=np.arange(Z.shape[0])
+        y=np.arange(Z.shape[1])
         if xmax:
             x=x/max(x)*xmax
         if ymax:
@@ -333,7 +337,6 @@ class FlatSurface(Surface): #done
     def __init__(self, slope, dimentions=2, **kwargs):
         
         self.init_checks(kwargs)
-        
         self.dimentions=dimentions
         if type(slope) is list:
             self.slope=slope
@@ -345,16 +348,13 @@ class FlatSurface(Surface): #done
     def descretise(self, spacing, centre):
         self.grid_size=spacing
         self.descretise_checks()
-        if self.dimentions==0:
-            raise ValueError(
-                    'Cannot descritise 0 dimentional surface')
-        x=np.arange(-0.5*self.global_size[0],
-                    0.5*self.global_size[0],self.grid_size)
+        x=np.linspace(-0.5*self.global_size[0],
+                    0.5*self.global_size[0],self.pts_each_direction[0])
         if self.dimentions==1:
             self.profile=x*self.slope[0]
         else:
-            y=np.arange(-0.5*self.global_size[1],
-                        0.5*self.global_size[1],self.grid_size)
+            y=np.linspace(-0.5*self.global_size[1],
+                    0.5*self.global_size[1],self.pts_each_direction[1])
             (X,Y)=np.meshgrid(x,y)
             self.profile=X*self.slope[0]+Y*self.slope[1]
         self.is_descrete=True
@@ -388,17 +388,17 @@ class RoundSurface(Surface):
         #(1--(y/ry)^2)^0.5*rz
         self.grid_size=spacing
         self.descretise_checks()
-        x=np.arange(-0.5*self.global_size[0],
-                    0.5*self.global_size[0],self.grid_size)
+        x=np.linspace(-0.5*self.global_size[0],
+                    0.5*self.global_size[0],self.pts_each_direction[0])
         if self.dimentions==1:
             self.profile=((1-(x/self.radius[0])**2)**0.5)*self.radius[-1]
         else:
-            y=np.arange(-0.5*self.global_size[1],
-                        0.5*self.global_size[1],self.grid_size)
+            y=np.linspace(-0.5*self.global_size[1],
+                    0.5*self.global_size[1],self.pts_each_direction[1])
             (X,Y)=np.meshgrid(x,y)
-            self.profile=self.profile=((1-(X/self.radius[0])**2-
-                                      (Y/self.radius[1])**2)**0.5)*self.radius[-1]
-        #TODO make nan values 0 (results in flat surrounding ball)
+            self.profile=((1-(X/self.radius[0])**2-
+                          (Y/self.radius[1])**2)**0.5)*self.radius[-1]
+        np.nan_to_num(self.profile, False)
         self.is_descrete=True
         
 class PyramidSurface(Surface):
@@ -454,7 +454,7 @@ class GausianNoiseSurface(Surface): #done
         if spacing:    
             self.grid_size=spacing
         self.descretise_checks()
-        nPts=[round(length/spacing) for length in self.global_size]
+        nPts=self.pts_each_direction
         if self.dimentions==1:
             profile=np.random.randn(nPts[0],1)
         elif self.dimentions==2:
@@ -465,7 +465,7 @@ class GausianNoiseSurface(Surface): #done
     def specify_ACF(self, ACF_or_type, *args):
         size=self.global_size
         spacing=self.grid_size
-        nPts=[int(sz/spacing) for sz in size]
+        nPts=self.pts_each_direction
         if type(ACF_or_type) is str:
             k=np.arange(-nPts[0]/2,nPts[0]/2)
             l=np.arange(-nPts[1]/2,nPts[1]/2)
@@ -518,7 +518,7 @@ class FlatNoiseSurface(GausianNoiseSurface): #done
     def descretise(self, spacing=False):
         if spacing:    
             self.grid_size=spacing
-        nPts=[round(length/spacing) for length in self.global_size]
+        nPts=self.pts_each_direction
         self.descretise_checks()
         if self.dimentions==1:
             profile=np.random.rand(nPts[0],1)
@@ -563,8 +563,8 @@ class DiscreteFrequencySurface(Surface):#TODO make work better with 2d surface, 
             self.grid_size=spacing
         self.descretise_checks()
         #TODO write this section
-        x=np.arange(-0.5*self.global_size[0],
-                    0.5*self.global_size[0],self.grid_size)
+        x=np.linspace(-0.5*self.global_size[0],
+                    0.5*self.global_size[0],self.pts_each_direction[0])
         if self.dimentions==1:
             profile=np.zeros_like(x)
             for idx in range(len(self.frequency)):
@@ -572,8 +572,8 @@ class DiscreteFrequencySurface(Surface):#TODO make work better with 2d surface, 
                                  np.exp(-1j*self.frequency[idx]*x))
             self.profile=profile
         elif self.dimentions==2:
-            y=np.arange(-0.5*self.global_size[1],
-                        0.5*self.global_size[1],self.grid_size)
+            y=np.linspace(-0.5*self.global_size[1],
+                        0.5*self.global_size[1],self.pts_each_direction[1])
             (X,Y)=np.meshgrid(x,y)
             for idx in range(len(self.frequency)):
                 profile+=np.real(self.amptitudes[idx]*
@@ -586,18 +586,44 @@ class ContinuousFrequencySurface(DiscreteFrequencySurface): #make work better wi
     is_descrete=False
     surface_type='continuousFreq'
         #TODO write this function
+    def __init__(self, H, qs, qr=0.0):
+        #q is frequency
+        self.init_checks()
+        self.H=H
+        self.qs=qs
+        self.qr=qr
         
-    def descretise(self, spacing):
-        self.grid_size=spacing#
+    def descretise(self, spacing=False): #TODO debug/ check if works
+        if spacing:
+            self.grid_size=spacing
+        else:
+            spacing=self.grid_size
         self.descretise_checks()
-        x=np.arange(-0.5*self.global_size[0],
-                    0.5*self.global_size[0],self.grid_size)
-        #TODO write this function probably use an inverse FFT need to read up 
-        # for 2d surfacesfor now just used np.eye * amps
+        if self.global_size[0]!=self.global_size[1]:
+            ValueError("This method is only defined for square domains")
+        qny=1/spacing
+        
+        u=linspace(-0.5*qny,0.5*qny,self.pts_each_direction[0])
+        U,V=np.meshgrid(u,u)
+        Q=U+V
+        varience=np.zeros(Q.shape)
+        varience(2*np.pi/Q>1/self.qr & 2*np.pi/Q<=self.global_size[0])=1
+        varience(2*np.pi/Q>=1/self.qs & 2*np.pi/Q<1/self.qr)=(Q(
+                2*np.pi/Q>=1/self.qs & 2*np.pi/Q<1/self.qr)/self.qr
+                    )**(-2*(1+self.H))
+        FT=np.array([np.random.normal()*var**0.5 for var in varience.flatten()])
+        FT.shape=Q.shape
+        self.profile=np.fft.ifft2(FT)
         
 if __name__ == "__main__":
-    A=GausianNoiseSurface()
+    A=GausianNoiseSurface(0,0.01)
     #A.plot_acf()
-    A.global_size=[1.01,1.01]
+    A.global_size=[2,2]
     A.descretise(0.003)
-    A.low_pass_filter(15)
+    B=RoundSurface(1)
+    B.global_size=[2,2]
+    B.descretise(0.003, False)
+    C=A-B
+    C.surf()
+    
+    
