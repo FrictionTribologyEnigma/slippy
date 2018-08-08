@@ -303,7 +303,7 @@ class Surface():
             ValueError('surfaces are not compatible sizes cannot subtract')
         
     def surf(self,Z=False,xmax=0,ymax=0):
-        if not Z:
+        if type(Z) is bool:
             Z=self.profile
             xmax=float(self.global_size[0])
             ymax=float(self.global_size[1])
@@ -567,26 +567,29 @@ class DiscreteFrequencySurface(Surface):#TODO make work better with 2d surface, 
                     0.5*self.global_size[0],self.pts_each_direction[0])
         if self.dimentions==1:
             profile=np.zeros_like(x)
-            for idx in range(len(self.frequency)):
+            for idx in range(len(self.frequencies)):
                 profile+=np.real(self.amptitudes[idx]*
-                                 np.exp(-1j*self.frequency[idx]*x))
+                                 np.exp(-1j*self.frequencies[idx]*x*2*np.pi))
             self.profile=profile
         elif self.dimentions==2:
             y=np.linspace(-0.5*self.global_size[1],
                         0.5*self.global_size[1],self.pts_each_direction[1])
             (X,Y)=np.meshgrid(x,y)
-            for idx in range(len(self.frequency)):
+            profile=np.zeros_like(X)
+            for idx in range(len(self.frequencies)):
                 profile+=np.real(self.amptitudes[idx]*
-                                 np.exp(-1j*self.frequency[idx]*X)+
+                                 np.exp(-1j*self.frequencies[idx]*X*2*np.pi)+
                                  self.amptitudes[idx]*
-                                 np.exp(-1j*self.frequency[idx]*Y))
+                                 np.exp(-1j*self.frequencies[idx]*Y*2*np.pi))
             self.profile=profile
     
-class ContinuousFrequencySurface(DiscreteFrequencySurface): #make work better with 2d surfaces 
+class ContinuousFrequencySurface(Surface):
+    
     is_descrete=False
     surface_type='continuousFreq'
+    dimentions=2
         #TODO write this function
-    def __init__(self, H, qs, qr=0.0):
+    def __init__(self, H, qr, qs=0):
         #q is frequency
         self.init_checks()
         self.H=H
@@ -601,29 +604,28 @@ class ContinuousFrequencySurface(DiscreteFrequencySurface): #make work better wi
         self.descretise_checks()
         if self.global_size[0]!=self.global_size[1]:
             ValueError("This method is only defined for square domains")
-        qny=1/spacing
+        qny=np.pi/spacing
         
-        u=linspace(-0.5*qny,0.5*qny,self.pts_each_direction[0])
+        u=np.linspace(0,qny,self.pts_each_direction[0])
         U,V=np.meshgrid(u,u)
-        Q=U+V
+        Q=np.abs(U+V)
         varience=np.zeros(Q.shape)
-        varience(2*np.pi/Q>1/self.qr & 2*np.pi/Q<=self.global_size[0])=1
-        varience(2*np.pi/Q>=1/self.qs & 2*np.pi/Q<1/self.qr)=(Q(
-                2*np.pi/Q>=1/self.qs & 2*np.pi/Q<1/self.qr)/self.qr
+        varience[np.logical_and((1/Q)>(1/self.qr),
+                                (2*np.pi/Q)<=(self.global_size[0]))]=1
+        varience[np.logical_and((1/Q)>=(1/self.qs),
+                                (1/Q)<(1/self.qr))]=(Q[np.logical_and(
+                1/Q>=1/self.qs,1/Q<1/self.qr)]/self.qr
                     )**(-2*(1+self.H))
         FT=np.array([np.random.normal()*var**0.5 for var in varience.flatten()])
         FT.shape=Q.shape
-        self.profile=np.fft.ifft2(FT)
+        self.profile=np.real(np.fft.ifft2(FT))
         
 if __name__ == "__main__":
-    A=GausianNoiseSurface(0,0.01)
+    A=DiscreteFrequencySurface([3])
     #A.plot_acf()
-    A.global_size=[2,2]
-    A.descretise(0.003)
-    B=RoundSurface(1)
-    B.global_size=[2,2]
-    B.descretise(0.003, False)
-    C=A-B
-    C.surf()
+    A.global_size=[1,1]
+    A.descretise(1e-2)
+    
+    A.surf()
     
     
