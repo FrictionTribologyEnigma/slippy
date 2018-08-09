@@ -1,7 +1,3 @@
-import numpy as np
-import warnings
-import scipy.special
-
 class Surface():
     """ the basic surface class contains methods for setting properties, 
     examining measures of roughness and descriptions of surfaces, plotting,
@@ -13,6 +9,22 @@ class Surface():
     Multiplying 1D surfaces produces a 2D surface with a profile of the 
     summation of surface 1 stretched in the x direction and surface 2 
     stretched in the y direction.
+    
+    #TODO:
+        Add desciption and example of each method 
+        finish birmingham
+        make surf work better (built in for PSD, FFT, profile, ACF)
+        Add similar function for producing image typr plots:
+         (ax3.imshow(grid, extent=[0,100,0,1], aspect=100))
+        Add function for displaying the 2d fft as a 1d scatter plot
+        Add histogram, psd, fft, acf attributes, have these set when found
+        def plotQQ(self, distribution)
+        def fill_holes(self):
+        def read_from_file(self, filename):
+        def match(self, filename, **kwargs)
+        def check_surface(self):
+        def stretch(self, ratio):
+        Make this pretty ^
     """
     # The surface class for descrete surfaces
     global_size=[1,1]
@@ -59,8 +71,6 @@ class Surface():
             raise AttributeError(msg)
         if total_pts>10E7:
             warnings.warn('surface contains over 10^7 points')
-        
-    #def set_size(self, grid_size=0, global_size=0):
         
         
     def plot(self, plot_type='surface'):
@@ -215,6 +225,8 @@ class Surface():
 #    def match(self, filename, **kwargs)
 #    def check_surface(self):
 #    def stretch(self, ratio):
+        
+        
     def resample(self, new_grid_size, copy=False, kind='cubic'):
         import scipy.interpolate
         x0=np.arrange(0, self.global_size[0], self.grid_size)
@@ -318,314 +330,5 @@ class Surface():
         if ymax:
             y=y/max(y)*ymax
         (X,Y)=np.meshgrid(x,y)
-        ax.plot_surface(X,Y,Z)
-""" the follwing class definitions are all sub classes of surfaces for useful 
-analytically described surfaces, each class overides the __init__ method and 
-provides a descretise method the is_descrete flag should also be set to 
-false until the descretise method has been run. init_checks should be
-called first in the init method to check for dimentions and material property 
-assignments each should also call the descretise_checks method before
-affter assignemnt of inputs to descretise() to self.XXXXX but befor the rest of
-the process
-
-"""
-    
-class FlatSurface(Surface): #done
-    is_descrete=False
-    surface_type='plane'
-    
-    def __init__(self, slope, dimentions=2, **kwargs):
+        ax.plot_surface(X,Y,Z)    
         
-        self.init_checks(kwargs)
-        self.dimentions=dimentions
-        if type(slope) is list:
-            self.slope=slope
-        elif type(slope) is int or type(slope) is float:
-            self.slope=[slope,0]
-            if self.dimentions==2:
-                warnings.warn("Assumed 0 slope in Y direction for"
-                              " analytical flat surface")
-    def descretise(self, spacing, centre):
-        self.grid_size=spacing
-        self.descretise_checks()
-        x=np.linspace(-0.5*self.global_size[0],
-                    0.5*self.global_size[0],self.pts_each_direction[0])
-        if self.dimentions==1:
-            self.profile=x*self.slope[0]
-        else:
-            y=np.linspace(-0.5*self.global_size[1],
-                    0.5*self.global_size[1],self.pts_each_direction[1])
-            (X,Y)=np.meshgrid(x,y)
-            self.profile=X*self.slope[0]+Y*self.slope[1]
-        self.is_descrete=True
-        
-        
-class RoundSurface(Surface):
-    is_descrete=False
-    surface_type='round'
-    def __init__(self, radius, dimentions=2, **kwargs):
-        
-        self.init_checks(kwargs)
-        
-        self.dimentions=dimentions
-        if type(radius) is list:
-            if len(radius)==(self.dimentions+1):
-                self.radius=radius
-            else:
-                msg=('Radius must be either scalar or list of radii equal in '
-                'length to number of dinmetions of the surface +1')
-                raise ValueError(msg)   
-        elif type(radius) is int or type(radius) is float:
-            self.radius=[radius]*(self.dimentions+1)
-            
-    def descretise(self, spacing, centre):
-        #1d
-        #(x/xr)^2+(z/zr)^2=1
-        #(1-(x/rx)^2)^0.5*rz
-        #2d
-        #(x/rx)^2+(y/ry)^2+(z/rz)^2=1
-        #1-(x/rx)^2-(y/ry)^2=(z/rz)^2
-        #(1--(y/ry)^2)^0.5*rz
-        self.grid_size=spacing
-        self.descretise_checks()
-        x=np.linspace(-0.5*self.global_size[0],
-                    0.5*self.global_size[0],self.pts_each_direction[0])
-        if self.dimentions==1:
-            self.profile=((1-(x/self.radius[0])**2)**0.5)*self.radius[-1]
-        else:
-            y=np.linspace(-0.5*self.global_size[1],
-                    0.5*self.global_size[1],self.pts_each_direction[1])
-            (X,Y)=np.meshgrid(x,y)
-            self.profile=((1-(X/self.radius[0])**2-
-                          (Y/self.radius[1])**2)**0.5)*self.radius[-1]
-        np.nan_to_num(self.profile, False)
-        self.is_descrete=True
-        
-class PyramidSurface(Surface):
-    is_descrete=False
-    surface_type='pyramid'
-    
-    def __init__(self, lengths, dimentions=2, **kwargs):
-        
-        self.init_checks(kwargs)
-        
-        self.dimentions=dimentions
-        if type(lengths) is list:
-            if len(lengths)==(self.dimentions+1):
-                self.lengths=lengths
-            else:
-                msg=('Radius must be either scalar or list of radii equal in '
-                'length to number of dinmetions of the surface +1')
-                raise ValueError(msg)   
-        elif type(lengths) is int or type(lengths) is float:
-            self.lengths=[lengths]*(self.dimentions+1)
-            
-    def descretise(self, spacing):
-        #TODO check that ther is no gap around the edge, if so scale so there is not 
-        #x/xl+y/yl+z/zl=1
-        #(1-x/xl-y/yl)*zl=z
-        self.grid_size=spacing
-        self.descretise_checks()
-        x=np.arange(-0.5*self.global_size[0],
-                    0.5*self.global_size[0],self.grid_size)
-        if self.dimentions==1:
-            self.profile=(1-x/self.lengths[0])*self.lengths[-1]
-        else:
-            y=np.arange(-0.5*self.global_size[1],
-                        0.5*self.global_size[1],self.grid_size)
-            (X,Y)=np.meshgrid(x,y)
-            self.profile=(1-X/self.lengths[0]-
-                          Y/self.lengths[1])*self.lengths[-1]
-        self.is_descrete=True
-        
-class GausianNoiseSurface(Surface): #done
-    is_descrete=False
-    need_to_filter=False
-    surface_type='gausianNoise'
-    def __init__(self, mu=0, sigma=1, dimentions=2, **kwargs):
-        
-        self.init_checks(kwargs)
-        
-        self.dimentions=dimentions
-        self.gn_mu=mu
-        self.gn_sigma=sigma
-        
-    def descretise(self, spacing=False):
-        if spacing:    
-            self.grid_size=spacing
-        self.descretise_checks()
-        nPts=self.pts_each_direction
-        if self.dimentions==1:
-            profile=np.random.randn(nPts[0],1)
-        elif self.dimentions==2:
-            profile=np.random.randn(nPts[0],nPts[1])
-        self.profile=profile*self.gn_sigma+self.gn_mu
-        self.is_descrete=True
-    
-    def specify_ACF(self, ACF_or_type, *args):
-        size=self.global_size
-        spacing=self.grid_size
-        nPts=self.pts_each_direction
-        if type(ACF_or_type) is str:
-            k=np.arange(-nPts[0]/2,nPts[0]/2)
-            l=np.arange(-nPts[1]/2,nPts[1]/2)
-            [K,L]=np.meshgrid(k,l)
-            
-            if ACF_or_type=='exp':
-                sigma=args[0]
-                beta_x=args[1]/spacing
-                beta_y=args[2]/spacing
-                ACF=sigma**2*np.exp(-2.3*np.sqrt((K/beta_x)**2+(L/beta_y)**2))
-                self.surf(ACF)
-            else:
-                ValueError("ACF_or_type must be array like or valid type")
-        else:
-            ACF=np.asarray(ACF_or_type)
-            if not ACF.shape==size:
-                #pad ACF with 0s equally on both sides
-                size_difference=[]
-                is_neg=[]
-                for i in range(len(size)):
-                    size_difference.append(size[i],ACF.shape[i])
-                    is_neg.append(size_difference[0]<0)
-                if any(is_neg):
-                    ValueError("ACF size should be smaller than the profile"
-                               " size")
-                np.pad(ACF,[ceil(size_difference[0]),floor(size_difference[0]), 
-                          ceil(size_difference[0]), floor(size_difference[0])],
-                       'constant')
-        
-        filter_tf=np.sqrt(np.fft.fft2(ACF))
-        self.profile=np.abs(np.fft.ifft2((np.fft.fft2(self.profile)*filter_tf)))
-        
-class FlatNoiseSurface(GausianNoiseSurface): #done
-    is_descrete=False
-    surface_type='flatNoise'
-    def __init__(self, noise_range=[0,1], dimentions=2, **kwargs):
-        
-        self.init_checks(kwargs)
-        
-        self.dimentions=dimentions
-        if type(noise_range) is list and len(noise_range)==2:
-            self.fn_range=noise_range
-        elif type(noise_range) is int or type(noise_range) is float:
-            self.fn_range=[0,noise_range]
-        else:
-            msg='Noise range must be a int float or 2 element list'
-            raise ValueError(msg)
-        
-    
-    def descretise(self, spacing=False):
-        if spacing:    
-            self.grid_size=spacing
-        nPts=self.pts_each_direction
-        self.descretise_checks()
-        if self.dimentions==1:
-            profile=np.random.rand(nPts[0],1)
-        elif self.dimentions==2:
-            profile=np.random.rand(nPts[0],nPts[1])
-        self.profile=profile*(self.fn_range[1]-self.fn_range[0])+self.fn_range[0]
-        self.is_descrete=True
-
-class DiscreteFrequencySurface(Surface):#TODO make work better with 2d surface, read into it first
-    is_descrete=False
-    surface_type='discreteFreq'
-    
-    def __init__(self, frequencies, amptitudes=[1], phases_rads=[0], dimentions=2, **kwargs):
-        
-        self.init_checks(kwargs)
-        self.dimentions=dimentions
-        if type(frequencies) is list or type(frequencies) is np.ndarray:
-            self.frequencies=frequencies
-        else:
-            raise ValueError('Frequencies, amptitudes and phases must be equal'
-                             'length lists or np.arrays')
-        is_complex=[type(amp) is complex for amp in amptitudes]
-        if any(is_complex):
-            if not len(frequencies)==len(amptitudes):
-                raise ValueError('Frequencies, amptitudes and phases must be'
-                                 ' equal length lists or np.arrays')
-            else:
-                self.amptitudes=amptitudes
-        else:
-            if not len(frequencies)==len(amptitudes)==len(phases_rads):
-                raise ValueError('Frequencies, amptitudes and phases must be'
-                                 ' equal length lists or np.arrays')
-            else:
-                cplx_amps=[]
-                for idx in range(len(amptitudes)):
-                    cplx_amps.append(amptitudes[idx]*
-                                     np.exp(1j*phases_rads[idx]))
-                self.amptitudes=cplx_amps
-            
-    def descretise(self, spacing):
-        if spacing:    
-            self.grid_size=spacing
-        self.descretise_checks()
-        #TODO write this section
-        x=np.linspace(-0.5*self.global_size[0],
-                    0.5*self.global_size[0],self.pts_each_direction[0])
-        if self.dimentions==1:
-            profile=np.zeros_like(x)
-            for idx in range(len(self.frequencies)):
-                profile+=np.real(self.amptitudes[idx]*
-                                 np.exp(-1j*self.frequencies[idx]*x*2*np.pi))
-            self.profile=profile
-        elif self.dimentions==2:
-            y=np.linspace(-0.5*self.global_size[1],
-                        0.5*self.global_size[1],self.pts_each_direction[1])
-            (X,Y)=np.meshgrid(x,y)
-            profile=np.zeros_like(X)
-            for idx in range(len(self.frequencies)):
-                profile+=np.real(self.amptitudes[idx]*
-                                 np.exp(-1j*self.frequencies[idx]*X*2*np.pi)+
-                                 self.amptitudes[idx]*
-                                 np.exp(-1j*self.frequencies[idx]*Y*2*np.pi))
-            self.profile=profile
-    
-class ContinuousFrequencySurface(Surface):
-    
-    is_descrete=False
-    surface_type='continuousFreq'
-    dimentions=2
-        #TODO write this function
-    def __init__(self, H, qr, qs=0):
-        #q is frequency
-        self.init_checks()
-        self.H=H
-        self.qs=qs
-        self.qr=qr
-        
-    def descretise(self, spacing=False): #TODO debug/ check if works
-        if spacing:
-            self.grid_size=spacing
-        else:
-            spacing=self.grid_size
-        self.descretise_checks()
-        if self.global_size[0]!=self.global_size[1]:
-            ValueError("This method is only defined for square domains")
-        qny=np.pi/spacing
-        
-        u=np.linspace(0,qny,self.pts_each_direction[0])
-        U,V=np.meshgrid(u,u)
-        Q=np.abs(U+V)
-        varience=np.zeros(Q.shape)
-        varience[np.logical_and((1/Q)>(1/self.qr),
-                                (2*np.pi/Q)<=(self.global_size[0]))]=1
-        varience[np.logical_and((1/Q)>=(1/self.qs),
-                                (1/Q)<(1/self.qr))]=(Q[np.logical_and(
-                1/Q>=1/self.qs,1/Q<1/self.qr)]/self.qr
-                    )**(-2*(1+self.H))
-        FT=np.array([np.random.normal()*var**0.5 for var in varience.flatten()])
-        FT.shape=Q.shape
-        self.profile=np.real(np.fft.ifft2(FT))
-        
-if __name__ == "__main__":
-    A=DiscreteFrequencySurface([3])
-    #A.plot_acf()
-    A.global_size=[1,1]
-    A.descretise(1e-2)
-    
-    A.surf()
-    
-    
