@@ -1,6 +1,7 @@
 import numpy as np
 import warnings
 from math import ceil
+import scipy.signal
 
 __all__=['Surface']
 
@@ -37,6 +38,10 @@ class Surface():
     grid_size=0.01
     dimentions=0
     is_descrete=True
+    acf=False
+    psd=False
+    fft=False
+    hist=False
     profile=np.array([])
     pts_each_direction=[]
     
@@ -90,43 +95,108 @@ class Surface():
             (X,Y)=np.meshgrid(x,y)
             self.surf(self.profile,X,Y)
             
-    def fft(self):
+    def get_fft(self, surf_in=False):
+        if type(surf_in) is bool:
+            profile=self.profile
+        else:
+            profile=surf_in
         try:
             if self.dimentions==1:
-                transform=np.fft.fft(self.profile)
+                transform=np.fft.fft(surf_in)
+                if type(surf_in) is bool: self.fft=transform
             else:
-                transform=np.fft.fft2(self.profile)
+                transform=np.fft.fft2(surf_in)
+                if type(surf_in) is bool: self.fft=transform
         except AttributeError:
             raise AttributeError('Surface must have a defined profile for fft'
                                  ' to be used')
+            
         return transform
     
-    def plot_fft(self):#TODO fill in this
-        self.global_size
-        self.grid_size
-    
-#TODO make below pretty
-    def acf(self, surf_in=False):
-        import scipy.signal
-        if not surf_in:
-            surf_in=self.profile
-        surf_in=np.asarray(surf_in)
-        x=surf_in.shape[0]
-        y=surf_in.shape[1]
-        output=(scipy.signal.correlate(surf_in,surf_in,'same')/(x*y))
+    def get_acf(self, surf_in=False):
+        if type(surf_in) is bool:
+            profile=self.profile
+        else:
+            profile=surf_in
+        profile=np.asarray(surf_in)
+        x=profile.shape[0]
+        y=profile.shape[1]
+        output=(scipy.signal.correlate(profile,profile,'same')/(x*y))
+        if type(surf_in) is bool:
+            self.acf=output
         return output
     
-    def plot_acf(self):
-        acf=self.acf()
-        self.surf(acf)
+    def psd(self):
+        # PSD is the fft of the ACF (https://en.wikipedia.org/wiki/Spectral_density#Power_spectral_density)
+        if type(self.acf) is bool:
+            self.get_acf()
+        self.psd=self.get_fft(self.acf)
+    
 #TODO all below
-    def birmingham(self, parameter_name, curved_surface=False, *args): #TODO finish this!
-# ================================================================= ============
-#         Taken from: Metrology and Properties of Engineering Surfaces
-#         Editors: Mainsah, E., Greenwood, james, Chetwynd, Derek (Eds.)
-#         surface measurment and characterisation pg 23 onwards
-# =============================================================================
+    def birmingham(self, parameter_name, curved_surface=False, 
+                   periodic_surface=False, **kwargs): #TODO finish this! add examples
+        """
+        from: Stout, K., Sullivan, P., Dong, W., Mainsah, E., Luo, N., Mathia, 
+        T., & Zahouani, H. (1993). 
+        The development of methods for the characterisation of roughness in 
+        three dimensions. EUR(Luxembourg), 358. 
+        Retrieved from http://cat.inist.fr/?aModele=afficheN&cpsidt=49475
+        chapter 12
         
+        Returns the 3D surface parameters as defined in the above text:
+        
+        Before calculation the least squares plane is subtracted if a periodic
+        surface is used this can be prevented by setting periodic_surface to 
+        true. If a curved surface is used a bi quadratic polynomial is fitted
+        and removed before analysis as descirbed in the above text. 
+        
+        If a list of valid parameter names is given this method will return a 
+        list of parameter values.
+        
+        If a parameter based on summit descriptions is needed the key words:
+            filter_cut_off (default False)
+            and 
+            four_nearest (default False) 
+        can be set to refine what counts as a summit, see Surface.find_summits
+        for more information. This is only used to find summits, calculations 
+        are run on 'raw' surface.
+        
+        Descriptions of the parameters are given below.
+            
+        ** Amptitude parameters **
+            Sq   - RMS deviation of surface height
+            Sz   - Ten point height (based on definition of sumits)
+            Ssk  - 'Skewness' of the surface (3rd moment)
+            Sku  - 'Kurtosis' of the surface (4th moment)
+        ** Spartial parameters ** 
+            Sds  - Summit density, see note above on definition of summit
+            Str  - Texture aspect ration defined using the aacf
+            Std  - Texture direction
+            Sal  - Fastest decay auto corelation length
+        ** hybrid parameters **
+            Sdelq- RMS slope
+            Ssc  - Mean summit curvature, see note above on definition of summit 
+            Sdr  - Developed interfacial area ratio
+        ** funcional parameters **
+            Sbi  - Bearing indes
+            Sci  - Core fluid retention index
+            Svi  - Valley fluid retention index
+        ** non 'core' parameters (implemented) **
+            Sa   - Mean amptitude of surface
+        ** non 'core' parameters (not implemented) **
+            Stp  - Surface bearing ratio
+            Smr  - Material volume ratio of the surface
+            Svr  - Void volume ratio of the surface
+            Sk   - Core roughness depth
+            Spk  - Reduced summit height
+            Svk  - Reduced valley depth
+            Sr1  - Upper bearing area
+            Sr2  - Lower bearing area
+        
+        examples:
+            
+        
+        """
         # recursive call to allow lists of parmeters to be retived at once
         
         if type(parameter_name) is list:
@@ -134,6 +204,8 @@ class Surface():
             for par_name in parameter_name:
                 out.append(self.birmingham(parameter_name))
             return out
+        else:
+            parameter_name=parameter_name.lower()
         
         # First remove the base line, linear fit for flat surfaces or 
         # biquadratic polynomial for curved surfaces 
@@ -146,16 +218,20 @@ class Surface():
         X, Y = np.meshgrid(x, y, copy=False)
         X = X.flatten()
         Y = Y.flatten()
-        if curved_surface:
-            A = np.array([X*0+1, X, Y, X**2, X**2*Y, X**2*Y**2, Y**2, X*Y**2, X*Y]).T
-            B = self.profile.flatten()
+        if not periodic_surface:
+            if curved_surface:
+                A = np.array([X*0+1, X, Y, X**2, X**2*Y, X**2*Y**2, 
+                              Y**2, X*Y**2, X*Y]).T
+                B = self.profile.flatten()
+                coeff, r, rank, s = np.linalg.lstsq(A, B)
+            else:
+                A = np.array([X*0+1, X, Y]).T
+                B = self.profile.flatten()
             coeff, r, rank, s = np.linalg.lstsq(A, B)
+            fit=np.reshape(np.dot(A,coeff),[N,M])
+            eta=self.profile-fit
         else:
-            A = np.array([X*0+1, X, Y]).T
-            B = self.profile.flatten()
-            coeff, r, rank, s = np.linalg.lstsq(A, B)
-        fit=np.reshape(np.dot(A,coeff),[N,M])
-        eta=self.profile-fit
+            eta=self.profile-np.mean(self.profile.flatten())
         
         # return parameter of interst 
         
@@ -169,33 +245,67 @@ class Surface():
         elif parameter_name=='sku': #kurtosis
             sq=np.sqrt(np.mean(eta**2))
             out=np.mean(eta**4)/sq**4
-        elif parameter_name=='sz': #tenpoint height
-            sorted_heights=np.sort(eta.flatten())
-            out=(np.sum(np.abs(sorted_heights[0:5])+np.abs(sorted_heights[-6:-1])))/5
-        elif parameter_name in ['','','','']:
-            summits=self.find_summits()
-            
-    def find_summits(self, filter_cut_off, eight_nearest=True):
+        elif parameter_name in ['sds','sz', 'ssc']: # all that require sumits
+            # summits is logical array of sumit locations
+            kwargs['profile']=eta
+            summits=self.find_summits(kwargs)
+            if parameter_name=='sds': # summit density
+                out=np.sum(summits)/(self.global_size[0]*self.global_size[1])
+            elif parameter_name=='sz':
+                kwargs['profile']=eta*-1
+                valleys=self.find_summits(kwargs)
+                summit_heights=eta[summits]
+                valley_heights=eta[valleys]
+                summit_heights=np.sort(summit_heights, axis=None)
+                valley_heights=np.sort(valley_heights, axis=None)
+                out=np.abs(valley_heights[:5]) +np.abs(summit_heights[-5:])/5
+            else: # ssc (curvature)
+                out=np.mean(self.get_summit_curvatures(summits, eta))
+        
+                
+    def get_summit_curvatures(self, summits=False, profile=False):
+        if type(profile) is bool:    
+            p=self.profile
+        else:
+            p=profile
+        if type(summits) is bool:
+            summits=self.find_summits(profile=p)
+        verts=np.transpose(np.nonzero(summits))
+        curves= [-0.5*(p[vert[0]-1,vert[1]]+p[vert[0]+1,vert[1]]+p[vert[0],
+                        vert[1]-1]+p[vert[0],vert[1]+1]-4*p[vert[0],vert[1]]
+                )/self.grid_size**2 for vert in verts]
+        return curves
+        
+        
+    def find_summits(self, **kwargs): #TODO check this works
         # summits are found by low pass filtering at the required scale then 
         # finding points which are higher than 4 or 8 nearest neigbours
-        if filter_cut_off:
-            filtered_profile=self.low_pass_filter(filter_cut_off, True)
+        if 'profile' in kwargs:
+            profile=kwargs['profile']
+        else:
+            profile=self.profile
+            
+        if 'filter_cut_off' in kwargs:
+            filtered_profile=self.low_pass_filter(kwargs['filter_cut_off'], 
+                                                  profile, False)
         else:
             filtered_profile=self.profile
         summits=np.ones(self.profile[1:-2,1:-2].shape, dtype=bool)
-        if eight_nearest:
+        if 'four_nearest' in kwargs and not kwargs['four_nearest']:
             x=[-1,+1,0,0,-1,-1,+1,+1]
             y=[0,0,-1,+1,-1,+1,-1,+1]
         else:
             x=[-1,+1,0,0]
             y=[0,0,-1,+1]
         for i in range(len(x)):
-            summits=summits & (filtered_profile[1:-2,1:-2]>
-                               filtered_profile[1+x[i]:-2+x[i],1+y[i]:-2+y[i]])
+            summits=np.logical_and(summits,(filtered_profile[1:-2,1:-2]>
+                              filtered_profile[1+x[i]:-2+x[i],1+y[i]:-2+y[i]]))
         return summits
         
-    def low_pass_filter(self, cut_off_freq, copy=False):
+    def low_pass_filter(self, cut_off_freq, profile=False, copy=False):
         import scipy.signal
+        if not profile:
+            profile=self.profile
         sz=self.pts_each_direction
         x=np.arange(1, sz[0]+1)
         y=np.arange(1, sz[1]+1)
@@ -204,34 +314,16 @@ class Surface():
         ws=2*np.pi/self.grid_size
         wc=cut_off_freq*2*np.pi
         h=(wc/ws)*scipy.special.j1(2*np.pi*(wc/ws)*D)/D
-        filtered_profile=scipy.signal.convolve2d(self.profile,h,'same','wrap')
-        self.surf(filtered_profile)
+        filtered_profile=scipy.signal.convolve2d(profile,h,'same','wrap')
         if copy:
             return filtered_profile
         else:
             self.profile=filtered_profile
             return
-    def plot_histogram(self, n_bins='auto'):
-        import matplotlib.pyplot as plt
-        fig, ax = plt.subplots(figsize=[8,6])
-        ax.set_title("Histogram of height data for surface")
-        ax.set_xlabel("Height")
-        ax.set_ylabel("N-pts")
-        if n_bins=='auto':
-            ax.hist(self.profile)
-        else:
-            ax.hist(self.profile, bins=n_bins) 
-        plt.show()
     
-#    def plot_psd()
-#    def psd(self)
-#    def plotQQ(self, distribution)
 #    def fill_holes(self):
 #    def read_from_file(self, filename):
-#    def match(self, filename, **kwargs)
-#    def check_surface(self):
 #    def stretch(self, ratio):
-        
         
     def resample(self, new_grid_size, copy=False, kind='cubic'):
         import scipy.interpolate
@@ -307,8 +399,8 @@ class Surface():
                 return self-other
         elif all(self.pts_each_direction==other.pts_each_direction):
             msg=("number of points in surface matches by size of surfaces are"
-                "not the same, this operation will subtract the surfaces point by" 
-                "point but this may cause errors")
+                "not the same, this operation will subtract the surfaces point"
+                "by point but this may cause errors")
             warnings.warn(msg)
             out=Surface(profile=self.profile-other.profile, 
                             global_size=self.global_size, 
@@ -341,6 +433,8 @@ class Surface():
             ** 1D types **
             histogram
             fft1D
+            disthist - requires seaborn histogram of data with dist fitted
+            QQ - name of distribution must also be provided as *args 
             ** other **
             other can be given if *args contains 2 or 3 lists of items a 1 or 2
             dimentional plot of type surface or line will be plotted, this is 
@@ -356,7 +450,6 @@ class Surface():
             line - default for fft1D
             scatter
             area
-            QQ - name of distribution must also be provided as *args
             
         example:
             self.show(['fft2D','fft2D','fft2D'], ['mesh', 'image', 'default'])
@@ -365,18 +458,20 @@ class Surface():
         
         import matplotlib.pyplot as plt
         from mpl_toolkits.mplot3d import Axes3D
-        types2d=['profile', 'fft2D', 'psd', 'acf']
-        types1d=['histogram','fft1D']
+        types2d=['profile', 'fft2d', 'psd', 'acf']
+        types1d=['histogram','fft1d', 'qq', 'disthist']
         
         # using a recursive call to deal with multiple plots on the same fig
         if type(property_to_plot) is list:
             number_of_subplots=len(property_to_plot)
             if type(ax) is bool:
-                msg='Can\'t plot multiple plots on single axis, making new figure'
+                msg=("Can't plot multiple plots on single axis, "
+                     'making new figure')
                 warnings.warn(msg)
             if type(plot_type) is list:
                 if len(plot_type)<number_of_subplots:
-                    plot_type.extend(['default']*(number_of_subplots-len(plot_type)))
+                    plot_type.extend(['default']*(number_of_subplots-
+                                                  len(plot_type)))
             else:
                 plot_type=[plot_type]*number_of_subplots
             # 11, 12, 13, 22, then filling up rows of 3 (unlikely to be used)
@@ -395,26 +490,139 @@ class Surface():
         #######################################################################
         ####################### main method ###################################
         # 2D plots
+        if not ax:
+            fig, ax = plt.subplots(1,1)
+        
+        property_to_plot=property_to_plot.lower()
+        
         if property_to_plot in types2d:
-            if 
-        elif property_to_plot in types1d:
+            if property_to_plot=='profile':
+                labels=['Surface profile', 'x', 'y', 'Height']
+                Z=self.profile
+                x=self.grid_size*np.arange(self.pts_each_direction[0])
+                y=self.grid_size*np.arange(self.pts_each_direction[1])
+                
+            elif property_to_plot=='fft2d':
+                labels=['Fourier transform of surface', 'u', 'v', '|F(x)|']
+                if type(self.fft) is bool:
+                    self.get_fft()
+                Z=np.abs(self.fft)
+                x=np.fft.fftfreq(self.pts_each_direction[0], self.grid_size)
+                y=np.fft.fftfreq(self.pts_each_direction[1], self.grid_size)
+                
+            elif property_to_plot=='psd':
+                labels=['Power spectral density', 'u', 'v', 'Power/ frequency']
+                if type(self.psd) is bool:
+                    self.get_psd()
+                Z=np.abs(self.psd)
+                x=np.fft.fftfreq(self.pts_each_direction[0], self.grid_size)
+                y=np.fft.fftfreq(self.pts_each_direction[1], self.grid_size)
+                
+            elif property_to_plot=='acf':
+                labels=['Auto corelation function', 'x', 'y', 
+                        'Surface auto correlation']
+                if type(self.acf) is bool:
+                    self.get_acf()
+                Z=np.abs(self.acf)
+                x=self.grid_size*np.arange(self.pts_each_direction[0])
+                y=self.grid_size*np.arange(self.pts_each_direction[1])
+                x=x-max(x)/2
+                x=y-max(y)/2
             
+            X,Y=np.meshgrid(x,y)
+            
+            if plot_type=='default' | plot_type=='surface':
+                ax.plot_surface(X,Y,Z)
+                ax.zlabel(labels[3])
+            elif plot_type=='mesh':
+                if args:
+                    ax.plot_wireframe(X, Y, Z, rstride=args[0], 
+                                      cstride=args[1])
+                else:
+                    ax.plot_wireframe(X, Y, Z, rstride=25, cstride=25)
+                ax.zlabel(labels[3])
+            elif plot_type=='image':
+                ax.imshow(Z, extent=[min(x),max(x),min(y),max(y)], aspect=100)
+            elif plot_type=='image_wrap':
+                if property_to_plot=='acf':
+                    ValueError('image_wrap plot type is not compatible with'
+                                  ' ACF, if this works axis values and limits '
+                                  'will be wrong')
+                x=x-max(x)/2
+                x=y-max(y)/2
+                Z=np.fft.fftshift(Z)
+                ax.imshow(Z, extent=[min(x),max(x),min(y),max(y)], aspect=100)
+            else:
+                msg=('Unsupported plot type:'+plot_type+
+                     ' please refer to documentation')
+                ValueError(msg)
+            
+            ax.title(labels[0])
+            ax.xlabel(labels[1])
+            ax.ylabel(labels[2])
+            return ax
+        
+        #######################################################################
+        ############## 1D plots ###############################################
+        #######################################################################
+        
+        elif property_to_plot in types1d:
+            if property_to_plot=='histogram':
+                # do all plotting in this loop for 1D plots
+                labels=['Histogram of sufrface heights', 'height', 'counts']
+                ax.hist(self.profile.flatten())
+                
+            elif property_to_plot=='fft1d':
+                if self.dimentions==1:
+                    labels=['FFt of surface', 'frequency', '|F(x)|']
+                    
+                    if type(self.fft) is bool:
+                        self.get_fft
+                    x=np.fft.fftfreq(self.pts_each_direction[0], 
+                                     self.grid_size)
+                    y=np.abs(self.fft/self.pts_each_direction[0])
+                    # line plot for 1d surfaces
+                    ax.plot(x,y)
+                else:
+                    labels=['Scatter of frequency magnitudes', 
+                            'frequency', '|F(x)|']
+                    u=np.fft.fftfreq(self.pts_each_direction[0], 
+                                     self.grid_size)
+                    v=np.fft.fftfreq(self.pts_each_direction[1], 
+                                     self.grid_size)
+                    U,V=np.meshgrid(u,v)
+                    freqs=U+V
+                    if type(self.fft) is bool:
+                        self.get_fft
+                    mags=np.abs(self.fft)
+                    # scatter plot for 2d frequencies
+                    ax.scatter(freqs.flatten(), mags.flatten())
+            elif property_to_plot=='disthist':
+                import seaborn
+                labels=['Histogram of sufrface heights', 'height', 'counts']
+                if args:
+                    seaborn.distplot(self.profile.flatten(), fit=args[0], 
+                                 kde=False, ax=ax)
+                else:
+                    seaborn.distplot(self.profile.flatten(), ax=ax)    
+            elif property_to_plot=='qq':
+                from scipy.stats import probplot
+                labels=['Probability plot', 'Theoretical quantities', 
+                        'Ordered values']
+                if args:
+                    probplot(self.profile.flatten(), dist=args[0], fit=True,
+                             plot=ax)
+                else:
+                    probplot(self.profile.flatten(), fit=True, plot=ax)
+                ax.title(labels[0])
+                ax.xlabel(labels[1])
+                ax.ylabel(labels[2])
+            return ax
+        #######################################################################
+        #######################################################################
         else:
-            msg=('Unsupported property to plot see documentation for supported'
-                 ' types')
+            msg=('Unsupported property to plot see documentation for details'
+                 ', type given: ' + property_to_plot + 'supported types: ' 
+                 + ' '.join(types2d+types1d))
             ValueError(msg)
-        
-            Z=self.profile
-            xmax=float(self.global_size[0])
-            ymax=float(self.global_size[1])
-        
-        
-        x=np.arange(Z.shape[0])
-        y=np.arange(Z.shape[1])
-        if xmax:
-            x=x/max(x)*xmax
-        if ymax:
-            y=y/max(y)*ymax
-        (X,Y)=np.meshgrid(x,y)
-        ax.plot_surface(X,Y,Z)    
         
