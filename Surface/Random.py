@@ -23,6 +23,14 @@ Classes for generating random surfaces based on filtering of random signals:
         
 """
 
+from . import Surface
+import warnings
+import numpy as np
+from math import ceil, floor
+
+__all__=['GausianNoiseSurface', 'make_like']
+
+
 class GausianNoiseSurface(Surface): #done
     is_descrete=False
     need_to_filter=False
@@ -83,3 +91,5 @@ class GausianNoiseSurface(Surface): #done
         filter_tf=np.sqrt(np.fft.fft2(ACF))
         self.profile=np.abs(np.fft.ifft2((np.fft.fft2(self.profile)*filter_tf)))
         
+def make_like(surface, copy=True):
+    pass

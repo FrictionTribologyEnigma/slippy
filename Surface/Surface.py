@@ -1,3 +1,8 @@
+import numpy as np
+import warnings
+
+__all__=['Surface']
+
 class Surface():
     """ the basic surface class contains methods for setting properties, 
     examining measures of roughness and descriptions of surfaces, plotting,

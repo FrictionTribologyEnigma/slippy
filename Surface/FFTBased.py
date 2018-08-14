@@ -27,6 +27,12 @@ Classes for generating pseudo-random surfaces based on description of FFT:
         
 """
 
+from . import Surface
+import warnings
+import numpy as np
+
+__all__=["DiscFreqSurface", "ProbFreqSurface"]#, "DtmnFreqSurface"]
+
 class DiscFreqSurface(Surface):
     is_descrete=False
     surface_type='discreteFreq'

@@ -22,6 +22,10 @@ Classes for generating geometric surfaces:
         Add comment blocks to each class with examples of use
 """
 
+from . import Surface
+import warnings
+import numpy as np
+
 class FlatSurface(Surface): 
     is_descrete=False
     surface_type='flat'

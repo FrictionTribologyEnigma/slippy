@@ -39,8 +39,7 @@ FFTBased
 import numpy as np
 import warnings
 
-from . import Surface
-
+from .Surface import *
 from .Geometric import *
 from .Random import *
 from .FFTBased import *
