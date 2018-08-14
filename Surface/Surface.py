@@ -1,5 +1,6 @@
 import numpy as np
 import warnings
+from math import ceil
 
 __all__=['Surface']
 
@@ -319,15 +320,95 @@ class Surface():
         else:
             ValueError('surfaces are not compatible sizes cannot subtract')
         
-    def surf(self,Z=False,xmax=0,ymax=0):
-        if type(Z) is bool:
+    def show(self, property_to_plot, plot_type='default', ax=False, *args):
+        """ Method for plotting anything of interest for the surface
+        
+        If a list of properties is provided all will be plotted on separate 
+        sub plots of the same (new) figure, if a list of plot types is also
+        provided these will be used as the types, if a single type is provided 
+        this will be used for all applicable plots, if the list is too short it
+        will be extended to the same length as the list of properties with 
+        the default options for the polts.
+        
+        output : a list of axis handles
+        
+        Valid propertie to plot are:
+            ** 2D types **
+            profile
+            fft2D
+            psd
+            acf
+            ** 1D types **
+            histogram
+            fft1D
+            ** other **
+            other can be given if *args contains 2 or 3 lists of items a 1 or 2
+            dimentional plot of type surface or line will be plotted, this is 
+            primarily for debugging and options are limited
+        Valid plot types and the default type depend on the property_to_plot:
+            ** for 2D types **
+            surface - default
+            image
+            image_wrap - image plot but wraps corners to centre common for fft
+            mesh
+            ** for 1D types **
+            bar - default for histogram
+            line - default for fft1D
+            scatter
+            area
+            QQ - name of distribution must also be provided as *args
+            
+        example:
+            self.show(['fft2D','fft2D','fft2D'], ['mesh', 'image', 'default'])
+            shows the 2D fft of the surface profile with a range of plot types
+        """
+        
+        import matplotlib.pyplot as plt
+        from mpl_toolkits.mplot3d import Axes3D
+        types2d=['profile', 'fft2D', 'psd', 'acf']
+        types1d=['histogram','fft1D']
+        
+        # using a recursive call to deal with multiple plots on the same fig
+        if type(property_to_plot) is list:
+            number_of_subplots=len(property_to_plot)
+            if type(ax) is bool:
+                msg='Can\'t plot multiple plots on single axis, making new figure'
+                warnings.warn(msg)
+            if type(plot_type) is list:
+                if len(plot_type)<number_of_subplots:
+                    plot_type.extend(['default']*(number_of_subplots-len(plot_type)))
+            else:
+                plot_type=[plot_type]*number_of_subplots
+            # 11, 12, 13, 22, then filling up rows of 3 (unlikely to be used)
+            #fig = plt.figure()
+            #ax = fig.add_subplot(111, projection='3d')
+            if len(property_to_plot)<5:
+                n_cols=[1,2,3,2][number_of_subplots]
+            else:
+                n_cols=3
+            n_rows=int(ceil(number_of_subplots/3))
+            fig, ax = plt.subplots(n_rows,n_cols)
+            for i in range(number_of_subplots):
+                self.show(property_to_plot[i], plot_type[i], ax[i])
+            fig.show()
+            return fig, ax
+        #######################################################################
+        ####################### main method ###################################
+        # 2D plots
+        if property_to_plot in types2d:
+            if 
+        elif property_to_plot in types1d:
+            
+        else:
+            msg=('Unsupported property to plot see documentation for supported'
+                 ' types')
+            ValueError(msg)
+        
             Z=self.profile
             xmax=float(self.global_size[0])
             ymax=float(self.global_size[1])
-        import matplotlib.pyplot as plt
-        from mpl_toolkits.mplot3d import Axes3D
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
+        
+        
         x=np.arange(Z.shape[0])
         y=np.arange(Z.shape[1])
         if xmax:
