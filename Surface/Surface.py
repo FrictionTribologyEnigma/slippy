@@ -170,7 +170,7 @@ class Surface():
             Sku  - 'Kurtosis' of the surface (4th moment)
         ** Spartial parameters ** 
             Sds  - Summit density, see note above on definition of summit
-            Str  - Texture aspect ration defined using the aacf
+            Str  - Texture aspect ratio defined using the aacf
             Std  - Texture direction
             Sal  - Fastest decay auto corelation length
         ** hybrid parameters **
@@ -178,13 +178,15 @@ class Surface():
             Ssc  - Mean summit curvature, see note above on definition of summit 
             Sdr  - Developed interfacial area ratio
         ** funcional parameters **
-            Sbi  - Bearing indes
+            Sbi  - Bearing index
             Sci  - Core fluid retention index
             Svi  - Valley fluid retention index
         ** non 'core' parameters (implemented) **
             Sa   - Mean amptitude of surface
+            Stp  - Surface bearing ratio returns a listof curve points 
+                   normalised as described in the above text
+                   this is implemented without any interpolation
         ** non 'core' parameters (not implemented) **
-            Stp  - Surface bearing ratio
             Smr  - Material volume ratio of the surface
             Svr  - Void volume ratio of the surface
             Sk   - Core roughness depth
@@ -261,8 +263,40 @@ class Surface():
                 out=np.abs(valley_heights[:5]) +np.abs(summit_heights[-5:])/5
             else: # ssc (curvature)
                 out=np.mean(self.get_summit_curvatures(summits, eta))
-        
-                
+        elif parameter_name=='sdr':
+            gs2=self.grid_size**2
+            i_areas=[0.25*(((gs2+(eta[x,y]-eta[x,y+1])**2)**0.5+
+                           (gs2+(eta[x+1,y+1]-eta[x+1,y])**2)**0.5)*
+                          ((gs2+(eta[x,y]-eta[x+1,y])**2)**0.5+
+                           (gs2+(eta[x,y+1]-eta[x+1,y+1])**2)**0.5))
+                             for x in range(self.pts_each_direction[0]-1)
+                             for y in range(self.pts_each_direction[1]-1)]
+            i_area=sum(i_areas)
+            p_area=(self.pts_each_direction[0]-1)*(self.pts_each_direction[1]-1)*gs2
+            out=(i_area-p_area)/i_area
+        elif parameter_name=='stp':
+            gs2=self.grid_size**2
+            p_area=(self.pts_each_direction[0]-1)*(self.pts_each_direction[1]-1)*gs2
+            eta=eta/self.birmingham('sq', curved_surface, periodic_surface)
+            heights=np.linspace(min(eta.flatten()),max(eta.flatten()),100)
+            ratios=[np.sum(eta<height)/p_area for height in heights]
+            out=[heights, ratios]
+            
+        elif parameter_name=='sbi':
+            index=int(eta.size/20)
+            sq=self.birmingham('sq', curved_surface, periodic_surface)
+            out=sq/np.sort(eta)[index]
+        elif parameter_name=='sci':
+            
+        elif parameter_name=='svi':
+            
+        elif parameter_name=='str':
+            
+        elif parameter_name=='std':
+            
+        elif parameter_name=='sal':
+            
+            
     def get_summit_curvatures(self, summits=False, profile=False):
         if type(profile) is bool:    
             p=self.profile
