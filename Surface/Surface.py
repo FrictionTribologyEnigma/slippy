@@ -20,17 +20,10 @@ class Surface():
     #TODO:
         Add desciption and example of each method 
         finish birmingham
-        make surf work better (built in for PSD, FFT, profile, ACF)
-        Add similar function for producing image typr plots:
-         (ax3.imshow(grid, extent=[0,100,0,1], aspect=100))
-        Add function for displaying the 2d fft as a 1d scatter plot
-        Add histogram, psd, fft, acf attributes, have these set when found
-        def plotQQ(self, distribution)
-        def fill_holes(self):
+        check plotting
+        check summit finding
         def read_from_file(self, filename):
-        def match(self, filename, **kwargs)
-        def check_surface(self):
-        def stretch(self, ratio):
+        def get_aacf(self):
         Make this pretty ^
     """
     # The surface class for descrete surfaces
@@ -39,11 +32,13 @@ class Surface():
     dimentions=0
     is_descrete=True
     acf=False
+    aacf=False
     psd=False
     fft=False
     hist=False
     profile=np.array([])
     pts_each_direction=[]
+    sa=False
     
     def __init__(self,*args,**kwargs):
         # initialisation surface
@@ -102,10 +97,10 @@ class Surface():
             profile=surf_in
         try:
             if self.dimentions==1:
-                transform=np.fft.fft(surf_in)
+                transform=np.fft.fft(profile)
                 if type(surf_in) is bool: self.fft=transform
             else:
-                transform=np.fft.fft2(surf_in)
+                transform=np.fft.fft2(profile)
                 if type(surf_in) is bool: self.fft=transform
         except AttributeError:
             raise AttributeError('Surface must have a defined profile for fft'
@@ -134,7 +129,7 @@ class Surface():
     
 #TODO all below
     def birmingham(self, parameter_name, curved_surface=False, 
-                   periodic_surface=False, **kwargs): #TODO finish this! add examples
+                   periodic_surface=False, p=None, **kwargs): #TODO finish this! add examples
         """
         from: Stout, K., Sullivan, P., Dong, W., Mainsah, E., Luo, N., Mathia, 
         T., & Zahouani, H. (1993). 
@@ -179,16 +174,20 @@ class Surface():
             Sdr  - Developed interfacial area ratio
         ** funcional parameters **
             Sbi  - Bearing index
-            Sci  - Core fluid retention index
-            Svi  - Valley fluid retention index
+            Sci  - Core fluid retention index - not implemented with equation 
+                   book, appears to be incorrect, instead simple aproximation 
+                   used, produces warning when used
+            Svi  - Valley fluid retention index - see note above, produces 
+                   produces warning when used
         ** non 'core' parameters (implemented) **
             Sa   - Mean amptitude of surface
             Stp  - Surface bearing ratio returns a listof curve points 
                    normalised as described in the above text
                    this is implemented without any interpolation
+            Smr  - Material volume ratio of the surface required for 'sci', see
+                   note above
+            Svr  - Void volume ratio of the surface, as for previous
         ** non 'core' parameters (not implemented) **
-            Smr  - Material volume ratio of the surface
-            Svr  - Void volume ratio of the surface
             Sk   - Core roughness depth
             Spk  - Reduced summit height
             Svk  - Reduced valley depth
@@ -199,6 +198,10 @@ class Surface():
             
         
         """
+        #deafault p to self.profile
+        if p is None:
+            p=self.profile
+        
         # recursive call to allow lists of parmeters to be retived at once
         
         if type(parameter_name) is list:
@@ -212,7 +215,6 @@ class Surface():
         # First remove the base line, linear fit for flat surfaces or 
         # biquadratic polynomial for curved surfaces 
         
-        parameter_name=parameter_name.lower()
         N=self.global_size[0]/self.grid_size
         M=self.global_size[0]/self.grid_size
         x = np.arange(N)
@@ -224,29 +226,36 @@ class Surface():
             if curved_surface:
                 A = np.array([X*0+1, X, Y, X**2, X**2*Y, X**2*Y**2, 
                               Y**2, X*Y**2, X*Y]).T
-                B = self.profile.flatten()
+                B = p.flatten()
                 coeff, r, rank, s = np.linalg.lstsq(A, B)
             else:
                 A = np.array([X*0+1, X, Y]).T
-                B = self.profile.flatten()
+                B = p.flatten()
             coeff, r, rank, s = np.linalg.lstsq(A, B)
             fit=np.reshape(np.dot(A,coeff),[N,M])
-            eta=self.profile-fit
+            eta=p-fit
         else:
-            eta=self.profile-np.mean(self.profile.flatten())
+            eta=p-np.mean(p.flatten())
         
         # return parameter of interst 
+        gs2=self.grid_size**2
+        p_area=(self.pts_each_direction[0]-1)*(
+                    self.pts_each_direction[1]-1)*gs2
         
         if parameter_name=='sq': #root mean square
             out=np.sqrt(np.mean(eta**2))
+            
         elif parameter_name=='sa': #mean amptitude
             out=np.sqrt(np.mean(eta))
+            
         elif parameter_name=='ssk': #skewness
             sq=np.sqrt(np.mean(eta**2))
             out=np.mean(eta**3)/sq**3
+            
         elif parameter_name=='sku': #kurtosis
             sq=np.sqrt(np.mean(eta**2))
             out=np.mean(eta**4)/sq**4
+            
         elif parameter_name in ['sds','sz', 'ssc']: # all that require sumits
             # summits is logical array of sumit locations
             kwargs['profile']=eta
@@ -261,10 +270,12 @@ class Surface():
                 summit_heights=np.sort(summit_heights, axis=None)
                 valley_heights=np.sort(valley_heights, axis=None)
                 out=np.abs(valley_heights[:5]) +np.abs(summit_heights[-5:])/5
-            else: # ssc (curvature)
+            else: # ssc mean summit curvature
                 out=np.mean(self.get_summit_curvatures(summits, eta))
-        elif parameter_name=='sdr':
-            gs2=self.grid_size**2
+                
+        elif parameter_name=='sdr': # developedinterfacial area ratio 
+            #ratio between actual surface area and projected or apparent 
+            #surface area
             i_areas=[0.25*(((gs2+(eta[x,y]-eta[x,y+1])**2)**0.5+
                            (gs2+(eta[x+1,y+1]-eta[x+1,y])**2)**0.5)*
                           ((gs2+(eta[x,y]-eta[x+1,y])**2)**0.5+
@@ -272,36 +283,128 @@ class Surface():
                              for x in range(self.pts_each_direction[0]-1)
                              for y in range(self.pts_each_direction[1]-1)]
             i_area=sum(i_areas)
-            p_area=(self.pts_each_direction[0]-1)*(self.pts_each_direction[1]-1)*gs2
+            
             out=(i_area-p_area)/i_area
-        elif parameter_name=='stp':
+            
+        elif parameter_name=='stp': #TODO move into own method like void volume
+            # bearing area curve
             gs2=self.grid_size**2
-            p_area=(self.pts_each_direction[0]-1)*(self.pts_each_direction[1]-1)*gs2
             eta=eta/self.birmingham('sq', curved_surface, periodic_surface)
             heights=np.linspace(min(eta.flatten()),max(eta.flatten()),100)
             ratios=[np.sum(eta<height)/p_area for height in heights]
             out=[heights, ratios]
             
-        elif parameter_name=='sbi':
+        elif parameter_name=='sbi': # bearing index
             index=int(eta.size/20)
             sq=self.birmingham('sq', curved_surface, periodic_surface)
             out=sq/np.sort(eta)[index]
-        elif parameter_name=='sci':
             
-        elif parameter_name=='svi':
+        elif parameter_name=='sci': # core fluid retention index
+            sq=self.birmingham('sq', curved_surface, periodic_surface)
+            index=int(eta.size*0.05)
+            h005=np.sort(eta)[index]
+            index=int(eta.size*0.8)
+            h08=np.sort(eta)[index]
             
-        elif parameter_name=='str':
+            V005=self.get_mat_or_void_volume_ratio(h005,True,eta,False)
+            V08=self.get_mat_or_void_volume_ratio(h08,True,eta,False)
             
-        elif parameter_name=='std':
+            out=(V005-V08)/p_area/sq
             
-        elif parameter_name=='sal':
+        elif parameter_name=='svi': # valley fluid retention index
+            sq=self.birmingham('sq', curved_surface, periodic_surface)
+            index=int(eta.size*0.8)
+            h08=np.sort(eta)[index]
+            V08=self.get_mat_or_void_volume_ratio(h08,True,eta,False)
+            
+            out=V08/p_area/sq
+            
+        elif parameter_name=='str': # surface texture ratio
+            if type(self.acf) is bool:
+                self.get_acf()
             
             
-    def get_summit_curvatures(self, summits=False, profile=False):
-        if type(profile) is bool:    
+        elif parameter_name=='std': # surface texture direction
+            if type(self.aacf) is bool:
+                self.get_aacf
+            
+        elif parameter_name=='sal': # fastest decaying auto corelation length
+            # shortest distance from center of ACF to point where R<0.2
+            if type(self.acf) is bool:
+                self.get_acf()
+    
+    def get_mat_or_void_volume_ratio(self, height, void=False, p=None,
+                                     ratio=True, volume_ratio=None, 
+                                     threshold=0.001):
+        """ 
+        Finds the material or void volume for a given plane height, uses an 
+        approximation (that each point is a coloumn of material) original 
+        formular didn't work. Produces warning to this effect.
+        
+        height  - the height of the cut off plane
+        void    - if set to true the void volume will be calculated
+        p       - default is self.profile other profiles can be provided if 
+                  needed
+        volume  - if provided the function will be 'reversed' and the height of
+                  cut off plane which produces the desired volume will be 
+                  returned, this is done by recursive calls to this function 
+                  with binary searching. the process stops after the threshold 
+                  has been reached
+        threshold - the threshold used for binary searching of the height,
+                    only used if volume is provided threshold is a fraction of 
+                    total surface height range
+        returns:
+        
+        the void or material volume ratio, the height.
+        if 'max' or 'min' are supled as the height the actual volume will be 
+        returned
+        """
+        msg=('get_mat_or_void_volume_ratio uses a simplified approximation, '
+             'results will not be identical to those found with the formula'
+             ' given in the original text, original formula dosn\'t seem to '
+             'work')
+        warnings.warn(msg)
+        if p is None:
             p=self.profile
-        else:
-            p=profile
+        
+        # if a volume ratio is requested recursively call to find the height
+        # for the given volume ratio
+        max_height=max(p.flatten())
+        min_height=min(p.flatten())
+        
+        if volume_ratio:
+            accuracy=0.5
+            position=0.5
+            if volume_ratio<0 or volume_ratio>1:
+                ValueError('Volume ratio must be bwteen 0 and 1')
+            while accuracy>threshold:
+                height=position*(max_height-min_height)+min_height
+                vol, height=self.get_mat_or_void_volume_ratio(height, void, p)
+                accuracy/=2
+                if (vol>volume_ratio)!=void: #xor to reverse if void is needed
+                    position-=accuracy
+                else:
+                    position+=accuracy
+            return vol, height
+        else: # 'normal' mode, volume ratio for specific height    
+            n_pts=self.pts_each_direction[0]*self.pts_each_direction[1]
+            total_vol=n_pts*(max_height-min_height)
+            max_m=sum((p-min_height))
+            m=sum([P-height for P in p if P>height])
+            if void:
+                all_above=(max_height-height)*n_pts
+                void_out=all_above-m # void not below height
+                m=total_vol-max_m-void_out
+                if ratio:    
+                    m=m/(total_vol-max_m)
+            else:
+                if ratio:
+                    m=m/max_m
+            return m, height
+
+    def get_summit_curvatures(self, summits=False, p=None):
+        if p is None:
+            p=self.profile
         if type(summits) is bool:
             summits=self.find_summits(profile=p)
         verts=np.transpose(np.nonzero(summits))
@@ -355,9 +458,7 @@ class Surface():
             self.profile=filtered_profile
             return
     
-#    def fill_holes(self):
 #    def read_from_file(self, filename):
-#    def stretch(self, ratio):
         
     def resample(self, new_grid_size, copy=False, kind='cubic'):
         import scipy.interpolate
