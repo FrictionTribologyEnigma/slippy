@@ -18,8 +18,6 @@ Classes for generating random surfaces based on filtering of random signals:
         Add other surface generation methods
         add citation to relevent method
         add make like method,
-        add histogram, psd, acf and fft attributes to main class change methods
-        so these are set when found
         
 """
 
@@ -55,7 +53,7 @@ class GausianNoiseSurface(Surface): #done
         self.profile=profile*self.gn_sigma+self.gn_mu
         self.is_descrete=True
     
-    def specify_ACF(self, ACF_or_type, *args):
+    def specify_ACF_IFFT_FIR(self, ACF_or_type, *args):
         size=self.global_size
         spacing=self.grid_size
         nPts=self.pts_each_direction
@@ -92,4 +90,5 @@ class GausianNoiseSurface(Surface): #done
         self.profile=np.abs(np.fft.ifft2((np.fft.fft2(self.profile)*filter_tf)))
         
 def make_like(surface, copy=True):
+    #pass a surface to init then use __call__ to generate like surfaces by the given method
     pass

@@ -19,11 +19,9 @@ class Surface():
     
     #TODO:
         Add desciption and example of each method 
-        finish birmingham
         check plotting
         check summit finding
         def read_from_file(self, filename):
-        def get_aacf(self):
         Make this pretty ^
     """
     # The surface class for descrete surfaces
@@ -77,18 +75,6 @@ class Surface():
             raise AttributeError(msg)
         if total_pts>10E7:
             warnings.warn('surface contains over 10^7 points')
-        
-        
-    def plot(self, plot_type='surface'):
-        # plots the surfae options to use any of the plotting methods including 
-        # PSD and FFT methods 
-        if plot_type=='surface' or plot_type=='scatter' or plot_type=='wf':
-            x=np.arange(-0.5*self.global_size[0],
-                    0.5*self.global_size[0],self.grid_size)
-            y=np.arange(-0.5*self.global_size[1],
-                        0.5*self.global_size[1],self.grid_size)
-            (X,Y)=np.meshgrid(x,y)
-            self.surf(self.profile,X,Y)
             
     def get_fft(self, surf_in=False):
         if type(surf_in) is bool:
@@ -121,15 +107,51 @@ class Surface():
             self.acf=output
         return output
     
-    def psd(self):
+    def get_aacf(self, surf_in=False):
+        if type(surf_in) is bool:
+            profile=self.profile
+        else:
+            profile=surf_in
+        profile=np.asarray(surf_in)
+        #TODO start from here
+
+    def get_psd(self):
         # PSD is the fft of the ACF (https://en.wikipedia.org/wiki/Spectral_density#Power_spectral_density)
         if type(self.acf) is bool:
             self.get_acf()
         self.psd=self.get_fft(self.acf)
     
-#TODO all below
+    def subract_polynomial(self, profile=False, order=1):#TODO change this
+        if type(profile) is bool:
+            p=self.profile
+        else:
+            p=profile
+        N=p.shape[0]
+        M=p.shape[1]
+        x = np.arange(N)
+        y = np.arange(M)
+        X, Y = np.meshgrid(x, y, copy=False)
+        X = X.flatten()
+        Y = Y.flatten()
+        if order==2:
+            A = np.array([X*0+1, X, Y, X**2, X**2*Y, X**2*Y**2, 
+                          Y**2, X*Y**2, X*Y]).T
+            B = p.flatten()
+            coeff, r, rank, s = np.linalg.lstsq(A, B)
+        elif order==1:
+            A = np.array([X*0+1, X, Y]).T
+            B = p.flatten()
+
+        coeff, r, rank, s = np.linalg.lstsq(A, B)
+        fit=np.reshape(np.dot(A,coeff),[N,M])
+        eta=p-fit
+        if type(profile) is bool:
+            self.profile=eta
+        else:
+            return eta
+
     def birmingham(self, parameter_name, curved_surface=False, 
-                   periodic_surface=False, p=None, **kwargs): #TODO finish this! add examples
+                   periodic_surface=False, p=None, **kwargs): #TODO add examples
         """
         from: Stout, K., Sullivan, P., Dong, W., Mainsah, E., Luo, N., Mathia, 
         T., & Zahouani, H. (1993). 
@@ -215,27 +237,15 @@ class Surface():
         # First remove the base line, linear fit for flat surfaces or 
         # biquadratic polynomial for curved surfaces 
         
-        N=self.global_size[0]/self.grid_size
-        M=self.global_size[0]/self.grid_size
-        x = np.arange(N)
-        y = np.arange(M)
-        X, Y = np.meshgrid(x, y, copy=False)
-        X = X.flatten()
-        Y = Y.flatten()
-        if not periodic_surface:
-            if curved_surface:
-                A = np.array([X*0+1, X, Y, X**2, X**2*Y, X**2*Y**2, 
-                              Y**2, X*Y**2, X*Y]).T
-                B = p.flatten()
-                coeff, r, rank, s = np.linalg.lstsq(A, B)
-            else:
-                A = np.array([X*0+1, X, Y]).T
-                B = p.flatten()
-            coeff, r, rank, s = np.linalg.lstsq(A, B)
-            fit=np.reshape(np.dot(A,coeff),[N,M])
-            eta=p-fit
+        if curved_surface:
+            order=2
         else:
+            order=1
+
+        if periodic_surface:
             eta=p-np.mean(p.flatten())
+        else:
+            eta=self.subtract_polynomial(1,self.profile)
         
         # return parameter of interst 
         gs2=self.grid_size**2
@@ -288,19 +298,18 @@ class Surface():
             
         elif parameter_name=='stp': #TODO move into own method like void volume
             # bearing area curve
-            gs2=self.grid_size**2
-            eta=eta/self.birmingham('sq', curved_surface, periodic_surface)
+            eta=eta/np.sqrt(np.mean(eta**2))
             heights=np.linspace(min(eta.flatten()),max(eta.flatten()),100)
             ratios=[np.sum(eta<height)/p_area for height in heights]
             out=[heights, ratios]
             
         elif parameter_name=='sbi': # bearing index
             index=int(eta.size/20)
-            sq=self.birmingham('sq', curved_surface, periodic_surface)
+            sq=np.sqrt(np.mean(eta**2))
             out=sq/np.sort(eta)[index]
             
         elif parameter_name=='sci': # core fluid retention index
-            sq=self.birmingham('sq', curved_surface, periodic_surface)
+            sq=np.sqrt(np.mean(eta**2))
             index=int(eta.size*0.05)
             h005=np.sort(eta)[index]
             index=int(eta.size*0.8)
@@ -312,7 +321,7 @@ class Surface():
             out=(V005-V08)/p_area/sq
             
         elif parameter_name=='svi': # valley fluid retention index
-            sq=self.birmingham('sq', curved_surface, periodic_surface)
+            sq=np.sqrt(np.mean(eta**2))
             index=int(eta.size*0.8)
             h08=np.sort(eta)[index]
             V08=self.get_mat_or_void_volume_ratio(h08,True,eta,False)
@@ -322,17 +331,49 @@ class Surface():
         elif parameter_name=='str': # surface texture ratio
             if type(self.acf) is bool:
                 self.get_acf()
-            
-            
+            x=self.grid_size*np.arange(self.pts_each_direction[0]/-2,
+                                       self.pts_each_direction[0]/2)
+            y=self.grid_size*np.arange(self.pts_each_direction[1]/-2,
+                                       self.pts_each_direction[1]/2)
+            X,Y=np.meshgrid(x,y)
+            distance_to_centre=np.sqrt(X**2+Y**2)
+            min_dist=min(distance_to_centre[self.acf<0.2])-1
+            max_dist=max(distance_to_centre[self.acf>0.2])
+
+            out=min_dist/max_dist
+
         elif parameter_name=='std': # surface texture direction
-            if type(self.aacf) is bool:
-                self.get_aacf
+            if type(self.fft) is bool:
+                self.get_fft()
+            apsd=self.fft*np.conj(self.fft)/p_area
+            x=self.grid_size*np.arange(self.pts_each_direction[0])
+            y=self.grid_size*np.arange(self.pts_each_direction[1])
+            x=x-max(x)/2
+            x=y-max(y)/2
+            i,j = np.unravel_index(apsd.argmax(), apsd.shape)
+            beta=np.arctan(i/j)
+            if beta<(np.pi/2):
+                out=-1*beta
+            else:
+                out=np.pi-beta
             
         elif parameter_name=='sal': # fastest decaying auto corelation length
             # shortest distance from center of ACF to point where R<0.2
             if type(self.acf) is bool:
                 self.get_acf()
-    
+            x=self.grid_size*np.arange(self.pts_each_direction[0]/-2,
+                                       self.pts_each_direction[0]/2)
+            y=self.grid_size*np.arange(self.pts_each_direction[1]/-2,
+                                       self.pts_each_direction[1]/2)
+            X,Y=np.meshgrid(x,y)
+            distance_to_centre=np.sqrt(X**2+Y**2)
+            
+            out=min(distance_to_centre[self.acf<0.2])-1
+        else:
+            msg='Paramter name not recognised'
+
+        return out
+
     def get_mat_or_void_volume_ratio(self, height, void=False, p=None,
                                      ratio=True, volume_ratio=None, 
                                      threshold=0.001):
@@ -458,16 +499,18 @@ class Surface():
             self.profile=filtered_profile
             return
     
-#    def read_from_file(self, filename):
+    def read_from_file(self, filename):
+        pass
+        #TODO finish this
         
     def resample(self, new_grid_size, copy=False, kind='cubic'):
         import scipy.interpolate
-        x0=np.arrange(0, self.global_size[0], self.grid_size)
-        y0=np.arrange(0, self.global_size[1], self.grid_size)
+        x0=np.arange(0, self.global_size[0], self.grid_size)
+        y0=np.arange(0, self.global_size[1], self.grid_size)
         X0,Y0=np.meshgrid(x0,y0)
         inter_func=scipy.interpolate.interp2d(X0, Y0, self.profile, kind=kind)
-        x1=np.arrange(0, self.global_size[0], new_grid_size)
-        y1=np.arrange(0, self.global_size[1], new_grid_size)
+        x1=np.arange(0, self.global_size[0], new_grid_size)
+        y1=np.arange(0, self.global_size[1], new_grid_size)
         X1,Y1=np.meshgrid(x1,y1)
         inter_profile=inter_func(X1,Y1)
         if copy:
@@ -593,7 +636,7 @@ class Surface():
         
         import matplotlib.pyplot as plt
         from mpl_toolkits.mplot3d import Axes3D
-        types2d=['profile', 'fft2d', 'psd', 'acf']
+        types2d=['profile', 'fft2d', 'psd', 'acf', 'apsd']
         types1d=['histogram','fft1d', 'qq', 'disthist']
         
         # using a recursive call to deal with multiple plots on the same fig
@@ -663,10 +706,19 @@ class Surface():
                 y=self.grid_size*np.arange(self.pts_each_direction[1])
                 x=x-max(x)/2
                 x=y-max(y)/2
+            elif property_to_plot=='apsd':
+                labels=['Angular power spectral density', 'x', 'y']
+                if type(self.fft) is bool:
+                    self.get_fft()
+                Z=self.fft*np.conj(self.fft)/p_area
+                x=self.grid_size*np.arange(self.pts_each_direction[0])
+                y=self.grid_size*np.arange(self.pts_each_direction[1])
+                x=x-max(x)/2
+                x=y-max(y)/2 
             
             X,Y=np.meshgrid(x,y)
             
-            if plot_type=='default' | plot_type=='surface':
+            if plot_type=='default' or plot_type=='surface':
                 ax.plot_surface(X,Y,Z)
                 ax.zlabel(labels[3])
             elif plot_type=='mesh':
