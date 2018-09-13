@@ -26,22 +26,22 @@ import warnings
 import numpy as np
 from math import ceil, floor
 
-__all__=['GausianNoiseSurface', 'make_like']
+__all__=['GausianNoiseSurface']
 
 
-class GausianNoiseSurface(Surface): #done
+class RandomSurface(Surface):
+## surfaces based on transformations of random sequences
+
     is_descrete=False
-    need_to_filter=False
-    surface_type='gausianNoise'
-    def __init__(self, mu=0, sigma=1, dimentions=2, **kwargs):
+    surface_type='Random'
+
+    def __init__(self, dimentions=2, **kwargs):
         
         self.init_checks(kwargs)
         
         self.dimentions=dimentions
-        self.gn_mu=mu
-        self.gn_sigma=sigma
         
-    def descretise(self, spacing=False):
+    def fill_gaussian(self, spacing):
         if spacing:    
             self.grid_size=spacing
         self.descretise_checks()
@@ -50,10 +50,33 @@ class GausianNoiseSurface(Surface): #done
             profile=np.random.randn(nPts[0],1)
         elif self.dimentions==2:
             profile=np.random.randn(nPts[0],nPts[1])
-        self.profile=profile*self.gn_sigma+self.gn_mu
         self.is_descrete=True
     
-    def specify_ACF_IFFT_FIR(self, ACF_or_type, *args):
+    def johnson_translation(self, spacing):
+        pass
+
+    def linear_transform(self, target_ACF, itteration_procedure='CGD'):
+        valid_itt=['CGD', 'newton']
+        if not itteration_procedure in valid_itt:
+            str=("Invalid itteration procedure, valid options are:\n".join(valid_itt))
+            ValueError(str)
+        if type(target_ACF) is ACF:
+            self.target_ACF=target_ACF
+        
+
+    def newton_itt(self,previous_itteration=False):
+    #taken from patir 1977 appendix 1
+        if not previous_itteration:
+            c=self.target_ACF######### continue from here
+
+
+    def CGD_itt(self,previous_itteration):
+        pass
+
+    def beta_functions(self, target_ACF):
+        pass
+
+    def specify_ACF_IFFT_FIR(self, target_ACF):
         size=self.global_size
         spacing=self.grid_size
         nPts=self.pts_each_direction
@@ -89,6 +112,3 @@ class GausianNoiseSurface(Surface): #done
         filter_tf=np.sqrt(np.fft.fft2(ACF))
         self.profile=np.abs(np.fft.ifft2((np.fft.fft2(self.profile)*filter_tf)))
         
-def make_like(surface, copy=True):
-    #pass a surface to init then use __call__ to generate like surfaces by the given method
-    pass
