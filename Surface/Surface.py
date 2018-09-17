@@ -812,4 +812,7 @@ class Surface():
                  ', type given: ' + property_to_plot + 'supported types: ' 
                  + ' '.join(types2d+types1d))
             ValueError(msg)
-        
+            
+    def __array__(self):
+        """for easy compatability with numpy arrays"""
+        return self.profile
