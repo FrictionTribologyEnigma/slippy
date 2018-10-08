@@ -292,8 +292,7 @@ class Surface():
                            (gs2+(eta[x,y+1]-eta[x+1,y+1])**2)**0.5))
                              for x in range(self.pts_each_direction[0]-1)
                              for y in range(self.pts_each_direction[1]-1)]
-            i_area=sum(i_areas)
-            
+            i_area=sum(i_areas)        
             out=(i_area-p_area)/i_area
             
         elif parameter_name=='stp': #TODO move into own method like void volume
