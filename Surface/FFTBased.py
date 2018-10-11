@@ -34,6 +34,23 @@ import numpy as np
 __all__=["DiscFreqSurface", "ProbFreqSurface"]#, "DtmnFreqSurface"]
 
 class DiscFreqSurface(Surface):
+    """
+    Generates a surface containg discrete frequncy components
+    
+    Usage:
+    
+    DiscFreqSurface(frequencies, amptitudes=[1], phases_rads=[0], dimentions=2)
+    
+    Generates a surface with the specified frequencies, amptitudes and phases 
+    any kwargs that can be passed to surface can also be passed to this
+    
+    mySurf=DiscFreqSurface(10, 0.1) 
+    mySurf.global_size=[0.5,0.5]
+    mySurf.descretise(0.001)
+    
+    Generates and descretises a 2D surface with a frequency of 10 rads/unit
+    of global size, descretised on a grid with a spacing of 0.001
+    """
     is_descrete=False
     surface_type='discreteFreq'
     
@@ -90,7 +107,19 @@ class DiscFreqSurface(Surface):
             self.profile=profile
     
 class ProbFreqSurface(Surface):
+    """
+    ProbFreqSurface(H, qr, qs)
     
+    Generates a surface with all possible frequencies in the fft represented 
+    with amptitudes described by the probability distrribution given as input.
+    Defaults to the parameters used in the contact mechanics challenge
+    
+    This class only works for square 2D domains
+    
+    For more infromation on the definations of the input parameters refer to 
+    XXXXXX contact mechanics challenge paper
+    
+    """
     is_descrete=False
     surface_type='continuousFreq'
     dimentions=2
@@ -125,4 +154,8 @@ class ProbFreqSurface(Surface):
         FT=np.array([np.random.normal()*var**0.5 for var in varience.flatten()])
         FT.shape=Q.shape
         self.profile=np.real(np.fft.ifft2(FT))
-        
+       
+class DtmnFreqSurface(Surface):
+    
+    def __init__(self):
+        pass

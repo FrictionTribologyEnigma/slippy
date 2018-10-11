@@ -22,6 +22,9 @@ class Surface():
         check plotting
         check summit finding
         def read_from_file(self, filename):
+        def save (save whole surface with all info)
+        def export #gmsh
+        
         Make this pretty ^
     """
     # The surface class for descrete surfaces
@@ -245,7 +248,7 @@ class Surface():
         if periodic_surface:
             eta=p-np.mean(p.flatten())
         else:
-            eta=self.subtract_polynomial(1,self.profile)
+            eta=self.subtract_polynomial(order,self.profile)
         
         # return parameter of interst 
         gs2=self.grid_size**2
@@ -370,7 +373,7 @@ class Surface():
             out=min(distance_to_centre[self.acf<0.2])-1
         else:
             msg='Paramter name not recognised'
-
+            ValueError(msg)
         return out
 
     def get_mat_or_void_volume_ratio(self, height, void=False, p=None,
@@ -709,6 +712,8 @@ class Surface():
                 labels=['Angular power spectral density', 'x', 'y']
                 if type(self.fft) is bool:
                     self.get_fft()
+                p_area=(self.pts_each_direction[0]-1)*(
+                    self.pts_each_direction[1]-1)*self.grid_size**2
                 Z=self.fft*np.conj(self.fft)/p_area
                 x=self.grid_size*np.arange(self.pts_each_direction[0])
                 y=self.grid_size*np.arange(self.pts_each_direction[1])

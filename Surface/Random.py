@@ -26,7 +26,7 @@ import warnings
 import numpy as np
 from math import ceil, floor
 
-__all__=['GausianNoiseSurface']
+__all__=['RandomSurface']
 
 
 class RandomSurface(Surface):
@@ -51,6 +51,7 @@ class RandomSurface(Surface):
         elif self.dimentions==2:
             profile=np.random.randn(nPts[0],nPts[1])
         self.is_descrete=True
+        self.profile=profile
     
     def johnson_translation(self, spacing):
         pass
@@ -60,6 +61,7 @@ class RandomSurface(Surface):
         if not itteration_procedure in valid_itt:
             str=("Invalid itteration procedure, valid options are:\n".join(valid_itt))
             ValueError(str)
+        return ################## and here
         if type(target_ACF) is ACF:
             self.target_ACF=target_ACF
         
@@ -76,7 +78,7 @@ class RandomSurface(Surface):
     def beta_functions(self, target_ACF):
         pass
 
-    def specify_ACF_IFFT_FIR(self, target_ACF):
+    def specify_ACF_IFFT_FIR(self, ACF_or_type, *args):
         size=self.global_size
         spacing=self.grid_size
         nPts=self.pts_each_direction
