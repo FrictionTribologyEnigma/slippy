@@ -17,6 +17,8 @@ Classes for generating random surfaces based on filtering of random signals:
         Add comment blocks to each class with examples of use
         Add other surface generation methods
         add citation to relevent method
+        johnson trancslator
+        make work with 'generate' keyword 
         add make like method,
         
 """
@@ -26,10 +28,11 @@ import warnings
 import numpy as np
 from math import ceil, floor
 
-__all__=['RandomSurface']
+__all__=['RandomSurface', 'FractalSurface']
 
 
 class RandomSurface(Surface):
+    
 ## surfaces based on transformations of random sequences
 
     is_descrete=False
@@ -53,8 +56,10 @@ class RandomSurface(Surface):
         self.is_descrete=True
         self.profile=profile
     
-    def johnson_translation(self, spacing):
-        pass
+    def johnson_translation(self, params, **kwargs):
+        # kwargs can be set to surface if a surface is being used as input, should fit johnson system first then transform the gausian array, filling first if necessary
+        # if just params are given surface should be filled and translated
+        pass 
 
     def linear_transform(self, target_ACF, itteration_procedure='CGD'):
         valid_itt=['CGD', 'newton']
@@ -114,3 +119,5 @@ class RandomSurface(Surface):
         filter_tf=np.sqrt(np.fft.fft2(ACF))
         self.profile=np.abs(np.fft.ifft2((np.fft.fft2(self.profile)*filter_tf)))
         
+class FractalSurface(Surface):
+    

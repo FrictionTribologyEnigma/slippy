@@ -20,6 +20,7 @@ Classes for generating geometric surfaces:
 
 #TODO:
         Add comment blocks to each class with examples of use
+        make so it can work with the 'generate' keyword arg
 """
 
 from . import Surface
@@ -27,6 +28,9 @@ import warnings
 import numpy as np
 
 class FlatSurface(Surface): 
+""""
+    simple flat surface can be angled in any direction by changing slope
+"""
     is_descrete=False
     surface_type='flat'
     
@@ -73,15 +77,9 @@ class RoundSurface(Surface):
         elif type(radius) is int or type(radius) is float:
             self.radius=[radius]*(self.dimentions+1)
             
-    def descretise(self, spacing, centre):
-        #1d
-        #(x/xr)^2+(z/zr)^2=1
-        #(1-(x/rx)^2)^0.5*rz
-        #2d
-        #(x/rx)^2+(y/ry)^2+(z/rz)^2=1
-        #1-(x/rx)^2-(y/ry)^2=(z/rz)^2
-        #(1--(y/ry)^2)^0.5*rz
-        self.grid_size=spacing
+    def descretise(self, spacing=False, centre=[0,0]):
+        if spacing:
+            self.grid_size=spacing
         self.descretise_checks()
         x=np.linspace(-0.5*self.global_size[0],
                     0.5*self.global_size[0],self.pts_each_direction[0])
