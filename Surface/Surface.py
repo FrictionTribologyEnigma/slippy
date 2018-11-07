@@ -41,6 +41,7 @@ class Surface():
     sa=False
     surface_type="Generic"
     dimentions=2
+    grid_size=1
     
     def __init__(self,*args,**kwargs):
         # initialisation surface
@@ -48,16 +49,19 @@ class Surface():
         # check for file
         if 'file_name' in kwargs:
             ext=kwargs['file_name'][-3:]
+            file_name=kwargs.pop('file_name')
             if ext=='pkl':
-                self.load_from_file(kwargs['file_name'])
+                self.load_from_file(file_name)
             else:
                 try:
-                    self.read_from_file(kwargs['file_name'], kwargs['file_type'], **kwargs)
+                    file_type=kwargs.pop('file_type')
+                    self.read_from_file(file_name, file_type, **kwargs)
                 except KeyError:
                     msg=("file_type keyword should be set to use read from file"
                          " using extention as file type")
                     warnings.warn(msg)
-                    self.read_from_file(kwargs['file_name'], ext, **kwargs)
+                    self.read_from_file(file_name, ext, **kwargs)
+        
         
     def init_checks(self, kwargs=False):
         # add anything you want to run for all surface types here
@@ -65,6 +69,9 @@ class Surface():
             allowed_keys = ['global_size', 'grid_size', 'dimentions', 
                             'is_descrete', 'profile', 'pts_each_direction']
             self.__dict__.update((k, v) for k, v in kwargs.items() if k in allowed_keys)
+        
+        
+    
     
     def descretise_checks(self):
         if self.is_descrete:
@@ -781,6 +788,7 @@ class Surface():
             
             if plot_type=='default' or plot_type=='surface':
                 ax.plot_surface(X,Y,Z)
+                plt.axis('equal')
                 ax.set_zlabel(labels[3])
             elif plot_type=='mesh':
                 if property_to_plot=='psd' or property_to_plot=='fft2d':
