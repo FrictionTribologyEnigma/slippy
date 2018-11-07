@@ -44,7 +44,7 @@ class RandomSurface(Surface):
         
         self.dimentions=dimentions
         
-    def fill_gaussian(self, spacing):
+    def fill_gaussian(self, spacing=None):
         if spacing:    
             self.grid_size=spacing
         self.descretise_checks()
@@ -86,7 +86,9 @@ class RandomSurface(Surface):
     def specify_ACF_IFFT_FIR(self, ACF_or_type, *args):
         size=self.global_size
         spacing=self.grid_size
+        self.descretise_checks()
         nPts=self.pts_each_direction
+        self.fill_gaussian()
         if type(ACF_or_type) is str:
             k=np.arange(-nPts[0]/2,nPts[0]/2)
             l=np.arange(-nPts[1]/2,nPts[1]/2)
@@ -97,7 +99,6 @@ class RandomSurface(Surface):
                 beta_x=args[1]/spacing
                 beta_y=args[2]/spacing
                 ACF=sigma**2*np.exp(-2.3*np.sqrt((K/beta_x)**2+(L/beta_y)**2))
-                self.surf(ACF)
             else:
                 ValueError("ACF_or_type must be array like or valid type")
         else:
@@ -107,14 +108,15 @@ class RandomSurface(Surface):
                 size_difference=[]
                 is_neg=[]
                 for i in range(len(size)):
-                    size_difference.append(size[i],ACF.shape[i])
+                    size_difference.append(size[i]-ACF.shape[i])
                     is_neg.append(size_difference[0]<0)
                 if any(is_neg):
                     ValueError("ACF size should be smaller than the profile"
                                " size")
-                np.pad(ACF,[ceil(size_difference[0]),floor(size_difference[0]), 
-                          ceil(size_difference[0]), floor(size_difference[0])],
+                ACF=np.pad(ACF,((ceil(size_difference[0]/2),floor(size_difference[0]/2)), 
+                          (ceil(size_difference[1]/2), floor(size_difference[1]/2))),
                        'constant')
         
         filter_tf=np.sqrt(np.fft.fft2(ACF))
+        
         self.profile=np.abs(np.fft.ifft2((np.fft.fft2(self.profile)*filter_tf)))

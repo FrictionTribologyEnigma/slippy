@@ -513,7 +513,7 @@ class Surface():
         ws=2*np.pi/self.grid_size
         wc=cut_off_freq*2*np.pi
         h=(wc/ws)*scipy.special.j1(2*np.pi*(wc/ws)*D)/D
-        filtered_profile=scipy.signal.convolve2d(profile,h,'same','wrap')
+        filtered_profile=scipy.signal.convolve2d(profile,h,'same')
         if copy:
             return filtered_profile
         else:

@@ -113,19 +113,20 @@ class PyramidSurface(Surface):
         elif type(lengths) is int or type(lengths) is float:
             self.lengths=[lengths]*(self.dimentions+1)
             
-    def descretise(self, spacing):
+    def descretise(self, spacing=None):
         #TODO check that ther is no gap around the edge, if so scale so there is not 
         #x/xl+y/yl+z/zl=1
         #(1-x/xl-y/yl)*zl=z
-        self.grid_size=spacing
+        if spacing:
+            self.grid_size=spacing
         self.descretise_checks()
-        x=np.arange(-0.5*self.global_size[0],
-                    0.5*self.global_size[0],self.grid_size)
+        x=np.abs(np.arange(-0.5*self.global_size[0],
+                    0.5*self.global_size[0],self.grid_size))
         if self.dimentions==1:
             self.profile=(1-x/self.lengths[0])*self.lengths[-1]
         else:
-            y=np.arange(-0.5*self.global_size[1],
-                        0.5*self.global_size[1],self.grid_size)
+            y=np.abs(np.arange(-0.5*self.global_size[1],
+                        0.5*self.global_size[1],self.grid_size))
             (X,Y)=np.meshgrid(x,y)
             self.profile=(1-X/self.lengths[0]-
                           Y/self.lengths[1])*self.lengths[-1]

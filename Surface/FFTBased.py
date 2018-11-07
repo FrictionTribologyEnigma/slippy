@@ -82,7 +82,7 @@ class DiscFreqSurface(Surface):
                                      np.exp(1j*phases_rads[idx]))
                 self.amptitudes=cplx_amps
             
-    def descretise(self, spacing):
+    def descretise(self, spacing=None):
         if spacing:    
             self.grid_size=spacing
         self.descretise_checks()
@@ -124,9 +124,9 @@ class ProbFreqSurface(Surface):
     is_descrete=False
     surface_type='continuousFreq'
         #TODO write this function
-    def __init__(self, H, qr, qs=0):
+    def __init__(self, H=2, qr=0.05, qs=10, **kwargs):
         #q is frequency
-        self.init_checks()
+        self.init_checks(kwargs)
         self.H=H
         self.qs=qs
         self.qr=qr
@@ -137,14 +137,14 @@ class ProbFreqSurface(Surface):
         self.descretise_checks()
         if self.global_size[0]!=self.global_size[1]:
             ValueError("This method is only defined for square domains")
-        qny=np.pi/spacing
+        qny=np.pi/grid_spacing
         
         u=np.linspace(0,qny,self.pts_each_direction[0])
         U,V=np.meshgrid(u,u)
         Q=np.abs(U+V)
         varience=np.zeros(Q.shape)
         varience[np.logical_and((1/Q)>(1/self.qr),
-                                (2*np.pi/Q)<=(self.global_size[0]))]=1
+                                (2*np.pi/Q)<=(global_size[0]))]=1
         varience[np.logical_and((1/Q)>=(1/self.qs),
                                 (1/Q)<(1/self.qr))]=(Q[np.logical_and(
                 1/Q>=1/self.qs,1/Q<1/self.qr)]/self.qr
@@ -184,7 +184,8 @@ class HurstFractalSurface(Surface):
     is_descrete=False
     surface_type="hurstFractal"
     
-    def __init__(self,q0,q0_amp,q_cut_off,hurst):
+    def __init__(self,q0,q0_amp,q_cut_off,hurst,**kwargs):
+        self.init_checks(kwargs)
         N=int(round(q_cut_off/q0))
         h, k=range(-1*N,N+1), range(-1*N,N+1)
         H,K=np.meshgrid(h,k)
@@ -203,15 +204,19 @@ class HurstFractalSurface(Surface):
         phases[:][N:]=pha[:][N:]
         phases[:][0:N+1]=np.pi*2-np.fliplr(np.flipud(pha[:][N:]))
         phases[N,0:N]=np.pi*2-np.flip(phases[N,N+1:])
-        
+        #######next line added
+        phases=2*np.pi*np.random.rand(phases.shape[0], phases.shape[1])
         self.phases=phases.flatten()
+        self.mags=self.mean_mags*np.cos(self.phases)+1j*self.mean_mags*np.sin(self.phases)
         K=np.transpose(H)
         self.qkh=np.transpose(np.array([q0*H.flatten(), q0*K.flatten()]))
         
         
-    def descretise(self, global_size, spacing):
-        self.global_size=global_size
-        self.grid_size=spacing
+    def descretise(self, global_size=None, spacing=None):
+        if not global_size:
+            global_size=self.global_size
+        if not spacing:
+            spacing=self.grid_size
         
         self.descretise_checks()
         
@@ -222,10 +227,6 @@ class HurstFractalSurface(Surface):
         Z=np.zeros(X.size,dtype=np.float32)
 
         for idx in range(len(self.qkh)):
-            Z+=np.real(self.mean_mags[idx]*np.exp(-1j*(np.dot(self.qkh[idx],coords)-self.phases[idx])))
+            Z+=np.real(self.mags[idx]*np.exp(-1j*np.dot(self.qkh[idx],coords)*2*np.pi))
 
-        Z=Z.reshape(input_shape)
-        
-        self.profile=Z
-        
-        return Z
+        self.profile=Z.reshape(input_shape)
