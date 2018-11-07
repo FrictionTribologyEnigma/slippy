@@ -18,7 +18,6 @@ class Surface():
     stretched in the y direction.
     
     #TODO:
-        def read_from_file(self, filename)
         Then start checking stuff
         def open(work with save)
         make init work with these options 
@@ -26,14 +25,11 @@ class Surface():
         check plotting
         check summit finding
         def save (save whole surface with all info)
-        def export #gmsh
+        def export #gmsh?
         
         Make this pretty ^
     """
-    # The surface class for descrete surfaces
-    global_size=[1,1]
-    grid_size=1
-    dimentions=2
+    # The surface class for descrete surfaces (typically experiemntal)
     is_descrete=True
     acf=False
     aacf=False
@@ -43,6 +39,8 @@ class Surface():
     profile=np.array([])
     pts_each_direction=[]
     sa=False
+    surface_type="Generic"
+    dimentions=2
     
     def __init__(self,*args,**kwargs):
         # initialisation surface
@@ -54,12 +52,12 @@ class Surface():
                 self.load_from_file(kwargs['file_name'])
             else:
                 try:
-                    self.read_from_file(kwargs['file_name'], kwargs['file_type'], kwargs)
+                    self.read_from_file(kwargs['file_name'], kwargs['file_type'], **kwargs)
                 except KeyError:
                     msg=("file_type keyword should be set to use read from file"
                          " using extention as file type")
                     warnings.warn(msg)
-                    self.read_from_file(kwargs['file_name'], ext, kwargs)
+                    self.read_from_file(kwargs['file_name'], ext, **kwargs)
         
     def init_checks(self, kwargs=False):
         # add anything you want to run for all surface types here
@@ -71,9 +69,6 @@ class Surface():
     def descretise_checks(self):
         if self.is_descrete:
             msg='Surface is already discrete'
-            raise ValueError(msg)
-        if not self.dimentions or self.dimentions>2:
-            msg='Number of dimensions should be 1 or 2'
             raise ValueError(msg)
         try: 
             spacing=self.grid_size
@@ -124,14 +119,6 @@ class Surface():
         if type(surf_in) is bool:
             self.acf=output
         return output
-    
-    def get_aacf(self, surf_in=False):
-        if type(surf_in) is bool:
-            profile=self.profile
-        else:
-            profile=surf_in
-        profile=np.asarray(surf_in)
-        #TODO start from here
 
     def get_psd(self):
         # PSD is the fft of the ACF (https://en.wikipedia.org/wiki/Spectral_density#Power_spectral_density)
@@ -170,35 +157,6 @@ class Surface():
         if surf_in is bool:
             self.profile=adjusted
         return adjusted
-    
-    def subract_polynomial(self, profile=False, order=1):
-        if type(profile) is bool:
-            p=self.profile
-        else:
-            p=profile
-        N=p.shape[0]
-        M=p.shape[1]
-        x = np.arange(N)
-        y = np.arange(M)
-        X, Y = np.meshgrid(x, y, copy=False)
-        X = X.flatten()
-        Y = Y.flatten()
-        if order==2:
-            A = np.array([X*0+1, X, Y, X**2, X**2*Y, X**2*Y**2, 
-                          Y**2, X*Y**2, X*Y]).T
-            B = p.flatten()
-            coeff, r, rank, s = np.linalg.lstsq(A, B)
-        elif order==1:
-            A = np.array([X*0+1, X, Y]).T
-            B = p.flatten()
-
-        coeff, r, rank, s = np.linalg.lstsq(A, B)
-        fit=np.reshape(np.dot(A,coeff),[N,M])
-        eta=p-fit
-        if type(profile) is bool:
-            self.profile=eta
-        else:
-            return eta
 
     def birmingham(self, parameter_name, curved_surface=False, 
                    periodic_surface=False, p=None, **kwargs): #TODO add examples
@@ -559,9 +517,6 @@ class Surface():
         """ 
         kwargs can be header lines etc, args is kwargs from init
         """
-        #merge the dicts
-        if args[0] is dict:    
-            kwargs={**args[0], **kwargs}
         
         try:
             file_type=file_type.lower()
@@ -930,6 +885,34 @@ class Surface():
     def __array__(self):
         """for easy compatability with numpy arrays"""
         return np.asarray(self.profile)
+
+    def _get_points_from_extent(self, extent, spacing):
+        if type(spacing) in [int, float, np.float32, np.float64]:
+            spacing=[spacing]*2
+        if type(extent[0]) in [int, float, np.float32, np.float64]:
+            extent=[[0,extent[0]],[0,extent[1]]]
+        x=np.arange(extent[0][0], extent[0][1], spacing[0])
+        y=np.arange(extent[1][0], extent[1][1], spacing[1])
+        
+        X,Y=np.meshgrid(x,y)
+        
+        return(X,Y)
+    
+    def _interpolate(self,X,Y,**kwargs):
+        if not kwargs is None:
+            if 'remake' in kwargs:
+                remake=kwargs['remake']
+            else:
+                remake=False
+        if remake or not hasattr(self, 'interpolator'):
+            try:
+                import scipy.interpolate as interp
+                self.interpolator=interp.interp2d(self.X,self.Y,self.profile, **kwargs)
+            except AttributeError:
+                msg="Surface must be descretised before interpolation"
+                ValueError(msg)
+        Z=self.interpolator(X,Y)
+        return Z
 
 if __name__=='__main__':
     A=Surface(file_name='C:\\Users\\44779\\code\\SlipPY\\image1_no header_units in nm', file_type='csv', delimitor=' ', grid_size=0.001)

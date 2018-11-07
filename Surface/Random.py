@@ -28,7 +28,7 @@ import warnings
 import numpy as np
 from math import ceil, floor
 
-__all__=['RandomSurface', 'FractalSurface']
+__all__=['RandomSurface']
 
 
 class RandomSurface(Surface):
@@ -118,6 +118,3 @@ class RandomSurface(Surface):
         
         filter_tf=np.sqrt(np.fft.fft2(ACF))
         self.profile=np.abs(np.fft.ifft2((np.fft.fft2(self.profile)*filter_tf)))
-        
-class FractalSurface(Surface):
-    

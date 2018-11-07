@@ -32,7 +32,7 @@ from . import Surface
 import warnings
 import numpy as np
 
-__all__=["DiscFreqSurface", "ProbFreqSurface"]#, "DtmnFreqSurface"]
+__all__=["DiscFreqSurface", "ProbFreqSurface", "HurstFractalSurface"]#, "DtmnFreqSurface"]
 
 class DiscFreqSurface(Surface):
     """
@@ -123,7 +123,6 @@ class ProbFreqSurface(Surface):
     """
     is_descrete=False
     surface_type='continuousFreq'
-    dimentions=2
         #TODO write this function
     def __init__(self, H, qr, qs=0):
         #q is frequency
@@ -132,11 +131,9 @@ class ProbFreqSurface(Surface):
         self.qs=qs
         self.qr=qr
         
-    def descretise(self, spacing=False): 
-        if spacing:
-            self.grid_size=spacing
-        else:
-            spacing=self.grid_size
+    def descretise(self, global_size, grid_spacing):
+        self.global_size=global_size
+        self.grid_spacing=grid_spacing
         self.descretise_checks()
         if self.global_size[0]!=self.global_size[1]:
             ValueError("This method is only defined for square domains")
@@ -156,7 +153,79 @@ class ProbFreqSurface(Surface):
         FT.shape=Q.shape
         self.profile=np.real(np.fft.ifft2(FT))
        
-class DtmnFreqSurface(Surface):
+class HurstFractalSurface(Surface):
+    """
+    HurstFractalSurface(q0,q0 amptitude,cut off frequency,Hurst parameter)
     
-    def __init__(self):
-        pass
+    generates a hurst fratal surface with frequency components from q0 to 
+    cut off frequency in even steps of q0.
+    
+    amptitudes are given by:
+        q0 amptitude**2 *((h**2+k**2)/2)^(1-Hurst parameter)
+    where h,k = -N...N 
+    where N=cut off frequency/ q0
+    phases are randomly generated on construction of the surface object,
+    repeted calls to the descretise function will descretise on the same surface
+    but repeted calls to this class will generate diferent realisations
+    
+    Example:
+        #create the surface object with the specified fractal prameters
+        my_surface=HurstFractalSurface(1,0.1,1000,2)
+        #descrtise the surface over a grid 1 unit by 1 unit with a spacing of 0.01
+        heights=my_surface.descretise('grid', [[0,1],[0,1]], [0.01,0.01])
+        #interpolate over a previously made grid
+        heights=my_surface.descretise('interp', X, Y, **kwargs) ** kwargs for remaking interpolator and interpolator options
+        #generate new points (e.g. for a custom grid)
+        my_surface.descretise('points', X, Y)
+        
+        A new efficient numerical method for contact mechanics of rough surfaces
+        C.Putignano L.Afferrante G.Carbone G.Demelio
+    """
+    is_descrete=False
+    surface_type="hurstFractal"
+    
+    def __init__(self,q0,q0_amp,q_cut_off,hurst):
+        N=int(round(q_cut_off/q0))
+        h, k=range(-1*N,N+1), range(-1*N,N+1)
+        H,K=np.meshgrid(h,k)
+        H[N,N]=1
+        mm2=q0_amp**2*((H**2+K**2)/2)**(1-hurst)
+        mm2[N,N]=0
+        pha=2*np.pi*np.random.rand(mm2.shape[0], mm2.shape[1])
+        
+        mean_mags2=np.zeros((2*N+1,2*N+1))
+        phases=np.zeros_like(mean_mags2)
+        
+        mean_mags2[:][N:]=mm2[:][N:]
+        mean_mags2[:][0:N+1]=np.flipud(mm2[:][N:])
+        self.mean_mags=np.sqrt(mean_mags2).flatten()
+    
+        phases[:][N:]=pha[:][N:]
+        phases[:][0:N+1]=np.pi*2-np.fliplr(np.flipud(pha[:][N:]))
+        phases[N,0:N]=np.pi*2-np.flip(phases[N,N+1:])
+        
+        self.phases=phases.flatten()
+        K=np.transpose(H)
+        self.qkh=np.transpose(np.array([q0*H.flatten(), q0*K.flatten()]))
+        
+        
+    def descretise(self, global_size, spacing):
+        self.global_size=global_size
+        self.grid_size=spacing
+        
+        self.descretise_checks()
+        
+        X,Y=self._get_points_from_extent(global_size, spacing)
+        input_shape=X.shape
+        coords=np.array([X.flatten(), Y.flatten()])
+        
+        Z=np.zeros(X.size,dtype=np.float32)
+
+        for idx in range(len(self.qkh)):
+            Z+=np.real(self.mean_mags[idx]*np.exp(-1j*(np.dot(self.qkh[idx],coords)-self.phases[idx])))
+
+        Z=Z.reshape(input_shape)
+        
+        self.profile=Z
+        
+        return Z
