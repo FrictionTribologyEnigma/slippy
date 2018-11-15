@@ -37,6 +37,7 @@ class RandomSurface(Surface):
 
     is_descrete=False
     surface_type='Random'
+    target_acf=False
 
     def __init__(self, dimentions=2, **kwargs):
         
@@ -55,26 +56,11 @@ class RandomSurface(Surface):
             profile=np.random.randn(nPts[0],nPts[1])
         self.is_descrete=True
         self.profile=profile
-    
-    def johnson_translation(self, params, **kwargs):
-        # kwargs can be set to surface if a surface is being used as input, should fit johnson system first then transform the gausian array, filling first if necessary
-        # if just params are given surface should be filled and translated
-        pass 
 
-    def linear_transform(self, target_ACF, itteration_procedure='CGD'):
-        valid_itt=['CGD', 'newton']
-        if not itteration_procedure in valid_itt:
-            str=("Invalid itteration procedure, valid options are:\n".join(valid_itt))
-            ValueError(str)
-        return ################## and here
+    def linear_transform_netonian(self, target_ACF):
+        
         if type(target_ACF) is ACF:
             self.target_ACF=target_ACF
-        
-
-    def newton_itt(self,previous_itteration=False):
-    #taken from patir 1977 appendix 1
-        if not previous_itteration:
-            c=self.target_ACF######### continue from here
 
 
     def CGD_itt(self,previous_itteration):
