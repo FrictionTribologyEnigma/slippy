@@ -1,0 +1,711 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>slippy.surface.Random &#8212; slippy 1.1.0 documentation</title>
+    <link rel="stylesheet" href="../../../_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">slippy 1.1.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for slippy.surface.Random</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Classes for generating random surfaces based on filtering of random signals:</span>
+<span class="sd">    ===========================================================================</span>
+<span class="sd">    ===========================================================================</span>
+<span class="sd">    Each class inherits functionallity from the Surface but changes the </span>
+<span class="sd">    __init__ and descretise functions</span>
+<span class="sd">    ===========================================================================</span>
+<span class="sd">    ===========================================================================</span>
+<span class="sd">    NoiseBasedSurface:</span>
+<span class="sd">        Generate and filter a noisy surface, several methods for this and the </span>
+<span class="sd">        make_like method that makes a surface &#39;like&#39; the input surface</span>
+<span class="sd">        </span>
+<span class="sd">    ===========================================================================</span>
+<span class="sd">    ===========================================================================</span>
+
+<span class="sd">#TODO:</span>
+<span class="sd">        Add comment blocks to each class with examples of use</span>
+<span class="sd">        Add other surface generation methods</span>
+<span class="sd">        add citation to relevent method</span>
+<span class="sd">        johnson trancslator</span>
+<span class="sd">        make work with &#39;generate&#39; keyword </span>
+<span class="sd">        add make like method,</span>
+<span class="sd">        </span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="n">Surface</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="n">ACF</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">numpy.matlib</span> <span class="k">import</span> <span class="n">repmat</span>
+<span class="kn">from</span> <span class="nn">scipy.signal</span> <span class="k">import</span> <span class="n">fftconvolve</span>
+<span class="kn">import</span> <span class="nn">scipy.stats</span>
+<span class="kn">from</span> <span class="nn">._johnson_utils</span> <span class="k">import</span> <span class="n">_fit_johnson_by_moments</span><span class="p">,</span> <span class="n">_fit_johnson_by_quantiles</span>
+
+<span class="n">__all__</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;RandomSurface&#39;</span><span class="p">,</span> <span class="s1">&#39;surface_like&#39;</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="RandomSurface"><a class="viewcode-back" href="../../../surface.html#slippy.surface.RandomSurface">[docs]</a><span class="k">class</span> <span class="nc">RandomSurface</span><span class="p">(</span><span class="n">Surface</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; </span>
+<span class="sd">    Surfaces based on transformations of random sequences</span>
+<span class="sd">    #TODO</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">surface_type</span><span class="o">=</span><span class="s1">&#39;Random&#39;</span>
+    <span class="n">target_ACF</span><span class="o">=</span><span class="kc">False</span>
+    <span class="n">dist</span><span class="o">=</span><span class="n">scipy</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span><span class="n">scale</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dimentions</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">init_checks</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">dimentions</span><span class="o">=</span><span class="n">dimentions</span>
+        
+    <span class="k">def</span> <span class="nf">fill</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid_spacing</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dist</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">dist</span><span class="p">:</span> 
+            <span class="n">dist</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dist</span>
+            
+        <span class="k">if</span> <span class="n">grid_spacing</span><span class="p">:</span>    
+            <span class="bp">self</span><span class="o">.</span><span class="n">set_grid_spacing</span><span class="p">(</span><span class="n">grid_spacing</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">descretise_checks</span><span class="p">()</span>
+        <span class="n">nPts</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_pts_each_direction</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dimentions</span><span class="o">==</span><span class="mi">1</span><span class="p">:</span>
+            <span class="n">profile</span><span class="o">=</span><span class="n">dist</span><span class="o">.</span><span class="n">rvs</span><span class="p">(</span><span class="n">nPts</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dimentions</span><span class="o">==</span><span class="mi">2</span><span class="p">:</span>
+            <span class="n">profile</span><span class="o">=</span><span class="n">dist</span><span class="o">.</span><span class="n">rvs</span><span class="p">(</span><span class="n">nPts</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_descrete</span><span class="o">=</span><span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">profile</span><span class="o">=</span><span class="n">profile</span>
+
+<div class="viewcode-block" id="RandomSurface.linear_transform"><a class="viewcode-back" href="../../../surface.html#slippy.surface.RandomSurface.linear_transform">[docs]</a>    <span class="k">def</span> <span class="nf">linear_transform</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target_ACF</span><span class="p">,</span> <span class="o">*</span><span class="n">ACFargs</span><span class="p">,</span> <span class="n">filter_size_n_m</span><span class="o">=</span><span class="p">[</span><span class="mi">35</span><span class="p">,</span><span class="mi">35</span><span class="p">],</span>  
+                         <span class="n">method</span><span class="o">=</span><span class="s1">&#39;newtonian&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Generates a linear transform matrix</span>
+<span class="sd">        </span>
+<span class="sd">        Solves the non linear optimisation problem to generate a </span>
+<span class="sd">        moving average filter that when convoloved with a set of normally</span>
+<span class="sd">        distributed random numbers will generate a surface profile with the </span>
+<span class="sd">        sepcified ACF</span>
+<span class="sd">        </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        </span>
+<span class="sd">        target_ACF : ACF object or description</span>
+<span class="sd">            The target ACF, the linear transfrom matrix will produce surfaces</span>
+<span class="sd">            with this ACF. </span>
+<span class="sd">        </span>
+<span class="sd">        ACFargs : optional</span>
+<span class="sd">            If the target_ACF is not an ACF object the target_ACF and the acf</span>
+<span class="sd">            args are passed to the ACF constructor to generate an ACF object</span>
+<span class="sd">            </span>
+<span class="sd">        filter_size_n_m : 2 element list of int</span>
+<span class="sd">            The dimentions of the filter coeficent matrix to be genrated </span>
+<span class="sd">            the defaultis [35, 35]</span>
+<span class="sd">            </span>
+<span class="sd">        method : {&#39;newtonian&#39;, &#39;CGD&#39;}</span>
+<span class="sd">            The method of itteration used to reach the solution, currently only</span>
+<span class="sd">            newtonian iis implemented</span>
+<span class="sd">        </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        </span>
+<span class="sd">        None</span>
+<span class="sd">        Sets the filter_coeficents property of the instance</span>
+<span class="sd">        </span>
+<span class="sd">        Other parameters</span>
+<span class="sd">        ----------------</span>
+<span class="sd">        </span>
+<span class="sd">        max_it : int default is 100</span>
+<span class="sd">            The maximum number of iterations used</span>
+<span class="sd">        accuracy : float default is 1e-5</span>
+<span class="sd">            The accuracy of the itterated solution </span>
+<span class="sd">        min_relax : float default is 1e-6</span>
+<span class="sd">            The minimum relaxation factor used in the newtonian itterations</span>
+<span class="sd">            see notes</span>
+<span class="sd">        </span>
+<span class="sd">        See Also</span>
+<span class="sd">        --------</span>
+<span class="sd">        </span>
+<span class="sd">        RandomSurface.set_moments</span>
+<span class="sd">        RandomSurface.FIRfilter</span>
+<span class="sd">        </span>
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        </span>
+<span class="sd">        This problem has a unique solution for each grid spacing. This should </span>
+<span class="sd">        be set before running this method, else it is assumed to be 1</span>
+<span class="sd">        </span>
+<span class="sd">        The itteration procedure used if newtonian is selected is not strictly </span>
+<span class="sd">        newtonian. As it is much more time consuming to invert the jacobian </span>
+<span class="sd">        martix than multiply the result a modified newtonian is used. If the </span>
+<span class="sd">        next itteration is not an imporovement on the previous itteration the </span>
+<span class="sd">        &#39;distance moved&#39; is halved. This halving is repeted until the </span>
+<span class="sd">        itteration results in an improvement. The minimum disctance that will </span>
+<span class="sd">        be tried can be set by setting the min_relax key word. This defaults to </span>
+<span class="sd">        10e-6. This is a deviation from the method described by [1]_</span>
+<span class="sd">        </span>
+<span class="sd">        References</span>
+<span class="sd">        ----------</span>
+<span class="sd">        </span>
+<span class="sd">        ..[1] N. Patir, &quot;A numerical procedure for random generation of </span>
+<span class="sd">        rough surfaces (1978)&quot;</span>
+<span class="sd">        Wear, 47(2), 263–277. </span>
+<span class="sd">        &#39;&lt;https://doi.org/10.1016/0043-1648(78)90157-6&gt;&#39;_</span>
+<span class="sd">        </span>
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        </span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">surface_type</span><span class="o">=</span><span class="s1">&#39;linear transform&#39;</span>
+        
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">target_ACF</span><span class="p">)</span> <span class="ow">is</span> <span class="n">ACF</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">target_ACF</span><span class="o">=</span><span class="n">target_ACF</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">target_ACF</span><span class="o">=</span><span class="n">ACF</span><span class="p">(</span><span class="n">target_ACF</span><span class="p">,</span> <span class="o">*</span><span class="n">ACFargs</span><span class="p">)</span>
+            
+        <span class="n">max_it</span><span class="o">=</span><span class="mi">100</span>
+        <span class="n">accuracy</span><span class="o">=</span><span class="mf">0.0001</span>
+        <span class="n">min_relax</span><span class="o">=</span><span class="mf">1e-6</span>
+        <span class="k">if</span> <span class="n">max_it</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="n">max_it</span><span class="o">=</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;max_it&#39;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">accuracy</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="n">accuracy</span><span class="o">=</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;accuracy&#39;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">min_relax</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="n">min_relax</span><span class="o">=</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;min_relax&#39;</span><span class="p">]</span>
+        
+        <span class="c1"># n by m ACF</span>
+        <span class="n">n</span><span class="o">=</span><span class="n">filter_size_n_m</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">m</span><span class="o">=</span><span class="n">filter_size_n_m</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_grid_spacing</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Grid grid_spacing is not set assuming grid grid_spacing is 1&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">set_grid_spacing</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        
+        <span class="c1">#generate the acf array form the ACF object</span>
+        <span class="n">l</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_grid_spacing</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+        <span class="n">k</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_grid_spacing</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+        <span class="p">[</span><span class="n">K</span><span class="p">,</span><span class="n">L</span><span class="p">]</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">k</span><span class="p">,</span><span class="n">l</span><span class="p">)</span>
+        <span class="n">ACFarray</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">target_ACF</span><span class="p">(</span><span class="n">k</span><span class="p">,</span><span class="n">l</span><span class="p">)</span>
+        
+        <span class="c1">## initial guess (n by m guess of filter coefficents)</span>
+        <span class="n">c</span><span class="o">=</span><span class="n">ACFarray</span><span class="o">/</span><span class="p">((</span><span class="n">m</span><span class="o">-</span><span class="n">K</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="n">n</span><span class="o">-</span><span class="n">L</span><span class="p">))</span>
+        <span class="n">s</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">ACFarray</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">]</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
+        <span class="n">alpha</span><span class="o">=</span><span class="n">s</span><span class="o">*</span><span class="n">c</span>
+        
+        <span class="c1">#fill in F matrix and first residual for first itteration</span>
+        <span class="n">f</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">q</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">m</span><span class="p">):</span>
+               <span class="n">f</span><span class="p">[</span><span class="n">p</span><span class="p">,</span><span class="n">q</span><span class="p">]</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">alpha</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">n</span><span class="o">-</span><span class="n">p</span><span class="p">,</span><span class="mi">0</span><span class="p">:</span><span class="n">m</span><span class="o">-</span><span class="n">q</span><span class="p">]</span><span class="o">*</span><span class="n">alpha</span><span class="p">[</span><span class="n">p</span><span class="p">:</span><span class="n">n</span><span class="p">,</span><span class="n">q</span><span class="p">:</span><span class="n">m</span><span class="p">])</span>
+        <span class="n">f</span><span class="o">=</span><span class="p">(</span><span class="n">f</span><span class="o">-</span><span class="n">ACFarray</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+        <span class="n">resid_old</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">f</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
+        
+        <span class="c1"># initialise counters and relaxation factor</span>
+        <span class="n">it_num</span><span class="o">=</span><span class="mi">0</span>
+        <span class="n">relaxation_factor</span><span class="o">=</span><span class="mi">1</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Itteration started:</span><span class="se">\n</span><span class="s1">Number</span><span class="se">\t</span><span class="s1">Residual</span><span class="se">\t\t</span><span class="s1">Relaxation factor&#39;</span><span class="p">)</span>
+        
+        <span class="k">while</span> <span class="n">it_num</span><span class="o">&lt;</span><span class="n">max_it</span> <span class="ow">and</span> <span class="n">relaxation_factor</span><span class="o">&gt;</span><span class="n">min_relax</span> <span class="ow">and</span> <span class="n">resid_old</span><span class="o">&gt;</span><span class="n">accuracy</span><span class="p">:</span>
+            
+            <span class="c1">#make Jackobian matrix</span>
+            <span class="n">A0</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="p">((</span><span class="n">n</span><span class="p">,</span><span class="n">n</span><span class="p">),(</span><span class="n">m</span><span class="p">,</span><span class="n">m</span><span class="p">)),</span> <span class="s1">&#39;constant&#39;</span><span class="p">)</span>
+            <span class="n">Jp</span><span class="o">=</span><span class="p">[]</span>
+            <span class="n">Jm</span><span class="o">=</span><span class="p">[]</span>
+            <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+                <span class="n">Jp</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="n">A0</span><span class="p">[</span><span class="n">n</span><span class="o">+</span><span class="n">p</span><span class="p">:</span><span class="mi">2</span><span class="o">*</span><span class="n">n</span><span class="o">+</span><span class="n">p</span><span class="p">,</span><span class="n">m</span><span class="o">+</span><span class="n">q</span><span class="p">:</span><span class="mi">2</span><span class="o">*</span><span class="n">m</span><span class="o">+</span><span class="n">q</span><span class="p">]</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span> <span class="k">for</span> <span class="n">q</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">m</span><span class="p">)])</span>
+                <span class="n">Jm</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="n">A0</span><span class="p">[</span><span class="n">n</span><span class="o">-</span><span class="n">p</span><span class="p">:</span><span class="mi">2</span><span class="o">*</span><span class="n">n</span><span class="o">-</span><span class="n">p</span><span class="p">,</span><span class="n">m</span><span class="o">-</span><span class="n">q</span><span class="p">:</span><span class="mi">2</span><span class="o">*</span><span class="n">m</span><span class="o">-</span><span class="n">q</span><span class="p">]</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span> <span class="k">for</span> <span class="n">q</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">m</span><span class="p">)])</span>
+            <span class="n">J</span><span class="o">=</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">Jp</span><span class="p">)</span><span class="o">+</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">Jm</span><span class="p">))</span>
+            
+            <span class="c1">#do the hard bit of the itteration (inverting the jacobian matrik)</span>
+            <span class="n">change</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">J</span><span class="p">),</span><span class="n">f</span><span class="p">)</span>
+            
+            <span class="c1"># sub itterations to reduce the change if the result is a larger residual</span>
+            <span class="n">resid</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="s1">&#39;inf&#39;</span><span class="p">)</span>
+            <span class="k">while</span> <span class="n">resid</span><span class="o">&gt;=</span><span class="n">resid_old</span><span class="p">:</span>
+                <span class="c1">#candidate new alpha</span>
+                <span class="n">alpha_new</span><span class="o">=</span><span class="p">(</span><span class="n">alpha</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">-</span>
+                           <span class="n">relaxation_factor</span><span class="o">*</span><span class="n">change</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">n</span><span class="p">,</span><span class="n">m</span><span class="p">))</span>
+                <span class="c1">#make f array to find residuals</span>
+                <span class="n">f_new</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+                    <span class="k">for</span> <span class="n">q</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">m</span><span class="p">):</span>
+                        <span class="n">f_new</span><span class="p">[</span><span class="n">p</span><span class="p">,</span><span class="n">q</span><span class="p">]</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">alpha_new</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">n</span><span class="o">-</span><span class="n">p</span><span class="p">,</span><span class="mi">0</span><span class="p">:</span><span class="n">m</span><span class="o">-</span><span class="n">q</span><span class="p">]</span><span class="o">*</span><span class="n">alpha_new</span><span class="p">[</span><span class="n">p</span><span class="p">:</span><span class="n">n</span><span class="p">,</span><span class="n">q</span><span class="p">:</span><span class="n">m</span><span class="p">])</span>
+                <span class="n">f_new</span><span class="o">=</span><span class="p">(</span><span class="n">f_new</span><span class="o">-</span><span class="n">ACFarray</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+                <span class="n">resid</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">f_new</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
+                <span class="n">relaxation_factor</span><span class="o">/=</span><span class="mi">2</span>
+            
+            <span class="c1"># fix residual to ensure printed correctly</span>
+            <span class="n">relaxation_factor</span><span class="o">*=</span><span class="mi">2</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{it_num}</span><span class="se">\t</span><span class="si">{resid}</span><span class="se">\t</span><span class="si">{relaxation_factor}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="o">**</span><span class="nb">locals</span><span class="p">()))</span>
+            
+            <span class="c1">#prepair for next itteration</span>
+            <span class="n">relaxation_factor</span><span class="o">=</span><span class="nb">min</span><span class="p">(</span><span class="n">relaxation_factor</span><span class="o">*</span><span class="mi">4</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">alpha</span><span class="o">=</span><span class="n">alpha_new</span>
+            <span class="n">f</span><span class="o">=</span><span class="n">f_new</span>
+            <span class="n">resid_old</span><span class="o">=</span><span class="n">resid</span>
+            <span class="n">it_num</span><span class="o">+=</span><span class="mi">1</span>
+        
+        <span class="c1">#print resuilts</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_filter_coeficents</span><span class="o">=</span><span class="n">alpha</span>
+        
+        <span class="k">if</span> <span class="n">resid</span><span class="o">&lt;</span><span class="n">accuracy</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Itteration stopped, sufficent accuracy reached&#39;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">relaxation_factor</span><span class="o">&lt;</span><span class="n">min_relax</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Itteration stoped, local minima found, residual is&#39;</span>
+                  <span class="s1">&#39; </span><span class="si">{resid}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="o">**</span><span class="nb">locals</span><span class="p">()))</span>
+        <span class="k">elif</span> <span class="n">it_num</span><span class="o">==</span><span class="n">max_it</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Itteration stopped, no convergence after </span><span class="si">{it_num}</span><span class="s1"> &#39;</span>
+                  <span class="s1">&#39;itterations, residual is </span><span class="si">{resid}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="o">**</span><span class="nb">locals</span><span class="p">()))</span> </div>
+    
+<div class="viewcode-block" id="RandomSurface.set_moments"><a class="viewcode-back" href="../../../surface.html#slippy.surface.RandomSurface.set_moments">[docs]</a>    <span class="k">def</span> <span class="nf">set_moments</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">skew</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">kurtosis</span><span class="o">=</span><span class="mi">3</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Sets the skew and kurtosis of the output surface</span>
+<span class="sd">        </span>
+<span class="sd">        If a filter coeficents matrix is present, this method changes the dist</span>
+<span class="sd">        property of this instance to a distribution that produces a series of </span>
+<span class="sd">        johnson or normally distributed random numbers that will have the </span>
+<span class="sd">        set skew and kurtosis when convolved with the filter coeficents matrix.</span>
+<span class="sd">        </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        </span>
+<span class="sd">        skew, kurtosis : float</span>
+<span class="sd">            The desired moments of the surface profile</span>
+<span class="sd">            </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        None</span>
+<span class="sd">            Sets the dist parameter of the instance</span>
+<span class="sd">            </span>
+<span class="sd">        See Also</span>
+<span class="sd">        --------</span>
+<span class="sd">        RandomSurface.linear_transform</span>
+<span class="sd">        </span>
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        </span>
+<span class="sd">        The skew of the input sequence :math:&#39;Sk_\eta&#39; can be related to the </span>
+<span class="sd">        skew of the final surface :math:&#39;Sk_z&#39; by the following:</span>
+<span class="sd">        </span>
+<span class="sd">        ..math:</span>
+<span class="sd">            Sk_z=Sk_\eta \frac{\sum_{i=0}^{q} \alpha_{i}^{3}}{(\sum_{i=0}^{q}\alpha_i^2)^\frac{3}{2}}\\</span>
+<span class="sd">        </span>
+<span class="sd">        The kurtosis of the input sequence can be related to the final surface </span>
+<span class="sd">        by [1]_:</span>
+<span class="sd">        </span>
+<span class="sd">        ..math:</span>
+<span class="sd">            K_z= \frac{K_\eta \sum_{i=0}^q \alpha_i^2 + 6 \sum_{i=0}^{q-1}\sum_{j=i+1}^q \alpha_i^2 \alpha_j^2}{(\sum_{i=0}^q \alpha_i^2)^2}\\</span>
+<span class="sd">        </span>
+<span class="sd">        References</span>
+<span class="sd">        ----------</span>
+<span class="sd">        </span>
+<span class="sd">        ..[1] Liao, D., Shao, W., Tang, J., &amp; Li, J. </span>
+<span class="sd">        An improved rough surface modeling method based on linear </span>
+<span class="sd">        transformation technique. Tribology International, 119(August 2017), </span>
+<span class="sd">        786–794. &#39;&lt;https://doi.org/10.1016/j.triboint.2017.12.008&gt;&#39;_</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_filter_coeficents&#39;</span><span class="p">):</span>
+            <span class="n">msg</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;filter coeficents matrix not found, this must be found by&quot;</span>
+                 <span class="s2">&quot; the linear_transforms or FIR_filter methods before this &quot;</span>
+                 <span class="s2">&quot;method can be used&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+        
+        <span class="n">alpha</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_filter_coeficents</span>
+        
+        <span class="n">alpha</span><span class="o">=</span><span class="n">alpha</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+        <span class="n">alpha2</span><span class="o">=</span><span class="n">alpha</span><span class="o">**</span><span class="mi">2</span>     <span class="c1"># alpha squared</span>
+        <span class="n">sal2</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">alpha2</span><span class="p">)</span> <span class="c1"># sum alpha squared</span>
+        
+        <span class="n">seq_skew</span><span class="o">=</span><span class="n">skew</span><span class="o">*</span><span class="n">sal2</span><span class="o">**</span><span class="p">(</span><span class="mi">3</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">alpha2</span><span class="o">*</span><span class="n">alpha</span><span class="p">)</span>
+        
+        <span class="c1">#The quadratic alpha term needs some speical treatment</span>
+        <span class="c1">#pad with 0s</span>
+        <span class="n">alphapad2</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span><span class="n">alpha2</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">alpha2</span><span class="p">)],</span> <span class="s1">&#39;constant&#39;</span><span class="p">)</span>
+        
+        <span class="n">ai</span><span class="o">=</span><span class="n">repmat</span><span class="p">(</span><span class="n">alpha2</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="nb">len</span><span class="p">(</span><span class="n">alpha2</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>
+        
+        <span class="n">idX</span><span class="p">,</span><span class="n">idY</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">alpha2</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">alpha2</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+        <span class="n">index</span><span class="o">=</span><span class="n">idX</span><span class="o">+</span><span class="n">idY</span><span class="o">+</span><span class="mi">1</span> <span class="c1"># diagonally increaing matrix</span>
+        <span class="n">aj</span><span class="o">=</span><span class="n">alphapad2</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
+        
+        <span class="n">quad_term</span><span class="o">=</span><span class="nb">sum</span><span class="p">(</span><span class="n">ai</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">*</span><span class="n">aj</span><span class="o">.</span><span class="n">flatten</span><span class="p">())</span>
+        
+        <span class="n">seq_kurt</span><span class="o">=</span><span class="p">(</span><span class="n">kurtosis</span><span class="o">*</span><span class="n">sal2</span><span class="o">**</span><span class="mi">2</span><span class="o">-</span><span class="mi">6</span><span class="o">*</span><span class="n">quad_term</span><span class="p">)</span><span class="o">/</span><span class="n">sal2</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">dist</span><span class="o">=</span><span class="n">_fit_johnson_by_moments</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="n">seq_skew</span><span class="p">,</span><span class="n">seq_kurt</span><span class="p">,</span><span class="kc">True</span><span class="p">)</span></div>
+        
+    <span class="k">def</span> <span class="nf">set_quantiles</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">quantiles</span><span class="p">):</span>
+        <span class="c1">#todo document</span>
+        <span class="n">dist</span><span class="o">=</span><span class="n">_fit_johnson_by_quantiles</span><span class="p">(</span><span class="n">quantiles</span><span class="p">)</span>
+    
+        <span class="n">moments</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">dist</span><span class="o">.</span><span class="n">stats</span><span class="p">(</span><span class="s1">&#39;sk&#39;</span><span class="p">))</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_moments</span><span class="p">(</span><span class="n">moments</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="n">moments</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        
+        <span class="k">return</span>
+        
+    <span class="k">def</span> <span class="nf">CGD_itt</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">previous_itteration</span><span class="p">):</span>
+        <span class="k">pass</span>
+    
+<div class="viewcode-block" id="RandomSurface.FIR_filter"><a class="viewcode-back" href="../../../surface.html#slippy.surface.RandomSurface.FIR_filter">[docs]</a>    <span class="k">def</span> <span class="nf">FIR_filter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">global_size_output</span><span class="p">,</span> <span class="n">target_acf</span><span class="p">,</span> <span class="o">*</span><span class="n">ACFargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Create a 2D FIR filter to produce a surface with the given ACF</span>
+<span class="sd">            </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        </span>
+<span class="sd">        global_size_output : a 2 element list or integer</span>
+<span class="sd">            The dimentions of the surface to be generated in the same units </span>
+<span class="sd">            as the grid_spacing property is set in. </span>
+<span class="sd">        </span>
+<span class="sd">        target_acf : a SlipPY.ACF object</span>
+<span class="sd">            The target ACF of the final surface. If the input is not an ACF </span>
+<span class="sd">            object this method will attempt to make one by passing this and any</span>
+<span class="sd">            other arguments to the ACF constructor</span>
+<span class="sd">        </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        </span>
+<span class="sd">        Nothing, the resulting FIR filter is set as a property in the parent </span>
+<span class="sd">        object</span>
+<span class="sd">        </span>
+<span class="sd">        See Also</span>
+<span class="sd">        --------</span>
+<span class="sd">        </span>
+<span class="sd">        SlipPY.ACF</span>
+<span class="sd">        RandomSurface.linear_transform</span>
+<span class="sd">        RandomSurface.descretise</span>
+<span class="sd">        </span>
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        </span>
+<span class="sd">        1 For this function to work the grid_grid_spacing ofthe final surface </span>
+<span class="sd">            must be set.</span>
+<span class="sd">        2 After runing this method surface realisations can be generated by the </span>
+<span class="sd">            descretise method</span>
+<span class="sd">        3 Uses the method defined here:</span>
+<span class="sd">            Hu, Y. Z., &amp; Tonder, K. (1992). Simulation of 3-D random rough </span>
+<span class="sd">            surface by 2-D digital filter and Fourier analysis. </span>
+<span class="sd">            International Journal of Machine Tools and …, 32(1–2), 83–90. </span>
+<span class="sd">            https://doi.org/10.1016/0890-6955(92)90064-N</span>
+<span class="sd">            </span>
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        </span>
+<span class="sd">        #TODO</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">surface_type</span><span class="o">=</span><span class="s1">&#39;IIR filter&#39;</span>
+        
+        <span class="c1">#initialise sizes</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_grid_spacing</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Grid grid_spacing is not set assuming grid&quot;</span>
+                          <span class="s2">&quot; grid_spacing is 1&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">set_grid_spacing</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">type</span><span class="p">(</span><span class="n">global_size_output</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">list</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">set_global_size</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="p">[</span><span class="n">global_size_output</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">set_global_size</span><span class="p">(</span><span class="n">global_size_output</span><span class="p">)</span>
+        
+        <span class="n">nPts</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_pts_each_direction</span>
+        
+        <span class="c1">#genreate ACF object if input is not ACF object</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">target_acf</span><span class="p">)</span> <span class="ow">is</span> <span class="n">ACF</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">target_acf</span><span class="o">=</span><span class="n">target_acf</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">target_acf</span><span class="o">=</span><span class="n">ACF</span><span class="p">(</span><span class="n">target_acf</span><span class="p">,</span> <span class="o">*</span><span class="n">ACFargs</span><span class="p">)</span>
+            
+        <span class="c1">#Generate array of ACF</span>
+        <span class="n">l</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_grid_spacing</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">nPts</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">k</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_grid_spacing</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">nPts</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="p">[</span><span class="n">K</span><span class="p">,</span><span class="n">L</span><span class="p">]</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">k</span><span class="p">,</span><span class="n">l</span><span class="p">)</span>
+        <span class="n">ACFarray</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">target_acf</span><span class="p">(</span><span class="n">K</span><span class="p">,</span><span class="n">L</span><span class="p">)</span>
+        
+        <span class="c1">#Find FIR filter coeficents</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_filter_coeficents</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fft2</span><span class="p">(</span><span class="n">ACFarray</span><span class="p">))</span></div>
+    
+<div class="viewcode-block" id="RandomSurface.descretise"><a class="viewcode-back" href="../../../surface.html#slippy.surface.RandomSurface.descretise">[docs]</a>    <span class="k">def</span> <span class="nf">descretise</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output_size</span><span class="o">=</span><span class="p">[</span><span class="mi">512</span><span class="p">,</span><span class="mi">512</span><span class="p">],</span> <span class="n">periodic</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> 
+                   <span class="n">create_new</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Create a random surface realisation based on preset paramters</span>
+<span class="sd">        </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        </span>
+<span class="sd">        output_size : 2 elemeent list of ints, defaults to [512, 512] </span>
+<span class="sd">            The size of the output in points, the grid_spacing of these points </span>
+<span class="sd">            is set when the filter coefficents matrix is genreated, see </span>
+<span class="sd">            linear_transform for more information</span>
+<span class="sd">        periodic : boolean, optional defaults to false</span>
+<span class="sd">            If true the resulting surface will be periodic in geometry, for </span>
+<span class="sd">            this to work the filter coefficents matrix must have odd order in </span>
+<span class="sd">            both directions </span>
+<span class="sd">        create_new : boolean, optional defaults to False</span>
+<span class="sd">            If set to true the method will return a new surface object with the</span>
+<span class="sd">            generated profile and the correct sizes/ grid_spacing otherwise the </span>
+<span class="sd">            parent surface will given the generated profile</span>
+<span class="sd">        </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        </span>
+<span class="sd">        A new surface object if the create_new parameter is set to true else </span>
+<span class="sd">        nothing, but sets profile property of surface</span>
+<span class="sd">        </span>
+<span class="sd">        See Also</span>
+<span class="sd">        --------</span>
+<span class="sd">        </span>
+<span class="sd">        RandomSurface.linear_transform</span>
+<span class="sd">        RandomSurface.johnson_translator</span>
+<span class="sd">        </span>
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        </span>
+<span class="sd">        Uses the method outlined in the below with fft based convoluiton:</span>
+<span class="sd">         Liao, D., Shao, W., Tang, J., &amp; Li, J. (2018). An improved rough </span>
+<span class="sd">         surface modeling method based on linear transformation technique. </span>
+<span class="sd">         Tribology International, 119(August 2017), 786–794. </span>
+<span class="sd">         https://doi.org/10.1016/j.triboint.2017.12.008</span>
+<span class="sd">        </span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_descretise_checks</span><span class="p">()</span>
+        
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_filter_coeficents&#39;</span><span class="p">):</span>
+            <span class="n">msg</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;Filter coeficents matrix must be made before surface &quot;</span>
+                 <span class="s2">&quot;can be descretised&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+        <span class="p">(</span><span class="n">n</span><span class="p">,</span><span class="n">m</span><span class="p">)</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_filter_coeficents</span><span class="o">.</span><span class="n">shape</span>
+        <span class="n">N</span><span class="p">,</span><span class="n">M</span><span class="o">=</span><span class="n">output_size</span>
+        <span class="k">if</span> <span class="n">periodic</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">n</span><span class="o">%</span><span class="mi">2</span><span class="o">==</span><span class="mi">0</span> <span class="ow">or</span> <span class="n">m</span><span class="o">%</span><span class="mi">2</span><span class="o">==</span><span class="mi">0</span><span class="p">:</span>
+                <span class="n">msg</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;For a periodic surface the filter coeficents matrix must&#39;</span>
+                     <span class="s1">&#39;have an odd number of elements in every dimention, &#39;</span>
+                     <span class="s1">&#39;output profile will not be the expected size&#39;</span><span class="p">)</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+            <span class="n">pad_rows</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">n</span><span class="o">/</span><span class="mi">2</span><span class="p">))</span>
+            <span class="n">pad_cols</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">m</span><span class="o">/</span><span class="mi">2</span><span class="p">))</span>
+            <span class="n">eta</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dist</span><span class="o">.</span><span class="n">rvs</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">[</span><span class="n">N</span><span class="p">,</span> <span class="n">M</span><span class="p">]),((</span><span class="n">pad_rows</span><span class="p">,</span><span class="n">pad_rows</span><span class="p">),</span>
+                                     <span class="p">(</span><span class="n">pad_cols</span><span class="p">,</span><span class="n">pad_cols</span><span class="p">)),</span><span class="s1">&#39;wrap&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span> 
+            <span class="n">eta</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dist</span><span class="o">.</span><span class="n">rvs</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">[</span><span class="n">N</span><span class="o">+</span><span class="n">n</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">M</span><span class="o">+</span><span class="n">m</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        
+        <span class="n">profile</span><span class="o">=</span><span class="n">fftconvolve</span><span class="p">(</span><span class="n">eta</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_filter_coeficents</span><span class="p">,</span> <span class="s1">&#39;valid&#39;</span><span class="p">)</span>
+        
+        <span class="k">if</span> <span class="n">create_new</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Surface</span><span class="p">(</span><span class="n">grid_spacing</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">grid_spacing</span><span class="p">,</span> 
+                           <span class="n">dimentions</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dimentions</span><span class="p">,</span> 
+                           <span class="n">is_descrete</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> 
+                           <span class="n">profile</span><span class="o">=</span><span class="n">profile</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">profile</span><span class="o">=</span><span class="n">profile</span>
+        <span class="k">return</span></div></div>
+    
+<div class="viewcode-block" id="surface_like"><a class="viewcode-back" href="../../../surface.html#slippy.surface.surface_like">[docs]</a><span class="k">def</span> <span class="nf">surface_like</span><span class="p">(</span><span class="n">target_surface</span><span class="p">,</span> <span class="n">global_size</span><span class="o">=</span><span class="s1">&#39;original&#39;</span><span class="p">,</span> <span class="n">grid_spacing</span><span class="o">=</span><span class="s1">&#39;original&#39;</span><span class="p">,</span>
+                 <span class="n">filter_size</span><span class="o">=</span><span class="p">[</span><span class="mi">35</span><span class="p">,</span><span class="mi">35</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Generates a surface similar to the input surface</span>
+<span class="sd">    </span>
+<span class="sd">    Generates a surface with the same ACF, skew and kurtosis as the input</span>
+<span class="sd">    surface assuming the surface is normally distributed</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    </span>
+<span class="sd">    target_surface : Surface</span>
+<span class="sd">        A surface object to be &#39;copied&#39;</span>
+<span class="sd">        </span>
+<span class="sd">    global_size : {&#39;origninal&#39; or 2 element list of ints}</span>
+<span class="sd">        The size in each direction of the output surface, </span>
+<span class="sd">        if &#39;original&#39; the dimentions of the input surface are used</span>
+<span class="sd">        </span>
+<span class="sd">    grid_spacing : {&#39;original&#39; or float}</span>
+<span class="sd">        The spacing between grid points, if &#39;original&#39; the grid spacing of the </span>
+<span class="sd">        input surface is used, if this property is not set for the input</span>
+<span class="sd">        surface it is assumed that both are 1 and warns</span>
+<span class="sd">        </span>
+<span class="sd">    filter_size : 2 element list of ints</span>
+<span class="sd">        The size of the filter to be used defaults to [35, 35]</span>
+<span class="sd">        </span>
+<span class="sd">    </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    surf_out : Surface</span>
+<span class="sd">        A surface object with the same properties as the original surface</span>
+<span class="sd">        of the scale and size requested with keyword arguments</span>
+<span class="sd">        </span>
+<span class="sd">    Raises</span>
+<span class="sd">    -----</span>
+<span class="sd">    </span>
+<span class="sd">    </span>
+<span class="sd">    Warns</span>
+<span class="sd">    -----</span>
+<span class="sd">    If the grid spacing property is not set on the input surface and &#39;original&#39;</span>
+<span class="sd">    is given as the grid spacing arg will assume both are 1 and produce a </span>
+<span class="sd">    warning</span>
+<span class="sd">    </span>
+<span class="sd">    Other Parameters</span>
+<span class="sd">    ----------------</span>
+<span class="sd">    key word arguments</span>
+<span class="sd">    </span>
+<span class="sd">    periodic : bool default False</span>
+<span class="sd">        If true the returned surface will have a periodic profile</span>
+<span class="sd">        </span>
+<span class="sd">    filter_kwargs : dict</span>
+<span class="sd">        Keyword arguments that are passed to RandomSurface.linear_transforms </span>
+<span class="sd">        see that for more infromation</span>
+<span class="sd">        </span>
+<span class="sd">    dist_type: {&#39;johnson&#39;, &#39;kernel&#39;}</span>
+<span class="sd">        Defaults to johnson, the distribution that will be used to draw random</span>
+<span class="sd">        samples for the pre-filter sequence, if johnson a johnson distribution</span>
+<span class="sd">        will be fitted to the input surface quartiles, if kernel a kernel </span>
+<span class="sd">        distribution will be made from the input histogram, this is </span>
+<span class="sd">        experimental</span>
+<span class="sd">        </span>
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    RandomSurface.linear_transforms</span>
+<span class="sd">    RandomSurface</span>
+<span class="sd">    Surface</span>
+<span class="sd">    </span>
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    </span>
+<span class="sd">    If multiple realisations are needed of the same &#39;copied&#39; surface it will</span>
+<span class="sd">    be much faster to call the descretise function of the returned surface. </span>
+<span class="sd">    multiple surfaces of the same grid spacing but different grid sizes can be </span>
+<span class="sd">    generated this way.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="s1">&#39;filter_method&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+        <span class="n">filter_method</span><span class="o">=</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;filter_method&#39;</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">filter_method</span><span class="o">=</span><span class="s1">&#39;newtonian&#39;</span>
+    
+    <span class="k">if</span> <span class="s1">&#39;filter_kwargs&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+        <span class="n">filter_kwargs</span><span class="o">=</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;filter_kwargs&#39;</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">filter_kwargs</span><span class="o">=</span><span class="p">{}</span>
+    
+    <span class="k">if</span> <span class="s1">&#39;periodic&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+        <span class="n">periodic</span><span class="o">=</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;periodic&#39;</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">periodic</span><span class="o">=</span><span class="kc">False</span>
+    
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">target_surface</span><span class="p">,</span> <span class="s1">&#39;_grid_spacing&#39;</span><span class="p">):</span>
+        <span class="n">msg</span><span class="o">=</span><span class="s2">&quot;input must be of surface type&quot;</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="n">grid_spacing</span> <span class="ow">is</span> <span class="s1">&#39;original&#39;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">target_surface</span><span class="o">.</span><span class="n">_grid_spacing</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Grid spacing of the original surface is not set &quot;</span>
+                          <span class="s2">&quot;assuming it is 1&quot;</span><span class="p">)</span>
+            <span class="n">target_surface</span><span class="o">.</span><span class="n">set_grid_spacing</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">grid_spacing</span><span class="o">=</span><span class="mi">1</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">grid_spacing</span><span class="o">=</span><span class="n">target_surface</span><span class="o">.</span><span class="n">_grid_spacing</span>
+    
+    <span class="k">if</span> <span class="n">global_size</span> <span class="ow">is</span> <span class="s1">&#39;original&#39;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">target_surface</span><span class="o">.</span><span class="n">_global_size</span><span class="p">:</span>
+            <span class="n">global_size</span><span class="o">=</span><span class="n">target_surface</span><span class="o">.</span><span class="n">_global_size</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">global_size</span><span class="o">=</span><span class="p">[</span><span class="n">grid_spacing</span><span class="o">*</span><span class="n">dim</span> <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> 
+                         <span class="n">target_surface</span><span class="o">.</span><span class="n">profile</span><span class="o">.</span><span class="n">shape</span><span class="p">]</span>
+    
+    <span class="n">target_surface</span><span class="o">.</span><span class="n">subtract_polynomial</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">target_surface</span><span class="o">.</span><span class="n">acf</span><span class="p">:</span>
+        <span class="n">target_surface</span><span class="o">.</span><span class="n">get_acf</span><span class="p">()</span>
+        
+    
+    <span class="n">surf_out</span><span class="o">=</span><span class="n">RandomSurface</span><span class="p">(</span><span class="n">global_size</span><span class="o">=</span><span class="n">global_size</span><span class="p">,</span> <span class="n">grid_spacing</span><span class="o">=</span><span class="n">grid_spacing</span><span class="p">)</span>
+    
+    <span class="n">surf_out</span><span class="o">.</span><span class="n">linear_transform</span><span class="p">(</span><span class="n">target_surface</span><span class="o">.</span><span class="n">acf</span><span class="p">,</span> <span class="n">filter_size</span><span class="p">,</span> <span class="n">filter_method</span><span class="p">,</span> 
+                              <span class="o">**</span><span class="n">filter_kwargs</span><span class="p">)</span>
+    
+    <span class="n">quantiles</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="n">target_surface</span><span class="o">.</span><span class="n">profile</span><span class="p">,</span> 
+                          <span class="p">[</span><span class="mf">0.066807</span><span class="p">,</span><span class="mf">0.30854</span><span class="p">,</span><span class="mf">0.69146</span><span class="p">,</span><span class="mf">0.93319</span><span class="p">])</span>
+    
+    <span class="n">surf_out</span><span class="o">.</span><span class="n">set_quantiles</span><span class="p">(</span><span class="n">quantiles</span><span class="p">)</span>
+    
+    <span class="n">pts_each_dir</span><span class="o">=</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">sz</span><span class="o">/</span><span class="n">grid_spacing</span><span class="p">)</span> <span class="k">for</span> <span class="n">sz</span> <span class="ow">in</span> <span class="n">global_size</span><span class="p">]</span>
+    
+    <span class="n">surf_out</span><span class="o">.</span><span class="n">descretise</span><span class="p">(</span><span class="n">pts_each_dir</span><span class="p">,</span> <span class="n">periodic</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">surf_out</span></div>
+    
+    
+    
+    
+    
+
+
+
+
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">slippy 1.1.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2019, Mike Watson.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.8.2.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,2 @@
+.. automodule:: slippy.surface
+   :members:

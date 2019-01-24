@@ -1,45 +1,63 @@
 """
-=======================================
-Surface generation and manipulation
-=======================================
-Surface
-===========
-    Base class containing methods for manipulation, plotting, analysis and 
-    reading from file, all other 'Surface' classes inherit this class
-    
-Geometric
-=========
-    Classes for creating descrete surfaces with simply defined shapes:
-        FlatSurface           -- Flat or sloping surface.
-        RoundSurface          -- Spherical surface, different raidii allowed in
-                                 each direction
-        PyramidSurface        -- Similar to spherical surface diferent sizes
-                                 allowed in each direction
-Random
-=========
-    Classes for generating random surfaces based on filtering of random signals
-        NoiseBasedSurface     -- Generate and filter a noisy surface, several 
-                                 methods for this and the make_like method that
-                                 Makes a surface 'like' the input surface
+===========================================================
+Surface generation and manipulation (slippy.surface)
+===========================================================
+.. currentmodule:: slippy.surface
 
-FFTBased
+This module contains functions and classes for reading surfaces from file, 
+manipulating, generating and analysing surfaces.
+
+The Surface class
+=================
+
+Each of the generation classes are subclasses of the main surface class this
+class contains all the functionallity for analysing and displaying surfaces.
+
+This class can be used with experimentally measured surfaces and contains 
+functionallity for reading common file types including .csv, .txt and .al3d
+
+.. autosummary::
+   :toctree: generated/
+   
+   Surface
+
+
+Generation classes
+==================
+
+Several generation calsses exist to help generate a wide variety of analytical 
+or random surfaces.
+
+.. autosummary::
+   :toctree: generated/
+   
+   FlatSurface         -- Flat or sloping surface.
+   RoundSurface        -- Round surfaces
+   PyramidSurface      -- Square based pyramid surfaces
+   RandomSurface       -- Surfaces based on transformations of random sequences
+   DiscFreqSurface     -- Surfaces containing only specific frequency componenets
+   ProbFreqSurface     -- Surfaces containing stocastic frequency components
+   HurstFractalSurface -- A Hurst Fractal Surface
+
+Functions
 =========
-    Classes for generating pseudo-random periodic surfaces based on describing 
-    the FFT either deterministically or probabilisticly
-        DiscFreqSurface       -- Generate a surface conating only specific 
-                                 frequency componenets
-        ProbFreqSurface       -- Generate a surface containing normally
-                                 distributed amptitudes with a
-                                 specified function for the varience of the 
-                                 distribution based on the frequency
-        DtmnFreqSurface       -- Generate a surface containing frequency
-                                 components with amptitude specifed by a 
-                                 function of the frequency
+
+.. autosummary::
+   :toctree: generated/
+
+   surface_like        -- Generate a random surface which is similar to the supplied surface
+   alicona_read        -- Read alicona data files
 """
+
+
 import numpy as np
 import warnings
 
+from .ACF import ACF
 from .Surface import *
 from .Geometric import *
 from .Random import *
 from .FFTBased import *
+from .alicona import *
+
+__all__ = [s for s in dir() if not s.startswith("_")]

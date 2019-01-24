@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import warnings
 from math import ceil
@@ -5,138 +6,474 @@ import scipy.signal
 
 __all__=['Surface']
 
-class Surface():
-    """ the basic surface class contains methods for setting properties, 
+class Surface(object):
+    """ Object for reading, manipulating and plotting surfaces
+    
+    The basic surface class contains methods for setting properties, 
     examining measures of roughness and descriptions of surfaces, plotting,
     fixing and editing surfaces.
     
-    Adding surfaces together produces a surface with the same properties as the
-    original surfaces with a profile that is the sum of the original profiles.
+    Parameters
+    ----------
     
-    Multiplying 1D surfaces produces a 2D surface with a profile of the 
-    summation of surface 1 stretched in the x direction and surface 2 
-    stretched in the y direction.
+    file_name : str optional (None)
+        The file name including the extention of file, for vaild types see 
+        notes
+    delim : str optional (',')
+        The delimitor used in the file, only needed for csv or txt files
+    profile : array-like optional (np.array([]))
+        A surface profile 
+    global_size : 2 element list optional (None)
+        The size of the surface in each dimention
+    grid_spacing : float optional (None)
+        The distance between nodes on the grid, 
+    dimentions : int optional (2)
+        The number of diimentions of the surface
+    
+    Attributes
+    ----------
+    acf, psd, fft : array or None
+        The acf, psd and fft of the surface set by the get_acf get_psd and
+        get_fft methods
+    
+    profile : array
+        The height infromation of the surface
+    
+    surface_type : str
+        A description of the surface type
+    
+    Methods
+    -------
+    
+    set_global_size
+    set_grid_spacing
+    get_fft
+    get_acf
+    get_psd
+    
+    
+    See Also
+    --------
+    
+    
+    Notes
+    -----
+    
+    
+    Examples
+    --------
+    
+    
+    
     
     #TODO:
+        priority
+        get_quantiles(n) # n is the number of quantiles needed... might not be necessary or might want to change how hist (in show) works to work with it
+        rotate 
+        
         Then start checking stuff
-        def open(work with save)
         make init work with these options 
         Add desciption and example of each method 
-        check plotting
         check summit finding
-        def save (save whole surface with all info)
-        def export #gmsh?
+        
+        def mesh
+        
         
         Make this pretty ^
     """
     # The surface class for descrete surfaces (typically experiemntal)
-    is_descrete=True
-    acf=False
-    aacf=False
-    psd=False
-    fft=False
-    hist=False
+    is_descrete=False
+    acf=None
+    aacf=None
+    psd=None
+    fft=None
+    hist=None
     profile=np.array([])
-    pts_each_direction=[]
-    sa=False
+    sa=None
     surface_type="Generic"
     dimentions=2
-    grid_size=1
+    _grid_spacing=None
+    _pts_each_direction=[]
+    _global_size=[]
+    _inter_func=None
+    _allowed_keys=[]
     
-    def __init__(self,*args,**kwargs):
+    def __init__(self,**kwargs):
         # initialisation surface
-        self.init_checks(kwargs)
+        kwargs=self._init_checks(kwargs)
         # check for file
         if 'file_name' in kwargs:
-            ext=kwargs['file_name'][-3:]
+            ext=os.path.splitext(kwargs['file_name'])
             file_name=kwargs.pop('file_name')
             if ext=='pkl':
                 self.load_from_file(file_name)
             else:
-                try:
-                    file_type=kwargs.pop('file_type')
-                    self.read_from_file(file_name, file_type, **kwargs)
-                except KeyError:
-                    msg=("file_type keyword should be set to use read from file"
-                         " using extention as file type")
-                    warnings.warn(msg)
-                    self.read_from_file(file_name, ext, **kwargs)
+                kwargs=self.read_from_file(file_name, **kwargs)
         
+        # at this point everyone should have taken what they needed
+        if kwargs:
+            print(kwargs)
+            raise ValueError("Unrecognised keys in keywords")
         
-    def init_checks(self, kwargs=False):
+    def _init_checks(self, kwargs={}):
         # add anything you want to run for all surface types here
         if kwargs:
-            allowed_keys = ['global_size', 'grid_size', 'dimentions', 
-                            'is_descrete', 'profile', 'pts_each_direction']
+            allowed_keys=self._allowed_keys
             self.__dict__.update((k, v) for k, v in kwargs.items() if k in allowed_keys)
-        
-        
-    
-    
-    def descretise_checks(self):
-        if self.is_descrete:
-            msg='Surface is already discrete'
-            raise ValueError(msg)
-        try: 
-            spacing=self.grid_size
-        except AttributeError:
-            msg='A grid size must be provided before descretisation'
-            raise AttributeError(msg)
-        try:
-            pts_each_direction=[int(gs/spacing) for gs in 
-                                    self.global_size]
-            total_pts=1
-            for pts in pts_each_direction:
-                total_pts *= pts
-            self.total_pts=total_pts
-            self.pts_each_direction=pts_each_direction
-        except AttributeError:
-            msg='Global size must be set before descretisation'
-            raise AttributeError(msg)
-        if total_pts>10E7:
-            warnings.warn('surface contains over 10^7 points calculations will'
-                          ' be slow, consider splitting surface or analysis')
             
-    def get_fft(self, surf_in=False):
-        if type(surf_in) is bool:
+            for key in allowed_keys:
+                if key in kwargs:
+                    del kwargs[key]
+            
+            if 'profile' in kwargs:
+                self.profile=np.asarray(kwargs.pop['profile'])
+                self.is_descrete=True
+                p_set=True
+            else:
+                p_set=False
+            
+            if 'pts_each_direction' in kwargs:
+                if p_set or 'file_name' in kwargs:
+                    msg=('Cannot set the surface profile and the number of '
+                         'points independently')
+                    raise ValueError(msg)
+                self.pts_each_direction=kwargs.pop('pts_each_direction')
+                pts_set=True
+            else:
+                pts_set=False   
+            
+            if 'grid_spacing' in kwargs:
+                self.set_grid_spacing(kwargs.pop('grid_spacing'))
+                gs_set=True
+            else:
+                gs_set=False
+            
+            if 'global_size' in kwargs:
+                if pts_set and gs_set:
+                    msg=('Too many dimentions provided, unset one of :'
+                        'grid_size, pts_each_direction, or global_size')
+                    raise ValueError(msg)
+                if gs_set and p_set:
+                    msg=('Only grid_spacing or global size can be set with a '
+                        'specific profile, it is recomended to only set grid_'
+                        'spacing')
+                    raise ValueError(msg)
+                if p_set:
+                    msg=('global_size set with profile, only the first '
+                        'dimention of the surface will be used to calculate '
+                        'the grid spacing')
+                    warnings.warn(msg)
+                self.set_global_size(kwargs.pop('global_size'))
+            
+        return kwargs
+    
+    def set_global_size(self, global_size):
+        """ Changes the global size of the surface
+        
+        Sets the global size of the surface without reinterpolation, keeps all
+        other dimnetions up to date
+        
+        Parameters
+        ----------
+        global_size : 2 element list
+            The global size to be set in length units
+            
+        Returns
+        -------
+        
+        Nothing
+        
+        See Also
+        --------
+        resample - changes the grid spacing with reinterpolation
+        set_grid_spacing
+        
+        Notes
+        -----
+        
+        This method should be used over editing the properties directly
+        
+        Examples
+        --------
+        
+        """
+        self._global_size=global_size
+        
+        if global_size is None:
+            return
+        
+        if self.profile.size==0:
+            if self._grid_spacing:
+                self._pts_each_direction=[sz/self._grid_spacing for sz in 
+                                         global_size]
+            elif self._pts_each_direction:
+                gs1=global_size[0]/self._pts_each_direction[0]
+                gs2=global_size[1]/self._pts_each_direction[1]
+                if abs(gs1-gs2)/gs1>0.001:
+                    msg=('Incompatable global size and points in each '
+                         'direction would result in non square grid. '
+                         'grid spacing not set, points in each direction '
+                         'deleted')
+                    warnings.warn(msg)
+                    self._pts_each_direction=[]
+                else:
+                    self._grid_spacing=(global_size[0]/
+                                        self._pts_each_direction[0])
+        else:
+            gs1=global_size[0]/self.profile.shape[0]
+            gs2=global_size[1]/self.profile.shape[1]
+            if abs(gs1-gs2)/gs1>0.001:
+                shape=self.profile.shape
+                msg=('Incompatible global size and surface size, would result'
+                     ' in non square grid. global size was {global_size}, '
+                     'profile shape is {shape}'.format(**locals()))
+                raise ValueError(msg)    
+            else:
+                self._grid_spacing=global_size[0]/self.profile.shape[0]
+                self._pts_each_direction=self.profile.shape
+        
+        return
+        
+    
+    def set_grid_spacing(self, grid_spacing):
+        """ Change the grid spacing of the surface
+        
+        Changes the grid spacing attribute while keeping all other dimentions 
+        up to date. Does not re interpolate on a different size grid, 
+        stretches the surface to the new grid size keeping all points the same.
+        
+        Parameters
+        ----------
+        grid_spacing : float
+            The grid spacing to be set in length units
+        
+        Returns
+        -------
+        
+        Nothing
+        
+        See Also
+        --------
+        resample - changes the grid spacing with reinterpolation
+        set_global_size
+        
+        Notes
+        -----
+        
+        Use this to set dimentions of the surface rather than setting directly 
+        should keep all the other dimentions up to date.
+        
+        Examples
+        --------
+        
+        
+        """
+        self._grid_spacing=grid_spacing
+        
+        if grid_spacing is None:
+            return
+        
+        if self.profile.size==0:
+            if self._global_size:
+                self._pts_each_direction=[sz/grid_spacing for sz in 
+                                         self._global_size]
+            elif self._pts_each_direction:
+                self._global_size=[grid_spacing*pt for pt in 
+                                  self._pts_each_direction]
+        else:
+            self._global_size=[sp*grid_spacing for sp in self.profile.shape]
+            self._pts_each_direction=self.profile.shape
+        
+        return
+            
+    def get_fft(self, profile_in=None):
+        """ Find the fourier transform of the surface
+        
+        Findes the fft of the surface and stores it in your_instance.fft
+        
+        Parameters
+        ----------
+        surf_in : array-like optional (None)
+        
+        Returns
+        -------
+        transform : array
+            The fft of the instance's profile or the profile_in if one is 
+            supplied
+            
+        Examples
+        --------
+        >>># Set the fft property of the surface
+        >>>my_surface.get_fft()
+        
+        >>># Return the fft of a provided profile
+        >>>fft_of_profile_2=my_surface.get_fft(profile_2)
+        
+        See Also
+        --------
+        get_psd
+        get_acf
+        show
+        
+        Notes
+        -----
+        Uses numpy fft.fft or fft.fft2 depending on the shape of the profile
+        
+        """
+        if profile_in is None:
             profile=self.profile
         else:
-            profile=surf_in
+            profile=profile_in
         try:
-            if self.dimentions==1:
+            if len(profile.shape)==1:
                 transform=np.fft.fft(profile)
-                if type(surf_in) is bool: self.fft=transform
+                if type(profile_in) is bool: self.fft=transform
             else:
                 transform=np.fft.fft2(profile)
-                if type(surf_in) is bool: self.fft=transform
+                if type(profile_in) is bool: self.fft=transform
         except AttributeError:
             raise AttributeError('Surface must have a defined profile for fft'
                                  ' to be used')
-            
+        
         return transform
     
-    def get_acf(self, surf_in=False):
-        if type(surf_in) is bool and not surf_in:
-            profile=self.profile
+    def get_acf(self, profile_in=None):
+        """ Find the auto corelation function of the surface
+        
+        Findes the ACF of the surface and stores it in your_instance.acf
+        
+        Parameters
+        ----------
+        profile_in : array-like optional (None)
+        
+        Returns
+        -------
+        output : ACF object
+            An acf object with the acf data stored, the values can be extracted
+            by numpy.array(output)
+            
+        Examples
+        --------
+        
+        >>>my_surface.get_acf()
+        Sets the acf property of the surface with an ACF object
+        
+        >>>numpy.array(my_surface.acf)
+        Then gives the acf values
+        
+        >>>ACF_object_for_profile_2=my_surface.get_acf(profile_2)
+        Returns the ACF of a provided profile, equvalent to ACF(profile_2)
+        
+        See Also
+        --------
+        get_psd
+        get_fft
+        show
+        slippy.surface.ACF
+        
+        Notes
+        -----
+        ACF data is kept in ACF objects, these can then be interpolated or 
+        evaluated at specific points with a call:
+        >>>acf_data_grid=my_acf_object(new_x_pts,new_y_pts)
+        
+        """
+        
+        if profile_in is None:
+            ACF=__import__(__name__).surface.ACF
+            self.acf=ACF(self)
         else:
-            profile=np.asarray(surf_in)
-        x=profile.shape[0]
-        y=profile.shape[1]
-        output=(scipy.signal.correlate(profile,profile,'same')/(x*y))
-        if type(surf_in) is bool:
-            self.acf=output
-        return output
+            profile=np.asarray(profile_in)
+            x=profile.shape[0]
+            y=profile.shape[1]
+            output=(scipy.signal.correlate(profile,profile,'same')/(x*y))
+            return output
 
-    def get_psd(self):
+    def get_psd(self): 
+        """ Find the power spectral density of the surface
+        
+        Findes the fft of the surface and stores it in your_instance.fft
+        
+        Parameters
+        ----------
+        (None)
+        
+        Returns
+        -------
+        (None), sets the psd attribute of the instance
+            
+        Examples
+        --------
+        
+        >>my_surface.get_psd()
+        sets the psd attribute of my_surface
+        
+        
+        See Also
+        --------
+        get_fft
+        get_acf
+        show
+        
+        Notes
+        -----
+        Finds the psd by fouriertransforming the ACF, in doing so looks for the
+        instance's acf property. if this is not found the acf is calculated and 
+        set
+        
+        """
         # PSD is the fft of the ACF (https://en.wikipedia.org/wiki/Spectral_density#Power_spectral_density)
-        if type(self.acf) is bool:
+        if self.acf is None:
             self.get_acf()
-        self.psd=self.get_fft(self.acf)
+        self.psd=self.get_fft(np.asarray(self.acf))
     
-    def subtract_polynomial(self, order, surf_in):
+    def subtract_polynomial(self, order, profile_in=None): #Checked
+        """ Flattens the surface by fitting and subtracting a polynomial
+        
+        Fits a polynomail to the surface the subtracts it from the surface, to
+        remove slope or curve from imaging machines
+        
+        Parameters
+        ----------
+        
+        order : int
+            The order of the polynomial to be fitted
+        profile_in : array-like optional
+            if set the operation is perfomed on this profile rather than the 
+            profile of the instance, the profile of the instance is not updated
+            
+        Returns
+        -------
+        adjusted : array
+            The flattened profile
+            
+        Examples
+        --------
+        >>>my_surface.subtract_polynomail(2)
+        Subtract a quadratic polynomial from the profile of my_surface
+        the result is returned and the profile attribute is updated
+        
+        >>>flat_profile=my_surface.subtract_polynomial(2,my_surface.profile)
+        Subtract a quadratic polynomial from the profile of my_surface and
+        returns the result, the profile attribute is not updated
+        
+        >>>flat_profile_2=my_surface.subtract_polynomail(1, profile_2)
+        Subtract a plae of best fit from profile_2 are return the result, the
+        profile property of my_surface is not changed
+        
+        See Also
+        --------
+        birmingham
+        numpy.linalg.lstsq
+        
+        Notes
+        -----
+        In principal polynomials of any integer order are supported
+        
+        """
         import itertools
-        if not surf_in is bool:
-            profile=surf_in
+        if profile_in is not None:
+            profile=profile_in
         else:
             profile=self.profile
         x=range(profile.shape[0])
@@ -161,13 +498,36 @@ class Surface():
             poly+=a*X**i*Y**j
         poly=poly.reshape(profile.shape)
         adjusted=profile-poly
-        if surf_in is bool:
+        if profile_in is None:
             self.profile=adjusted
         return adjusted
 
     def birmingham(self, parameter_name, curved_surface=False, 
-                   periodic_surface=False, p=None, **kwargs): #TODO add examples
-        """
+                   periodic_surface=False, profile_in=None, **kwargs): 
+        """Find 3d surface roughness parameters
+        
+        Calculates and returns common surface roughness parameters also known 
+        as birmingham parameters
+        
+        Parameters
+        ----------
+        parameter_name : str or list of str
+            The name of the surface roughness parameter to be returned see note
+        curved_surface : bool optional (False)
+            True if the measurment surface was curved, see note
+        periodic_surface : bool optioal (False)
+            True if the surface is periodic
+        profile_in : array-like optional (None)
+            If a profile is supplied the parameters will be calculated on that 
+            profile, limited support
+        
+        Returns
+        -------
+        out : float or list of float
+            The requested parameters
+        
+        
+        
         from: Stout, K., Sullivan, P., Dong, W., Mainsah, E., Luo, N., Mathia, 
         T., & Zahouani, H. (1993). 
         The development of methods for the characterisation of roughness in 
@@ -236,6 +596,7 @@ class Surface():
         
         """
         #deafault p to self.profile
+        p=profile_in
         if p is None:
             p=self.profile
         
@@ -263,21 +624,21 @@ class Surface():
             eta=self.subtract_polynomial(order,self.profile)
         
         # return parameter of interst 
-        gs2=self.grid_size**2
+        gs2=self._grid_spacing**2
         p_area=(self.profile.shape[0]-1)*(
                     self.profile.shape[1]-1)*gs2
         
-        if parameter_name=='sq': #root mean square
+        if parameter_name=='sq': #root mean square checked
             out=np.sqrt(np.mean(eta**2))
             
-        elif parameter_name=='sa': #mean amptitude
+        elif parameter_name=='sa': #mean amptitude checked
             out=np.mean(np.abs(eta))
             
-        elif parameter_name=='ssk': #skewness
+        elif parameter_name=='ssk': #skewness checked
             sq=np.sqrt(np.mean(eta**2))
             out=np.mean(eta**3)/sq**3
             
-        elif parameter_name=='sku': #kurtosis
+        elif parameter_name=='sku': #kurtosis checked
             sq=np.sqrt(np.mean(eta**2))
             out=np.mean(eta**4)/sq**4
             
@@ -286,7 +647,7 @@ class Surface():
             kwargs['profile']=eta
             summits=self.find_summits(kwargs)
             if parameter_name=='sds': # summit density
-                out=np.sum(summits)/(self.global_size[0]*self.global_size[1])
+                out=np.sum(summits)/(self._global_size[0]*self._global_size[1])
             elif parameter_name=='sz':
                 kwargs['profile']=eta*-1
                 valleys=self.find_summits(kwargs)
@@ -345,14 +706,14 @@ class Surface():
         elif parameter_name=='str': # surface texture ratio
             if type(self.acf) is bool:
                 self.get_acf()
-            x=self.grid_size*np.arange(self.profile.shape[0]/-2,
+            x=self._grid_spacing*np.arange(self.profile.shape[0]/-2,
                                        self.profile.shape[0]/2)
-            y=self.grid_size*np.arange(self.profile.shape[1]/-2,
+            y=self._grid_spacing*np.arange(self.profile.shape[1]/-2,
                                        self.profile.shape[1]/2)
             X,Y=np.meshgrid(x,y)
             distance_to_centre=np.sqrt(X**2+Y**2)
-            min_dist=min(distance_to_centre[self.acf<0.2])-1
-            max_dist=max(distance_to_centre[self.acf>0.2])
+            min_dist=min(distance_to_centre[np.asarray(self.acf)<0.2])-1
+            max_dist=max(distance_to_centre[np.asarray(self.acf)>0.2])
 
             out=min_dist/max_dist
 
@@ -360,8 +721,8 @@ class Surface():
             if type(self.fft) is bool:
                 self.get_fft()
             apsd=self.fft*np.conj(self.fft)/p_area
-            x=self.grid_size*np.arange(self.profile.shape[0])
-            y=self.grid_size*np.arange(self.profile.shape[1])
+            x=self._grid_spacing*np.arange(self.profile.shape[0])
+            y=self._grid_spacing*np.arange(self.profile.shape[1])
             x=x-max(x)/2
             x=y-max(y)/2
             i,j = np.unravel_index(apsd.argmax(), apsd.shape)
@@ -375,17 +736,18 @@ class Surface():
             # shortest distance from center of ACF to point where R<0.2
             if type(self.acf) is bool:
                 self.get_acf()
-            x=self.grid_size*np.arange(self.profile.shape[0]/-2,
+            x=self._grid_spacing*np.arange(self.profile.shape[0]/-2,
                                        self.profile.shape[0]/2)
-            y=self.grid_size*np.arange(self.profile.shape[1]/-2,
+            y=self._grid_spacing*np.arange(self.profile.shape[1]/-2,
                                        self.profile.shape[1]/2)
             X,Y=np.meshgrid(x,y)
             distance_to_centre=np.sqrt(X**2+Y**2)
             
-            out=min(distance_to_centre[self.acf<0.2])-1
+            out=(min(distance_to_centre[np.asarray(self.acf)<0.2])-
+                 self._grid_spacing/2)
         else:
             msg='Paramter name not recognised'
-            ValueError(msg)
+            raise ValueError(msg)
         return out
     
     def get_mat_or_void_volume_ratio(self, height, void=False, p=None,
@@ -431,7 +793,7 @@ class Surface():
             accuracy=0.5
             position=0.5
             if volume_ratio<0 or volume_ratio>1:
-                ValueError('Volume ratio must be bwteen 0 and 1')
+                raise ValueError('Volume ratio must be bwteen 0 and 1')
             while accuracy>threshold:
                 height=position*(max_height-min_height)+min_height
                 vol, height=self.get_mat_or_void_volume_ratio(height, void, p)
@@ -465,7 +827,7 @@ class Surface():
         verts=np.transpose(np.nonzero(summits))
         curves= [-0.5*(p[vert[0]-1,vert[1]]+p[vert[0]+1,vert[1]]+p[vert[0],
                         vert[1]-1]+p[vert[0],vert[1]+1]-4*p[vert[0],vert[1]]
-                )/self.grid_size**2 for vert in verts]
+                )/self._grid_spacing**2 for vert in verts]
         return curves
         
         
@@ -496,7 +858,8 @@ class Surface():
         
         for i in range(len(x)):   
             summits=np.logical_and(summits,(filtered_profile[1:-1,1:-1]>
-                              filtered_profile[1+x[i]:-1+x[i] or None,1+y[i]:-1+y[i] or None]))
+                              filtered_profile[1+x[i]:-1+x[i] or 
+                                               None,1+y[i]:-1+y[i] or None]))
         #pad summits with falses
         summits=np.pad(summits, 1, 'constant', constant_values=False)
         return summits
@@ -510,7 +873,7 @@ class Surface():
         y=np.arange(1, sz[1]+1)
         X,Y=np.meshgrid(x,y)
         D=np.sqrt(X**2+Y**2)
-        ws=2*np.pi/self.grid_size
+        ws=2*np.pi/self._grid_spacing
         wc=cut_off_freq*2*np.pi
         h=(wc/ws)*scipy.special.j1(2*np.pi*(wc/ws)*D)/D
         filtered_profile=scipy.signal.convolve2d(profile,h,'same')
@@ -520,131 +883,277 @@ class Surface():
             self.profile=filtered_profile
             return
     
-    def read_from_file(self, file_name, file_type, *args, **kwargs):
+    def read_from_file(self, path, **kwargs):
         """ 
+        #TODO add documentation to this
         kwargs can be header lines etc, args is kwargs from init
         """
         
+        
+        file_ext=os.path.splitext(path)[1]
+        
         try:
-            file_type=file_type.lower()
+            file_ext=file_ext.lower()
         except AttributeError:
             msg="file_type should be a string"
-            ValueError(msg)
-        if file_type=='csv' or file_type=='txt':
+            raise ValueError(msg)
+        if file_ext=='.csv' or file_ext=='.txt':
             import csv
-            if 'delimiter' in kwargs:
-                delimiter=kwargs['delimiter']
+            if 'delim' in kwargs:
+                delimiter=kwargs.pop('delim')
             else:
                 delimiter=','
-            with open(file_name) as file:
-                if delimiter == ' ' or delimiter == '\t':
-                    reader=csv.reader(file, delim_whitespace=True)
-                else:
-                    reader=csv.reader(file, delimiter=delimiter)
+            with open(path) as file:
+#                if delimiter == ' ' or delimiter == '\t':
+#                    reader=csv.reader(file, delim_whitespace=True)
+#                else:
+                reader=csv.reader(file, delimiter=delimiter)
                 profile=[]
                 for row in reader:
-                    if len(row)==1:
-                        try:
-                            row=[float(x) for x in row[0].split()]
-                        except ValueError:
-                            pass
-                    if len(row)>1:
-                        profile.append(row)
+                    if row:
+                        if type(row[0]) is float:
+                            profile.append(row)
+                        else:
+                            if len(row)==1:
+                                try:
+                                    row=[float(x) for x in row[0].split() 
+                                         if not x=='']
+                                    profile.append(row)
+                                except ValueError:
+                                    pass
+                            else:
+                                try:
+                                    row=[float(x) for x in row if not x=='']
+                                    profile.append(row)
+                                except ValueError:
+                                    pass
+                        
             self.profile=np.array(profile)
-        
-    def fit_johnson_translator(self):
-        pass
-        #TODO finish this 
+        elif file_ext=='.al3d':
+            from .alicona import alicona_read
+            data=alicona_read(path)
+            self.profile=data['DepthData']
+            self.set_grid_spacing(data['Header']['PixelSizeXMeter'])
+        else:
+            msg=('Path does not have a recognised file extention')
+            raise ValueError(msg)
+        self.is_descrete=True
+        return kwargs
     
-    def resample(self, new_grid_size, copy=False, kind='cubic'):
-        import scipy.interpolate
-        x0=np.arange(0, self.global_size[0], self.grid_size)
-        y0=np.arange(0, self.global_size[1], self.grid_size)
-        X0,Y0=np.meshgrid(x0,y0)
-        inter_func=scipy.interpolate.interp2d(X0, Y0, self.profile, kind=kind)
-        x1=np.arange(0, self.global_size[0], new_grid_size)
-        y1=np.arange(0, self.global_size[1], new_grid_size)
-        X1,Y1=np.meshgrid(x1,y1)
-        inter_profile=inter_func(X1,Y1)
-        if copy:
+    def resample(self, new_grid_spacing, return_profile=False, 
+                 remake_interpolator=False):
+        if remake_interpolator or not self._inter_func:
+            import scipy.interpolate
+            x0=np.arange(0, self._global_size[0], self._grid_spacing)
+            y0=np.arange(0, self._global_size[1], self._grid_spacing)
+            self._inter_func=scipy.interpolate.RectBivariateSpline(x0, y0, 
+                                                                  self.profile)
+        x1=np.arange(0, self._global_size[0], new_grid_spacing)
+        y1=np.arange(0, self._global_size[1], new_grid_spacing)
+        inter_profile=self._inter_func(x1,y1)
+        
+        if return_profile:
             return inter_profile
         else:
             self.profile=inter_profile
-            self.grid_size=new_grid_size
-            self.profile.shape=[len(x1),len(y1)]
+            self.set_grid_spacing(new_grid_spacing)
+        
+    def fill_holes(self, hole_value='auto', mk_copy=False, remove_boarder=True, 
+                   b_thresh=0.99):
+        """
+        Replaces specificed values with filler
+        
+        Uses biharmonic equations algorithm to fill holes 
+        
+        Parameters
+        ----------
+        hole_value: {'auto' or float}
+            The value to be replaced, 'auto' replaces all -inf, inf and nan 
+            values
+        mk_copy : bool
+            if set to true a new surface object will be returned with the holes 
+            filled otherwise the profile property of the current surface is 
+            updated
+        remove_boarder : bool
+            Defaults to true, removes the boarder from the image until the 
+            first row and column that have 
+        
+        Returns
+        -------
+        If mk_copy is true a new surface object with holes filled else resets 
+        profile property of the instance and returns nothing
+        
+        Notes
+        -----
+        When alicona images are imported the invalid pixel value is 
+        automatically set to nan so this will work in auto mode
+        
+        Holes are filled with bi harmonic equations
+        
+        See Also
+        --------
+        skimage.restoration.inpaint.inpaint_biharmonic
+        
+        """
+        from skimage.restoration import inpaint
+        
+        profile=self.profile
+        
+        if hole_value=='auto':
+            holes=np.logical_or(np.isnan(profile), np.isinf(profile))
+        else:
+            holes=profile==hole_value
+        if sum(sum(holes))==0:
+            warnings.warn('No holes detected')
+
+        profile[holes]=0
+
+        if remove_boarder:
+            # find rows
+            good=[False]*4
+            
+            start_r=0
+            end_r=len(profile)-1
+            start_c=0
+            end_c=len(profile[0])-1
+            
+            while not(all(good)):
+                #start row
+                if 1-sum(holes[start_r,start_c:end_c])/(end_c-start_c)<b_thresh:
+                    start_r+=1
+                else:
+                    good[0]=True
+                
+                #end row
+                if 1-sum(holes[end_r,start_c:end_c])/(end_c-start_c)<b_thresh:
+                    end_r-=1
+                else:
+                    good[1]=True
+            
+                if 1-sum(holes[start_r:end_r,start_c])/(end_r-start_r)<b_thresh:
+                    start_c+=1
+                else:
+                    good[2]=True
+                
+                if 1-sum(holes[start_r:end_r,end_c])/(end_r-start_r)<b_thresh:
+                    end_c-=1
+                else:
+                    good[3]=True
+           
+            profile=profile[start_r:end_r, start_c:end_c]
+            holes=holes[start_r:end_r, start_c:end_c]
+
+        profile_out = inpaint.inpaint_biharmonic(profile, holes,
+                multichannel=False)
+        
+        if not self._grid_spacing:
+            if self._global_size:
+                self.set_global_size(self._global_size)
+                new_gs=self._grid_spacing
+            else:
+                new_gs=None
+        else:
+            new_gs=self._grid_spacing
+            
+        
+        if mk_copy:
+            new_surf=Surface(profile=profile_out, 
+                             grid_spacing=new_gs,
+                             is_descrete=self.is_descrete)
+            return new_surf
+        else:
+            self.profile=profile_out
+            self.set_grid_spacing(new_gs)
+            return
+        
         
     def __add__(self, other):
-        if self.global_size==other.global_size:
-            if self.grid_size==other.grid_size:
+        if self._global_size==other._global_size and self._global_size:
+            if self._grid_spacing==other._grid_spacing:
                 out=Surface(profile=self.profile+other.profile, 
-                            global_size=self.global_size, 
-                            grid_size=self.grid_size, 
-                            is_descrete=self.is_descrete, 
-                            pts_each_direction=self.profile.shape, 
-                            total_pts=self.total_pts)
+                            grid_spacing=self._grid_spacing, 
+                            is_descrete=self.is_descrete)
                 return out
             else:
                 msg="Surface sizes do not match: resampling"
                 warnings.warn(msg)
                 ## resample surface with coarser grid then add again
-                if self.grid_size>other.grid_size:
-                    self.resample(other.grid_size, False)
+                if self._grid_spacing>other.grid_spacing:
+                    self.resample(other.grid_spacing, False)
                 else:
-                    other.resample(self.grid_size)
+                    other.resample(self._grid_spacing)
                     
                 return self+other
+            
         elif self.profile.shape==other.profile.shape:
-            msg=("number of points in surface matches by size of surfaces are"
-                "not the same, this operation will add the surfaces point by" 
-                "point but this may cause errors")
-            warnings.warn(msg)
-            out=Surface(profile=self.profile+other.profile, 
-                            global_size=self.global_size, 
-                            grid_size=self.grid_size, 
-                            is_descrete=self.is_descrete, 
-                            pts_each_direction=self.profile.shape, 
-                            total_pts=self.total_pts)
+            if self._grid_spacing:
+                if other._grid_spacing:
+                    if self._grid_spacing==other._grid_spacing:
+                        gs=self._grid_spacing
+                    else:    
+                        msg=('Surfaces have diferent sizes and grid spacing is' 
+                             ' set for both for element wise adding unset the '
+                             'grid spacing for one of the surfaces using: '
+                             'set_grid_spacing(None) before adding')
+                        raise AttributeError(msg)
+                else: #only self not other
+                    gs=self._grid_spacing
+            else: #not self
+                gs=other._grid_spacing
+                
+            out=Surface(profile=self.profile+other.profile,
+                            grid_spacing=gs, 
+                            is_descrete=self.is_descrete)
             return out
         else:
-            ValueError('surfaces are not compatible sizes cannot add')
+            raise ValueError('surfaces are not compatible sizes cannot add')
             
     def __sub__(self, other):
-        if all(self.global_size==other.global_size):
-            if self.grid_size==other.grid_size:
+        if self._global_size==other._global_size and self._global_size:
+            if self._grid_spacing==other._grid_spacing:
                 out=Surface(profile=self.profile-other.profile, 
-                            global_size=self.global_size, 
-                            grid_size=self.grid_size, 
-                            is_descrete=self.is_descrete, 
-                            pts_each_direction=self.profile.shape, 
-                            total_pts=self.total_pts)
+                            grid_spacing=self._grid_spacing, 
+                            is_descrete=self.is_descrete)
                 return out
             else:
                 msg="Surface sizes do not match: resampling"
                 warnings.warn(msg)
                 ## resample surface with coarser grid then add again
-                if self.grid_size>other.grid_size:
-                    self.resample(other.grid_size, False)
+                if self._grid_spacing>other.grid_spacing:
+                    self.resample(other.grid_spacing, False)
                 else:
-                    other.resample(self.grid_size)
+                    other.resample(self._grid_spacing)
                     
                 return self-other
-        elif all(self.profile.shape==other.profile.shape):
-            msg=("number of points in surface matches by size of surfaces are"
-                "not the same, this operation will subtract the surfaces point"
-                "by point but this may cause errors")
-            warnings.warn(msg)
-            out=Surface(profile=self.profile-other.profile, 
-                            global_size=self.global_size, 
-                            grid_size=self.grid_size, 
-                            is_descrete=self.is_descrete, 
-                            pts_each_direction=self.profile.shape, 
-                            total_pts=self.total_pts)
+            
+        elif self.profile.shape==other.profile.shape:
+            if self._grid_spacing:
+                if other._grid_spacing:
+                    if self._grid_spacing==other._grid_spacing:
+                        gs=self._grid_spacing
+                    else:    
+                        msg=('Surfaces have diferent sizes and grid spacing is' 
+                             ' set for both for element wise adding unset the '
+                             'grid spacing for one of the surfaces using: '
+                             'set_grid_spacing(None) before subtracting')
+                        raise AttributeError(msg)
+                else: #only self not other
+                    gs=self._grid_spacing
+            else: #not self
+                gs=other._grid_spacing
+                
+            out=Surface(profile=self.profile-other.profile,
+                            grid_spacing=gs, 
+                            is_descrete=self.is_descrete)
             return out
         else:
-            ValueError('surfaces are not compatible sizes cannot subtract')
+            raise ValueError('surfaces are not compatible sizes cannot'
+                             ' subtract')
         
-    def show(self, property_to_plot='profile', plot_type='default', ax=False, *args):
-        """ Method for plotting anything of interest for the surface
+    def show(self, property_to_plot='profile', plot_type='default', ax=False,
+             *args):
+        """ 
+        Method for plotting anything of interest for the surface
         
         If a list of properties is provided all will be plotted on separate 
         sub plots of the same (new) figure, if a list of plot types is also
@@ -729,10 +1238,21 @@ class Surface():
         #######################################################################
         ####################### main method ###################################
         # 2D plots
+        try:
+            property_to_plot=property_to_plot.lower()
+        except AttributeError:
+            msg="Property to plot must be a string or a list of strings"
+            raise ValueError(msg)
+        
+        if not (property_to_plot in types2d or property_to_plot in types1d):
+            msg=('Unsupported property to plot see documentation for details'
+                 ', type given: \n' + str(property_to_plot) + ' \nsupported ty'
+                 'pes: \n' + ' '.join(types2d+types1d))
+            raise ValueError(msg)
+            return
+        
         if not ax:
             fig = plt.figure()
-        
-        property_to_plot=property_to_plot.lower()
         
         if property_to_plot in types2d:
             if not ax and not plot_type=='image':
@@ -743,77 +1263,68 @@ class Surface():
             if property_to_plot=='profile':
                 labels=['Surface profile', 'x', 'y', 'Height']
                 Z=self.profile
-                x=self.grid_size*np.arange(self.profile.shape[0])
-                y=self.grid_size*np.arange(self.profile.shape[1])
+                x=self._grid_spacing*np.arange(self.profile.shape[0])
+                y=self._grid_spacing*np.arange(self.profile.shape[1])
                 
             elif property_to_plot=='fft2d':
                 labels=['Fourier transform of surface', 'u', 'v', '|F(x)|']
-                if type(self.fft) is bool:
+                if self.fft is None:
                     self.get_fft()
                 Z=np.abs(np.fft.fftshift(self.fft))
-                x=np.fft.fftfreq(self.profile.shape[0], self.grid_size)
-                y=np.fft.fftfreq(self.profile.shape[1], self.grid_size)
+                x=np.fft.fftfreq(self.profile.shape[0], self._grid_spacing)
+                y=np.fft.fftfreq(self.profile.shape[1], self._grid_spacing)
                 
             elif property_to_plot=='psd':
                 labels=['Power spectral density', 'u', 'v', 'Power/ frequency']
-                if type(self.psd) is bool:
+                if self.psd is None:
                     self.get_psd()
                 Z=np.abs(np.fft.fftshift(self.psd))
-                x=np.fft.fftfreq(self.profile.shape[0], self.grid_size)
-                y=np.fft.fftfreq(self.profile.shape[1], self.grid_size)
+                x=np.fft.fftfreq(self.profile.shape[0], self._grid_spacing)
+                y=np.fft.fftfreq(self.profile.shape[1], self._grid_spacing)
                 
             elif property_to_plot=='acf':
                 labels=['Auto corelation function', 'x', 'y', 
                         'Surface auto correlation']
-                if type(self.acf) is bool:
+                if self.acf is None:
                     self.get_acf()
-                Z=np.abs(self.acf)
-                x=self.grid_size*np.arange(self.profile.shape[0])
-                y=self.grid_size*np.arange(self.profile.shape[1])
+                Z=np.abs(np.asarray(self.acf))
+                x=self._grid_spacing*np.arange(self.profile.shape[0])
+                y=self._grid_spacing*np.arange(self.profile.shape[1])
                 x=x-max(x)/2
-                x=y-max(y)/2
+                y=y-max(y)/2
             elif property_to_plot=='apsd':
                 labels=['Angular power spectral density', 'x', 'y']
-                if type(self.fft) is bool:
+                if self.fft is None:
                     self.get_fft()
                 p_area=(self.profile.shape[0]-1)*(
-                    self.profile.shape[1]-1)*self.grid_size**2
+                    self.profile.shape[1]-1)*self.grid_spacing**2
                 Z=self.fft*np.conj(self.fft)/p_area
-                x=self.grid_size*np.arange(self.profile.shape[0])
-                y=self.grid_size*np.arange(self.profile.shape[1])
+                x=self._grid_spacing*np.arange(self.profile.shape[0])
+                y=self._grid_spacing*np.arange(self.profile.shape[1])
                 x=x-max(x)/2
-                x=y-max(y)/2 
+                y=y-max(y)/2 
             
             X,Y=np.meshgrid(x,y)
+            print(X.shape)
             
             if plot_type=='default' or plot_type=='surface':
-                ax.plot_surface(X,Y,Z)
+                ax.plot_surface(X,Y,np.transpose(Z))
                 plt.axis('equal')
                 ax.set_zlabel(labels[3])
             elif plot_type=='mesh':
                 if property_to_plot=='psd' or property_to_plot=='fft2d':
                     X, Y = np.fft.fftshift(X), np.fft.fftshift(Y)
                 if args:
-                    ax.plot_wireframe(X, Y, Z, rstride=args[0], 
+                    ax.plot_wireframe(X, Y, np.transpose(Z), rstride=args[0], 
                                       cstride=args[1])
                 else:
-                    ax.plot_wireframe(X, Y, Z, rstride=25, cstride=25)
+                    ax.plot_wireframe(X, Y, np.transpose(Z), rstride=25, 
+                                      cstride=25)
                 ax.set_zlabel(labels[3])
             elif plot_type=='image':
-                ax.imshow(Z, extent=[min(x),max(x),min(y),max(y)], aspect=1)
-            #elif plot_type=='image_wrap':
-            #    if property_to_plot=='acf':
-            #        ValueError('image_wrap plot type is not compatible with'
-            #                      ' ACF, if this works axis values and limits '
-            #                      'will be wrong')
-                #x=x-max(x)/2
-                #x=y-max(y)/2
-            #    
-            #    ax.imshow(Z, extent=[min(x),max(x),min(y),max(y)], aspect=1)
+                ax.imshow(Z, extent=[min(y),max(y),min(x),max(x)], aspect=1)
             else:
-                msg=('Unsupported plot type:'+str(plot_type)+
-                     ' please refer to documentation for supported types')
-                ValueError(msg)
+                ValueError('Unrecognised plot type')
             
             ax.set_title(labels[0])
             ax.set_xlabel(labels[1])
@@ -840,7 +1351,7 @@ class Surface():
                     if type(self.fft) is bool:
                         self.get_fft()
                     x=np.fft.fftfreq(self.profile.shape[0], 
-                                     self.grid_size)
+                                     self._grid_spacing)
                     y=np.abs(self.fft/self.profile.shape[0])
                     # line plot for 1d surfaces
                     ax.plot(x,y)
@@ -849,9 +1360,9 @@ class Surface():
                     labels=['Scatter of frequency magnitudes', 
                             'frequency', '|F(x)|']
                     u=np.fft.fftfreq(self.profile.shape[0], 
-                                     self.grid_size)
+                                     self._grid_spacing)
                     v=np.fft.fftfreq(self.profile.shape[1], 
-                                     self.grid_size)
+                                     self._grid_spacing)
                     U,V=np.meshgrid(u,v)
                     freqs=U+V
                     if type(self.fft) is bool:
@@ -884,46 +1395,57 @@ class Surface():
             return ax
         #######################################################################
         #######################################################################
-        else:
-            msg=('Unsupported property to plot see documentation for details'
-                 ', type given: ' + property_to_plot + 'supported types: ' 
-                 + ' '.join(types2d+types1d))
-            ValueError(msg)
             
     def __array__(self):
-        """for easy compatability with numpy arrays"""
         return np.asarray(self.profile)
 
-    def _get_points_from_extent(self, extent, spacing):
-        if type(spacing) in [int, float, np.float32, np.float64]:
-            spacing=[spacing]*2
+    def _get_points_from_extent(self, extent, grid_spacing):
+        if type(grid_spacing) in [int, float, np.float32, np.float64]:
+            grid_spacing=[grid_spacing]*2
         if type(extent[0]) in [int, float, np.float32, np.float64]:
             extent=[[0,extent[0]],[0,extent[1]]]
-        x=np.arange(extent[0][0], extent[0][1], spacing[0])
-        y=np.arange(extent[1][0], extent[1][1], spacing[1])
+        x=np.arange(extent[0][0], extent[0][1], grid_spacing[0])
+        y=np.arange(extent[1][0], extent[1][1], grid_spacing[1])
         
         X,Y=np.meshgrid(x,y)
         
         return(X,Y)
     
-    def _interpolate(self,X,Y,**kwargs):
-        if not kwargs is None:
-            if 'remake' in kwargs:
-                remake=kwargs['remake']
-            else:
-                remake=False
-        if remake or not hasattr(self, 'interpolator'):
-            try:
-                import scipy.interpolate as interp
-                self.interpolator=interp.interp2d(self.X,self.Y,self.profile, **kwargs)
-            except AttributeError:
-                msg="Surface must be descretised before interpolation"
-                ValueError(msg)
-        Z=self.interpolator(X,Y)
-        return Z
-
+    def rotate(radians):
+        """
+        rotate the surface relative to the grid and reinterpolate
+        """
+        raise NotImplementedError('Not implemented yet')
+    
+    def _descretise_checks(self):
+        if self.is_descrete:
+            msg=('Surface is already discrete this will overwrite surface'
+                 ' profile')
+            raise warnings.warn(msg)
+        try: 
+            grid_spacing=self._grid_spacing
+        except AttributeError:
+            msg='A grid spacing must be provided before descretisation'
+            raise AttributeError(msg)
+        try:
+            pts_each_direction=[int(gs/grid_spacing) for gs in 
+                                    self._global_size]
+            total_pts=1
+            for pts in pts_each_direction:
+                total_pts *= pts
+            self.total_pts=total_pts
+            self._pts_each_direction=pts_each_direction
+        except AttributeError:
+            msg='Global size must be set before descretisation'
+            raise AttributeError(msg)
+        if total_pts>10E7:
+            warnings.warn('surface contains over 10^7 points calculations will'
+                          ' be slow, consider splitting surface or analysis')
+        return    
+    
+    
 if __name__=='__main__':
-    A=Surface(file_name='C:\\Users\\44779\\code\\SlipPY\\image1_no header_units in nm', file_type='csv', delimitor=' ', grid_size=0.001)
+    A=Surface(file_name='C:\\Users\\44779\\code\\SlipPY\\image1_no header_units in nm', file_type='csv', delimitor=' ', grid_spacing=0.001)
     #testing show()
     #types2d=['profile', 'fft2d', 'psd', 'acf', 'apsd']
     #types1d=['histogram','fft1d', 'qq', 'disthist']

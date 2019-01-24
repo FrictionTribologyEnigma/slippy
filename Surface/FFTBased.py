@@ -50,15 +50,14 @@ class DiscFreqSurface(Surface):
     mySurf.descretise(0.001)
     
     Generates and descretises a 2D surface with a frequency of 10 rads/unit
-    of global size, descretised on a grid with a spacing of 0.001
+    of global size, descretised on a grid with a grid_spacing of 0.001
     """
     is_descrete=False
     surface_type='discreteFreq'
     
     def __init__(self, frequencies, amptitudes=[1], phases_rads=[0], dimentions=2, **kwargs):
         
-        self.init_checks(kwargs)
-        self.dimentions=dimentions
+        self._init_checks(kwargs)
         if type(frequencies) is list or type(frequencies) is np.ndarray:
             self.frequencies=frequencies
         else:
@@ -82,13 +81,13 @@ class DiscFreqSurface(Surface):
                                      np.exp(1j*phases_rads[idx]))
                 self.amptitudes=cplx_amps
             
-    def descretise(self, spacing=None):
-        if spacing:    
-            self.grid_size=spacing
-        self.descretise_checks()
+    def descretise(self, grid_spacing=None):
+        if grid_spacing:    
+            self.set_grid_spacing(grid_spacing)
+        self._descretise_checks()
         #TODO write this section
-        x=np.linspace(-0.5*self.global_size[0],
-                    0.5*self.global_size[0],self.pts_each_direction[0])
+        x=np.linspace(-0.5*self._global_size[0],
+                    0.5*self._global_size[0],self._pts_each_direction[0])
         if self.dimentions==1:
             profile=np.zeros_like(x)
             for idx in range(len(self.frequencies)):
@@ -96,8 +95,8 @@ class DiscFreqSurface(Surface):
                                  np.exp(-1j*self.frequencies[idx]*x*2*np.pi))
             self.profile=profile
         elif self.dimentions==2:
-            y=np.linspace(-0.5*self.global_size[1],
-                        0.5*self.global_size[1],self.pts_each_direction[1])
+            y=np.linspace(-0.5*self._global_size[1],
+                        0.5*self._global_size[1],self._pts_each_direction[1])
             (X,Y)=np.meshgrid(x,y)
             profile=np.zeros_like(X)
             for idx in range(len(self.frequencies)):
@@ -126,20 +125,22 @@ class ProbFreqSurface(Surface):
         #TODO write this function
     def __init__(self, H=2, qr=0.05, qs=10, **kwargs):
         #q is frequency
-        self.init_checks(kwargs)
+        self._init_checks(kwargs)
         self.H=H
         self.qs=qs
         self.qr=qr
         
-    def descretise(self, global_size, grid_spacing):
-        self.global_size=global_size
-        self.grid_spacing=grid_spacing
-        self.descretise_checks()
-        if self.global_size[0]!=self.global_size[1]:
-            ValueError("This method is only defined for square domains")
+    def descretise(self, global_size=None, grid_spacing=None):
+        if global_size:
+            self.set_global_size(global_size)
+        if grid_spacing:
+            self.set_grid_spacing(grid_spacing)
+        self._descretise_checks()
+        if self._global_size[0]!=self._global_size[1]:
+            raise ValueError("This method is only defined for square domains")
         qny=np.pi/grid_spacing
         
-        u=np.linspace(0,qny,self.pts_each_direction[0])
+        u=np.linspace(0,qny,self._pts_each_direction[0])
         U,V=np.meshgrid(u,u)
         Q=np.abs(U+V)
         varience=np.zeros(Q.shape)
@@ -149,7 +150,8 @@ class ProbFreqSurface(Surface):
                                 (1/Q)<(1/self.qr))]=(Q[np.logical_and(
                 1/Q>=1/self.qs,1/Q<1/self.qr)]/self.qr
                     )**(-2*(1+self.H))
-        FT=np.array([np.random.normal()*var**0.5 for var in varience.flatten()])
+        FT=np.array([np.random.normal()*var**0.5 for var in varience.flatten()]
+                    )
         FT.shape=Q.shape
         self.profile=np.real(np.fft.ifft2(FT))
        
@@ -171,7 +173,7 @@ class HurstFractalSurface(Surface):
     Example:
         #create the surface object with the specified fractal prameters
         my_surface=HurstFractalSurface(1,0.1,1000,2)
-        #descrtise the surface over a grid 1 unit by 1 unit with a spacing of 0.01
+        #descrtise the surface over a grid 1 unit by 1 unit with a grid_spacing of 0.01
         heights=my_surface.descretise('grid', [[0,1],[0,1]], [0.01,0.01])
         #interpolate over a previously made grid
         heights=my_surface.descretise('interp', X, Y, **kwargs) ** kwargs for remaking interpolator and interpolator options
@@ -185,7 +187,7 @@ class HurstFractalSurface(Surface):
     surface_type="hurstFractal"
     
     def __init__(self,q0,q0_amp,q_cut_off,hurst,**kwargs):
-        self.init_checks(kwargs)
+        self._init_checks(kwargs)
         N=int(round(q_cut_off/q0))
         h, k=range(-1*N,N+1), range(-1*N,N+1)
         H,K=np.meshgrid(h,k)
@@ -212,21 +214,25 @@ class HurstFractalSurface(Surface):
         self.qkh=np.transpose(np.array([q0*H.flatten(), q0*K.flatten()]))
         
         
-    def descretise(self, global_size=None, spacing=None):
-        if not global_size:
-            global_size=self.global_size
-        if not spacing:
-            spacing=self.grid_size
+    def descretise(self, global_size=None, grid_spacing=None):
+        if global_size:
+            self.set_global_size(global_size)
+        if grid_spacing:
+            self.set_grid_spacing(grid_spacing)
         
-        self.descretise_checks()
+        self._descretise_checks()
         
-        X,Y=self._get_points_from_extent(global_size, spacing)
+        global_size=self._global_size
+        grid_spacing=self._grid_spacing
+        
+        X,Y=self._get_points_from_extent(global_size, grid_spacing)
         input_shape=X.shape
         coords=np.array([X.flatten(), Y.flatten()])
         
         Z=np.zeros(X.size,dtype=np.float32)
 
         for idx in range(len(self.qkh)):
-            Z+=np.real(self.mags[idx]*np.exp(-1j*np.dot(self.qkh[idx],coords)*2*np.pi))
+            Z+=np.real(self.mags[idx]*np.exp(-1j*
+                       np.dot(self.qkh[idx],coords)*2*np.pi))
 
         self.profile=Z.reshape(input_shape)

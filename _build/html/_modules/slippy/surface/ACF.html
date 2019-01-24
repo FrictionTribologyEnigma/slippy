@@ -1,0 +1,223 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>slippy.surface.ACF &#8212; slippy 1.1.0 documentation</title>
+    <link rel="stylesheet" href="../../../_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">slippy 1.1.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for slippy.surface.ACF</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">types</span>
+<span class="kn">import</span> <span class="nn">scipy.signal</span>
+<span class="kn">import</span> <span class="nn">scipy.interpolate</span>
+
+<span class="n">__all__</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;ACF&#39;</span><span class="p">]</span>
+
+<div class="viewcode-block" id="ACF"><a class="viewcode-back" href="../../../surface.html#slippy.surface.ACF">[docs]</a><span class="k">class</span> <span class="nc">ACF</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot; TODO make pretty and test</span>
+<span class="sd">    A class to specify auto corelation functions</span>
+<span class="sd">    used with all surfaces</span>
+<span class="sd">    functions should be usable independent of length</span>
+<span class="sd">    can be directly specified or made from a function (again independent of base grid size)</span>
+<span class="sd">    must ulitimately be expressed on a base grid</span>
+
+<span class="sd">    should be able to supply:</span>
+<span class="sd">    a surface, a name and params, a function handle(?)</span>
+<span class="sd">    or a grid of values (to interpolate between)</span>
+<span class="sd">    leave a funcion in self.methos that takes x,y points and the grid_spacing then returnds the height of the ACF at those points</span>
+<span class="sd">    </span>
+<span class="sd">    __Call__(X,Y) returns the height of the acf at each of the x,y points</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="n">method</span><span class="o">=</span><span class="kc">None</span> <span class="c1"># the method that gets called </span>
+    <span class="n">original</span><span class="o">=</span><span class="kc">None</span>
+    <span class="n">acf_type</span><span class="o">=</span><span class="s1">&#39;&#39;</span>
+    <span class="n">interpolator</span><span class="o">=</span><span class="kc">None</span>
+
+    
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">source</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">str</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">input_check_string</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">acf_type</span><span class="o">=</span><span class="s2">&quot;string&quot;</span>
+        <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="s1">&#39;profile&#39;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">input_check_array</span><span class="p">(</span><span class="n">source</span><span class="o">.</span><span class="n">profile</span><span class="p">,</span> <span class="n">source</span><span class="o">.</span><span class="n">grid_spacing</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">acf_type</span><span class="o">=</span><span class="s2">&quot;surface&quot;</span>
+        <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">source</span><span class="p">)</span> <span class="ow">is</span> <span class="n">types</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">input_check_method</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">acf_type</span><span class="o">=</span><span class="s2">&quot;function&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">input_check_array</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="c1"># args should contain the grid_spacing of the array</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">acf_type</span><span class="o">=</span><span class="s2">&quot;array&quot;</span>
+           
+
+    <span class="k">def</span> <span class="nf">input_check_string</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">args</span><span class="p">):</span>
+        <span class="n">supported_funcions</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;exp&#39;</span><span class="p">,</span> <span class="s1">&#39;polynomial&#39;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span><span class="p">(</span><span class="n">source</span> <span class="ow">in</span> <span class="n">supported_funcions</span><span class="p">):</span>
+            <span class="n">msg</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;Function type not supported, supported types are:</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">+</span>
+                 <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">supported_funcions</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">for custom functions pass &quot;</span>
+                 <span class="s2">&quot;the function object to this constructor&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">source</span><span class="o">==</span><span class="s1">&#39;exp&#39;</span><span class="p">:</span>
+            <span class="n">sigma</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">beta_x</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">beta_y</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+            <span class="n">method</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">X</span><span class="p">,</span> <span class="n">Y</span> <span class="p">:</span> <span class="n">sigma</span><span class="o">**</span><span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">2.3</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">((</span><span class="n">X</span><span class="o">/</span><span class="n">beta_x</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="o">+</span><span class="p">(</span><span class="n">Y</span><span class="o">/</span><span class="n">beta_y</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
+        <span class="k">elif</span> <span class="n">source</span><span class="o">==</span><span class="s1">&#39;polynomial&#39;</span><span class="p">:</span>
+            <span class="k">pass</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">method</span><span class="o">=</span><span class="n">method</span>
+
+    <span class="k">def</span> <span class="nf">input_check_array</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">grid_grid_spacing</span><span class="p">,</span> <span class="n">origin</span><span class="o">=</span><span class="s1">&#39;centre&#39;</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>    
+            <span class="n">profile</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="n">msg</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;invalid input, input should be either a surface, function &quot;</span> 
+                 <span class="s2">&quot;handle, funtion name as a string with relavent params or &quot;</span>
+                 <span class="s2">&quot;array-like&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+        <span class="n">x</span><span class="o">=</span><span class="n">profile</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">y</span><span class="o">=</span><span class="n">profile</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">o_grid_grid_spacing</span><span class="o">=</span><span class="n">grid_grid_spacing</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">original</span><span class="o">=</span><span class="p">(</span><span class="n">scipy</span><span class="o">.</span><span class="n">signal</span><span class="o">.</span><span class="n">correlate</span><span class="p">(</span><span class="n">profile</span><span class="p">,</span><span class="n">profile</span><span class="p">,</span><span class="s1">&#39;same&#39;</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="n">x</span><span class="o">*</span><span class="n">y</span><span class="p">))</span>
+        
+        <span class="n">x</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">*</span><span class="n">grid_grid_spacing</span>
+        <span class="n">y</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">y</span><span class="p">)</span><span class="o">*</span><span class="n">grid_grid_spacing</span>
+        
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">origin</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">str</span><span class="p">:</span>
+            <span class="n">origin</span><span class="o">=</span><span class="n">origin</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">origin</span><span class="o">==</span><span class="s1">&#39;centre&#39;</span><span class="p">:</span>
+                <span class="n">origin</span><span class="o">=</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">y</span><span class="p">)]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">description</span><span class="o">=</span><span class="n">origin</span>
+                <span class="n">origin</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">description</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">==</span><span class="s1">&#39;r&#39;</span> <span class="ow">or</span> <span class="n">description</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">==</span><span class="s1">&#39;e&#39;</span><span class="p">:</span>
+                    <span class="n">origin</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">=</span><span class="nb">max</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">description</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">==</span><span class="s1">&#39;t&#39;</span> <span class="ow">or</span> <span class="n">description</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">==</span><span class="s1">&#39;n&#39;</span><span class="p">:</span>
+                    <span class="n">origin</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">=</span><span class="nb">max</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+        <span class="n">x</span><span class="o">=</span><span class="n">x</span><span class="o">-</span><span class="n">origin</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">y</span><span class="o">=</span><span class="n">y</span><span class="o">-</span><span class="n">origin</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">method</span><span class="o">=</span><span class="n">scipy</span><span class="o">.</span><span class="n">interpolate</span><span class="o">.</span><span class="n">RectBivariateSpline</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">original</span><span class="p">)</span>
+    
+    <span class="k">def</span> <span class="nf">input_check_method</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">method</span><span class="o">=</span><span class="n">source</span>
+        
+    <span class="k">def</span> <span class="nf">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        x and y are vectors that get meshgridded befroe returning matrix of points, dunno why but rect b spline works this way</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1">#####TODO redo docs</span>
+        
+        <span class="sd">&quot;&quot;&quot; </span>
+<span class="sd">        Retuns part of the ACF descretised on the requested grid</span>
+<span class="sd">        </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        grid_spacing : 2 element list or scalar</span>
+<span class="sd">            The grid_spacing of the grid for descretisation in each direction </span>
+<span class="sd">            if a scalar is given the grid_spacing will be the same in each direction</span>
+<span class="sd">        extent : list of lists or list</span>
+<span class="sd">            The extent to be returned in each dimention:</span>
+<span class="sd">            [[xstart, xstop], [ystart, ystop]]</span>
+<span class="sd">            or [start, stop] which is interpreted as the same for all dimentions</span>
+<span class="sd">        </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        out : np.array</span>
+<span class="sd">            A grid of values corresponding to the height of the ACF at each of</span>
+<span class="sd">            the requested grid points</span>
+<span class="sd">            </span>
+<span class="sd">        See also</span>
+<span class="sd">        --------</span>
+<span class="sd">        this.__array__ : returns the acf of the original input with no </span>
+<span class="sd">                         interpolation</span>
+<span class="sd">                         </span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># feed to self. method </span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">acf_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;array&#39;</span><span class="p">,</span> <span class="s1">&#39;surface&#39;</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">method</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">X</span><span class="p">,</span><span class="n">Y</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">method</span><span class="p">(</span><span class="n">X</span><span class="p">,</span><span class="n">Y</span><span class="p">)</span>
+        
+    <span class="k">def</span> <span class="nf">__array__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">original</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>    
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">original</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Could not return ACF as array, ACF must be made from&quot;</span>
+                       <span class="s2">&quot; an array or surface for this to work in stead use &quot;</span>
+                       <span class="s2">&quot;array(this(grid_grid_spacing, extent))&quot;</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">slippy 1.1.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2019, Mike Watson.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.8.2.
+    </div>
+  </body>
+</html>
