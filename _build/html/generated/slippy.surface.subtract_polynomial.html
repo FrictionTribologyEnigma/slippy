@@ -1,0 +1,162 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>slippy.surface.subtract_polynomial &#8212; slippy 1.1.0 alpha documentation</title>
+    <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="slippy.surface.get_mat_vr" href="slippy.surface.get_mat_vr.html" />
+    <link rel="prev" title="slippy.surface.roughness" href="slippy.surface.roughness.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="slippy.surface.get_mat_vr.html" title="slippy.surface.get_mat_vr"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="slippy.surface.roughness.html" title="slippy.surface.roughness"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">slippy 1.1.0 alpha documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../surface.html" accesskey="U">Surface generation and manipulation (<code class="docutils literal notranslate"><span class="pre">slippy.surface</span></code>)</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="slippy-surface-subtract-polynomial">
+<h1>slippy.surface.subtract_polynomial<a class="headerlink" href="#slippy-surface-subtract-polynomial" title="Permalink to this headline">¶</a></h1>
+<dl class="function">
+<dt id="slippy.surface.subtract_polynomial">
+<code class="descclassname">slippy.surface.</code><code class="descname">subtract_polynomial</code><span class="sig-paren">(</span><em>profile</em>, <em>order=1</em>, <em>mask=None</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slippy/surface/roughness_funcs.html#subtract_polynomial"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#slippy.surface.subtract_polynomial" title="Permalink to this definition">¶</a></dt>
+<dd><p>Flattens the surface by fitting and subtracting a polynomial</p>
+<p>Fits a polynomial to the surface the subtracts it from the surface, to
+remove slope or curve from imaging machines</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>order</strong> (<em>int</em>) – The order of the polynomial to be fitted</li>
+<li><strong>profile</strong> (<em>array-like</em><em> or </em><a class="reference internal" href="slippy.surface.Surface.html#slippy.surface.Surface" title="slippy.surface.Surface"><em>Surface</em></a>) – The surface or profile to be used</li>
+<li><strong>mask</strong> (<em>array-like</em><em> (</em><em>bool</em><em>) </em><em>same shape as profile</em><em> or </em><em>float</em><em> (</em><em>defaults to None</em><em>)</em>) – If an array, the array is used as a mask for the profile, must be the
+same shape as the profile, if a float or list of floats is given,
+those values are excluded from the calculation</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last"><ul class="simple">
+<li><strong>adjusted</strong> (<em>array</em>) – The flattened profile</li>
+<li><strong>coefs</strong> (<em>array</em>) – The coeficients of the polynomial</li>
+</ul>
+</p>
+</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Examples</p>
+<p>&gt;&gt;&gt;flat_profile, coefs=subtract_polynomial(2, my_surface)
+Subtract a quadratic polynomial from the profile of my_surface the result
+is returned but the profile property of the surface is not updated</p>
+<p>&gt;&gt;&gt;flat_profile, coefs=subtract_polynomial(2,my_surface.profile)
+Identical to the above opertion</p>
+<p>&gt;&gt;&gt;flat_profile_2, coefs=subtract_polynomial(1, profile_2)
+Subtract a plane of best fit from profile_2 and return the result</p>
+<p>&gt;&gt;&gt;flat_profile, coefs=subtract_polynomial(1, profile_2, mask=float(‘nan’))
+Subtract the profile from the surface ignoring nan height values</p>
+<p>&gt;&gt;&gt;mask=numpy.zeros_like(profile, dtype=bool)
+&gt;&gt;&gt;mask[5:-5,5:-5]=True
+&gt;&gt;&gt;flat_profile, coefs=subtract_polynomial(1, profile_2, mask=mask)
+Subtract a polynomial from the surface ignoring a 5 deep boarder</p>
+<div class="admonition seealso">
+<p class="first admonition-title">See also</p>
+<p class="last"><a class="reference internal" href="slippy.surface.roughness.html#slippy.surface.roughness" title="slippy.surface.roughness"><code class="xref py py-func docutils literal notranslate"><span class="pre">roughness</span></code></a>, <code class="xref py py-func docutils literal notranslate"><span class="pre">numpy.linalg.lstsq</span></code></p>
+</div>
+<p class="rubric">Notes</p>
+<p>In principal polynomials of any integer order are supported however higher
+order polynomials will take more time to fit</p>
+</dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="slippy.surface.roughness.html"
+                        title="previous chapter">slippy.surface.roughness</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="slippy.surface.get_mat_vr.html"
+                        title="next chapter">slippy.surface.get_mat_vr</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/generated/slippy.surface.subtract_polynomial.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="slippy.surface.get_mat_vr.html" title="slippy.surface.get_mat_vr"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="slippy.surface.roughness.html" title="slippy.surface.roughness"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">slippy 1.1.0 alpha documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../surface.html" >Surface generation and manipulation (<code class="docutils literal notranslate"><span class="pre">slippy.surface</span></code>)</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2019, Mike Watson.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.8.2.
+    </div>
+  </body>
+</html>

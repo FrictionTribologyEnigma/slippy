@@ -27,7 +27,7 @@ author = 'Mike Watson'
 
 version = '1.1'
 # The full version, including alpha/beta/rc tags
-release = '1.1.0'
+release = '1.1.0 alpha'
 
 
 # -- General configuration ---------------------------------------------------
@@ -41,13 +41,15 @@ release = '1.1.0'
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
-    'numpydoc',
     'sphinx.ext.intersphinx',
     'sphinx.ext.autosummary',
     'sphinx.ext.coverage',
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
+    'sphinx.ext.napoleon'
 ]
+
+autosummary_generate=True
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -75,7 +77,9 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'dev']
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = 'sphinx'
+add_function_parentheses = False
 
+default_role="autolink"
 
 # -- Options for HTML output -------------------------------------------------
 

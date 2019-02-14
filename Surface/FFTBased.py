@@ -28,7 +28,7 @@ Classes for generating pseudo-random surfaces based on description of FFT:
         make work with generate keyword
 """
 
-from . import Surface
+from .Surface_class import Surface
 import warnings
 import numpy as np
 
@@ -46,7 +46,7 @@ class DiscFreqSurface(Surface):
     any kwargs that can be passed to surface can also be passed to this
     
     mySurf=DiscFreqSurface(10, 0.1) 
-    mySurf.global_size=[0.5,0.5]
+    mySurf.extent=[0.5,0.5]
     mySurf.descretise(0.001)
     
     Generates and descretises a 2D surface with a frequency of 10 rads/unit
@@ -83,11 +83,11 @@ class DiscFreqSurface(Surface):
             
     def descretise(self, grid_spacing=None):
         if grid_spacing:    
-            self.set_grid_spacing(grid_spacing)
+            self.grid_spacing=grid_spacing
         self._descretise_checks()
-        #TODO write this section
-        x=np.linspace(-0.5*self._global_size[0],
-                    0.5*self._global_size[0],self._pts_each_direction[0])
+        
+        x=np.linspace(-0.5*self.extent[0],
+                    0.5*self.extent[0],self.shape[0])
         if self.dimentions==1:
             profile=np.zeros_like(x)
             for idx in range(len(self.frequencies)):
@@ -95,8 +95,8 @@ class DiscFreqSurface(Surface):
                                  np.exp(-1j*self.frequencies[idx]*x*2*np.pi))
             self.profile=profile
         elif self.dimentions==2:
-            y=np.linspace(-0.5*self._global_size[1],
-                        0.5*self._global_size[1],self._pts_each_direction[1])
+            y=np.linspace(-0.5*self.extent[1],
+                        0.5*self.extent[1],self.shape[1])
             (X,Y)=np.meshgrid(x,y)
             profile=np.zeros_like(X)
             for idx in range(len(self.frequencies)):
@@ -122,7 +122,7 @@ class ProbFreqSurface(Surface):
     """
     is_descrete=False
     surface_type='continuousFreq'
-        #TODO write this function
+        
     def __init__(self, H=2, qr=0.05, qs=10, **kwargs):
         #q is frequency
         self._init_checks(kwargs)
@@ -130,22 +130,22 @@ class ProbFreqSurface(Surface):
         self.qs=qs
         self.qr=qr
         
-    def descretise(self, global_size=None, grid_spacing=None):
-        if global_size:
-            self.set_global_size(global_size)
-        if grid_spacing:
-            self.set_grid_spacing(grid_spacing)
+    def descretise(self, extent=None, grid_spacing=None):
+        if extent is not None:
+            self.extent=extent
+        if grid_spacing is not None:
+            self.grid_spacing=grid_spacing
         self._descretise_checks()
-        if self._global_size[0]!=self._global_size[1]:
+        if self.extent[0]!=self.extent[1]:
             raise ValueError("This method is only defined for square domains")
         qny=np.pi/grid_spacing
         
-        u=np.linspace(0,qny,self._pts_each_direction[0])
+        u=np.linspace(0,qny,self.shape[0])
         U,V=np.meshgrid(u,u)
         Q=np.abs(U+V)
         varience=np.zeros(Q.shape)
         varience[np.logical_and((1/Q)>(1/self.qr),
-                                (2*np.pi/Q)<=(global_size[0]))]=1
+                                (2*np.pi/Q)<=(extent[0]))]=1
         varience[np.logical_and((1/Q)>=(1/self.qs),
                                 (1/Q)<(1/self.qr))]=(Q[np.logical_and(
                 1/Q>=1/self.qs,1/Q<1/self.qr)]/self.qr
@@ -214,18 +214,18 @@ class HurstFractalSurface(Surface):
         self.qkh=np.transpose(np.array([q0*H.flatten(), q0*K.flatten()]))
         
         
-    def descretise(self, global_size=None, grid_spacing=None):
-        if global_size:
-            self.set_global_size(global_size)
-        if grid_spacing:
-            self.set_grid_spacing(grid_spacing)
+    def descretise(self, extent=None, grid_spacing=None):
+        if extent is not None:
+            self.extent=extent
+        if grid_spacing is not None:
+            self.grid_spacing=grid_spacing
         
         self._descretise_checks()
         
-        global_size=self._global_size
-        grid_spacing=self._grid_spacing
+        extent=self.extent
+        grid_spacing=self.grid_spacing
         
-        X,Y=self._get_points_from_extent(global_size, grid_spacing)
+        X,Y=self._get_points_from_extent(extent, grid_spacing)
         input_shape=X.shape
         coords=np.array([X.flatten(), Y.flatten()])
         

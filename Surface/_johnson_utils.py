@@ -74,7 +74,9 @@ def _fit_johnson_by_moments(mean, sd, root_beta_1, beta_2, return_rv=True):
     Examples
     --------
     
-    >>>make me a sandwich ##TODO
+    >>>my_scipy_rv=_fit_johnson_by_moments(10,5,1,2)
+    returns a scipy rv with a mean of 10, a standard deviation of 5, a skew of
+    1 and a kurtosis of 2
     """
     
     import math

@@ -1,0 +1,450 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>slippy.surface.Surface &#8212; slippy 1.1.0 alpha documentation</title>
+    <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="slippy.surface.FlatSurface" href="slippy.surface.FlatSurface.html" />
+    <link rel="prev" title="Surface generation and manipulation (slippy.surface)" href="../surface.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="slippy.surface.FlatSurface.html" title="slippy.surface.FlatSurface"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="../surface.html" title="Surface generation and manipulation (slippy.surface)"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">slippy 1.1.0 alpha documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../surface.html" accesskey="U">Surface generation and manipulation (<code class="docutils literal notranslate"><span class="pre">slippy.surface</span></code>)</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="slippy-surface-surface">
+<h1>slippy.surface.Surface<a class="headerlink" href="#slippy-surface-surface" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="slippy.surface.Surface">
+<em class="property">class </em><code class="descclassname">slippy.surface.</code><code class="descname">Surface</code><span class="sig-paren">(</span><em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slippy/surface/Surface_class.html#Surface"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#slippy.surface.Surface" title="Permalink to this definition">¶</a></dt>
+<dd><p>Object for reading, manipulating and plotting surfaces</p>
+<p>The Surface class contains methods for setting properties,
+examining measures of roughness and descriptions of surfaces, plotting,
+fixing and editing surfaces.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name" colspan="2">Other Parameters:</th></tr>
+<tr class="field-odd field"><td>&#160;</td><td class="field-body"><ul class="first last simple">
+<li><strong>profile</strong> (<em>array-like optional (None)</em>) – The surface profile</li>
+<li><strong>file_name</strong> (<em>str optional (None)</em>) – The file name including the extention of file, for vaild types see
+notes</li>
+<li><strong>delim</strong> (<em>str optional (‘,’)</em>) – The delimitor used in the file, only needed for csv or txt files</li>
+<li><strong>profile</strong> (<em>array-like optional (np.array([]))</em>) – A surface profile</li>
+<li><strong>extent</strong> (<em>2 element list optional (None)</em>) – The size of the surface in each dimention</li>
+<li><strong>grid_spacing</strong> (<em>float optional (None)</em>) – The distance between nodes on the grid,</li>
+<li><strong>dimentions</strong> (<em>int optional (2)</em>) – The number of diimentions of the surface</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<dl class="attribute">
+<dt id="slippy.surface.Surface.profile">
+<code class="descname">profile</code><a class="headerlink" href="#slippy.surface.Surface.profile" title="Permalink to this definition">¶</a></dt>
+<dd><p>The height infromation of the surface</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Type:</th><td class="field-body">array</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="slippy.surface.Surface.shape">
+<code class="descname">shape</code><a class="headerlink" href="#slippy.surface.Surface.shape" title="Permalink to this definition">¶</a></dt>
+<dd><p>The numbeer of points in each direction of the profile</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Type:</th><td class="field-body">tuple</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="slippy.surface.Surface.size">
+<code class="descname">size</code><a class="headerlink" href="#slippy.surface.Surface.size" title="Permalink to this definition">¶</a></dt>
+<dd><p>The total number of points in the profile</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Type:</th><td class="field-body">int</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="slippy.surface.Surface.grid_spacing">
+<code class="descname">grid_spacing</code><a class="headerlink" href="#slippy.surface.Surface.grid_spacing" title="Permalink to this definition">¶</a></dt>
+<dd><p>The distance between adjacent points in the profile</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Type:</th><td class="field-body">float</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="slippy.surface.Surface.extent">
+<code class="descname">extent</code><a class="headerlink" href="#slippy.surface.Surface.extent" title="Permalink to this definition">¶</a></dt>
+<dd><p>The size of the profile in the same units as the grid spacing is set in</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Type:</th><td class="field-body">list</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="slippy.surface.Surface.dimentions">
+<code class="descname">dimentions</code><a class="headerlink" href="#slippy.surface.Surface.dimentions" title="Permalink to this definition">¶</a></dt>
+<dd><p>The number of dimentions of the surface</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Type:</th><td class="field-body">int {1, 2}</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="slippy.surface.Surface.surface_type">
+<code class="descname">surface_type</code><a class="headerlink" href="#slippy.surface.Surface.surface_type" title="Permalink to this definition">¶</a></dt>
+<dd><p>A description of the surface type</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Type:</th><td class="field-body">str {‘Experimental’, ‘Analytical’, ‘Random’}</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt>
+<code class="descname">acf, psd, fft</code></dt>
+<dd><p>The acf, psd and fft of the surface set by the get_acf get_psd and
+get_fft methods</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Type:</th><td class="field-body">array or None</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="slippy.surface.Surface.show">
+<code class="descname">show</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slippy/surface/Surface_class.html#Surface.show"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#slippy.surface.Surface.show" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="slippy.surface.Surface.subtract_polynomial">
+<code class="descname">subtract_polynomial</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slippy/surface/Surface_class.html#Surface.subtract_polynomial"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#slippy.surface.Surface.subtract_polynomial" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="slippy.surface.Surface.roughness">
+<code class="descname">roughness</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slippy/surface/Surface_class.html#Surface.roughness"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#slippy.surface.Surface.roughness" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="slippy.surface.Surface.get_mat_vr">
+<code class="descname">get_mat_vr</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slippy/surface/Surface_class.html#Surface.get_mat_vr"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#slippy.surface.Surface.get_mat_vr" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="slippy.surface.Surface.get_height_of_mat_vr">
+<code class="descname">get_height_of_mat_vr</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slippy/surface/Surface_class.html#Surface.get_height_of_mat_vr"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#slippy.surface.Surface.get_height_of_mat_vr" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="slippy.surface.Surface.find_summits">
+<code class="descname">find_summits</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slippy/surface/Surface_class.html#Surface.find_summits"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#slippy.surface.Surface.find_summits" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="slippy.surface.Surface.get_summit_curvatures">
+<code class="descname">get_summit_curvatures</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#slippy.surface.Surface.get_summit_curvatures" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="slippy.surface.Surface.low_pass_filter">
+<code class="descname">low_pass_filter</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slippy/surface/Surface_class.html#Surface.low_pass_filter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#slippy.surface.Surface.low_pass_filter" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="slippy.surface.Surface.read_from_file">
+<code class="descname">read_from_file</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slippy/surface/Surface_class.html#Surface.read_from_file"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#slippy.surface.Surface.read_from_file" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="slippy.surface.Surface.fill_holes">
+<code class="descname">fill_holes</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slippy/surface/Surface_class.html#Surface.fill_holes"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#slippy.surface.Surface.fill_holes" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="slippy.surface.Surface.resample">
+<code class="descname">resample</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slippy/surface/Surface_class.html#Surface.resample"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#slippy.surface.Surface.resample" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="slippy.surface.Surface.get_fft">
+<code class="descname">get_fft</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slippy/surface/Surface_class.html#Surface.get_fft"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#slippy.surface.Surface.get_fft" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="slippy.surface.Surface.get_acf">
+<code class="descname">get_acf</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slippy/surface/Surface_class.html#Surface.get_acf"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#slippy.surface.Surface.get_acf" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="slippy.surface.Surface.get_psd">
+<code class="descname">get_psd</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slippy/surface/Surface_class.html#Surface.get_psd"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#slippy.surface.Surface.get_psd" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<div class="admonition seealso">
+<p class="first admonition-title">See also</p>
+<p class="last"><code class="xref py py-class docutils literal notranslate"><span class="pre">ACF</span></code>, <a class="reference internal" href="slippy.surface.roughness.html#slippy.surface.roughness" title="slippy.surface.roughness"><code class="xref py py-class docutils literal notranslate"><span class="pre">roughness</span></code></a></p>
+</div>
+<p class="rubric">Notes</p>
+<p>Roughness functions are aliased from the functions provided in the surface
+module</p>
+<p class="rubric">Examples</p>
+<dl class="method">
+<dt id="slippy.surface.Surface.__init__">
+<code class="descname">__init__</code><span class="sig-paren">(</span><em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slippy/surface/Surface_class.html#Surface.__init__"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#slippy.surface.Surface.__init__" title="Permalink to this definition">¶</a></dt>
+<dd><p>Initialize self.  See help(type(self)) for accurate signature.</p>
+</dd></dl>
+
+<p class="rubric">Methods</p>
+<table border="1" class="longtable docutils">
+<colgroup>
+<col width="10%" />
+<col width="90%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><a class="reference internal" href="#slippy.surface.Surface.__init__" title="slippy.surface.Surface.__init__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">__init__</span></code></a>(**kwargs)</td>
+<td>Initialize self.</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#slippy.surface.Surface.fill_holes" title="slippy.surface.Surface.fill_holes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">fill_holes</span></code></a>([hole_value,&nbsp;mk_copy,&nbsp;…])</td>
+<td>Replaces specificed values with filler</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#slippy.surface.Surface.find_summits" title="slippy.surface.Surface.find_summits"><code class="xref py py-obj docutils literal notranslate"><span class="pre">find_summits</span></code></a>([mask,&nbsp;four_nearest,&nbsp;…])</td>
+<td>Find summits after low pass filtering</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#slippy.surface.Surface.get_acf" title="slippy.surface.Surface.get_acf"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_acf</span></code></a>([profile_in])</td>
+<td>Find the auto corelation function of the surface</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#slippy.surface.Surface.get_fft" title="slippy.surface.Surface.get_fft"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_fft</span></code></a>([profile_in])</td>
+<td>Find the fourier transform of the surface</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#slippy.surface.Surface.get_height_of_mat_vr" title="slippy.surface.Surface.get_height_of_mat_vr"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_height_of_mat_vr</span></code></a>(ratio[,&nbsp;void,&nbsp;mask,&nbsp;…])</td>
+<td>Find the height of a given material or void volume ratio</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#slippy.surface.Surface.get_mat_vr" title="slippy.surface.Surface.get_mat_vr"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_mat_vr</span></code></a>(height[,&nbsp;void,&nbsp;mask,&nbsp;ratio])</td>
+<td>Find the material or void volume ratio for a given height</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#slippy.surface.Surface.get_psd" title="slippy.surface.Surface.get_psd"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_psd</span></code></a>()</td>
+<td>Find the power spectral density of the surface</td>
+</tr>
+<tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_summit_curvature</span></code>([summits,&nbsp;mask,&nbsp;…])</td>
+<td>Get summit curvatures</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#slippy.surface.Surface.low_pass_filter" title="slippy.surface.Surface.low_pass_filter"><code class="xref py py-obj docutils literal notranslate"><span class="pre">low_pass_filter</span></code></a>(cut_off_freq[,&nbsp;return_copy])</td>
+<td>Low pass FIR filter the surface profile</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#slippy.surface.Surface.read_from_file" title="slippy.surface.Surface.read_from_file"><code class="xref py py-obj docutils literal notranslate"><span class="pre">read_from_file</span></code></a>(path,&nbsp;**kwargs)</td>
+<td>Read profile data from a file</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#slippy.surface.Surface.resample" title="slippy.surface.Surface.resample"><code class="xref py py-obj docutils literal notranslate"><span class="pre">resample</span></code></a>(new_grid_spacing[,&nbsp;return_profile,&nbsp;…])</td>
+<td>Resample the profile by interpolation</td>
+</tr>
+<tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">rotate</span></code>(radians)</td>
+<td>Rotate the surface relative to the grid and reinterpolate</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#slippy.surface.Surface.roughness" title="slippy.surface.Surface.roughness"><code class="xref py py-obj docutils literal notranslate"><span class="pre">roughness</span></code></a>(parameter_name[,&nbsp;mask,&nbsp;…])</td>
+<td>Find areal roughness parameters</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#slippy.surface.Surface.show" title="slippy.surface.Surface.show"><code class="xref py py-obj docutils literal notranslate"><span class="pre">show</span></code></a>([property_to_plot,&nbsp;plot_type,&nbsp;ax,&nbsp;…])</td>
+<td>Polt surface properties</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#slippy.surface.Surface.subtract_polynomial" title="slippy.surface.Surface.subtract_polynomial"><code class="xref py py-obj docutils literal notranslate"><span class="pre">subtract_polynomial</span></code></a>(order[,&nbsp;mask])</td>
+<td>Flatten the surface by subtracting a polynomial</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Attributes</p>
+<table border="1" class="longtable docutils">
+<colgroup>
+<col width="10%" />
+<col width="90%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">aacf</span></code></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">acf</span></code></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#slippy.surface.Surface.dimentions" title="slippy.surface.Surface.dimentions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dimentions</span></code></a></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#slippy.surface.Surface.extent" title="slippy.surface.Surface.extent"><code class="xref py py-obj docutils literal notranslate"><span class="pre">extent</span></code></a></td>
+<td>The extent of the surface in the same units as grid spacing</td>
+</tr>
+<tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">fft</span></code></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#slippy.surface.Surface.grid_spacing" title="slippy.surface.Surface.grid_spacing"><code class="xref py py-obj docutils literal notranslate"><span class="pre">grid_spacing</span></code></a></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">grid_spcaing</span></code></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">hist</span></code></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">is_descrete</span></code></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">mask</span></code></td>
+<td>A mask used to exclude some values from analysis</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#slippy.surface.Surface.profile" title="slippy.surface.Surface.profile"><code class="xref py py-obj docutils literal notranslate"><span class="pre">profile</span></code></a></td>
+<td>The height data for the surface profile</td>
+</tr>
+<tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">psd</span></code></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">sa</span></code></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#slippy.surface.Surface.shape" title="slippy.surface.Surface.shape"><code class="xref py py-obj docutils literal notranslate"><span class="pre">shape</span></code></a></td>
+<td>The shape of the surface profile array, the number of points in each direction</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#slippy.surface.Surface.size" title="slippy.surface.Surface.size"><code class="xref py py-obj docutils literal notranslate"><span class="pre">size</span></code></a></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#slippy.surface.Surface.surface_type" title="slippy.surface.Surface.surface_type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">surface_type</span></code></a></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="../surface.html"
+                        title="previous chapter">Surface generation and manipulation (<code class="docutils literal notranslate"><span class="pre">slippy.surface</span></code>)</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="slippy.surface.FlatSurface.html"
+                        title="next chapter">slippy.surface.FlatSurface</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/generated/slippy.surface.Surface.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="slippy.surface.FlatSurface.html" title="slippy.surface.FlatSurface"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="../surface.html" title="Surface generation and manipulation (slippy.surface)"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">slippy 1.1.0 alpha documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../surface.html" >Surface generation and manipulation (<code class="docutils literal notranslate"><span class="pre">slippy.surface</span></code>)</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2019, Mike Watson.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.8.2.
+    </div>
+  </body>
+</html>

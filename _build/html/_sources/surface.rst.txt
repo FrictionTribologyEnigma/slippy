@@ -1,2 +1,4 @@
 .. automodule:: slippy.surface
-   :members:
+   :no-members:
+   :no-inherited-members:
+   :no-special-members:

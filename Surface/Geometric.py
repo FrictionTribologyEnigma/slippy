@@ -25,7 +25,7 @@ Classes for generating geometric surfaces:
 
 __all__=['FlatSurface', 'RoundSurface', 'PyramidSurface']
 
-from . import Surface
+from .Surface_class import Surface
 import warnings
 import numpy as np
 
@@ -48,16 +48,16 @@ class FlatSurface(Surface):
         
     def descretise(self, grid_spacing=None, centre=[0,0]):
         if grid_spacing:
-            self.set_grid_spacing(grid_spacing)
+            self.grid_spacing=grid_spacing
         self._descretise_checks()
         grid_spacing=self._grid_spacing
-        x=np.linspace(-0.5*self._global_size[0],
-                    0.5*self._global_size[0],self._pts_each_direction[0])
+        x=np.linspace(-0.5*self.extent[0],
+                    0.5*self.extent[0],self.shape[0])
         if self.dimentions==1:
             self.profile=x*self.slope[0]
         else:
-            y=np.linspace(-0.5*self._global_size[1],
-                    0.5*self._global_size[1],self._pts_each_direction[1])
+            y=np.linspace(-0.5*self.extent[1],
+                    0.5*self.extent[1],self.shape[1])
             (X,Y)=np.meshgrid(x,y)
             self.profile=X*self.slope[0]+Y*self.slope[1]
         self.is_descrete=True
@@ -83,15 +83,15 @@ class RoundSurface(Surface):
             
     def descretise(self, grid_spacing=False, centre=[0,0]):
         if grid_spacing:
-            self.set_grid_spacing(grid_spacing)
+            self.grid_spacing=grid_spacing
         self._descretise_checks()
-        x=np.linspace(-0.5*self._global_size[0],
-                    0.5*self._global_size[0],self._pts_each_direction[0])
+        x=np.linspace(-0.5*self.extent[0],
+                    0.5*self.extent[0],self.shape[0])
         if self.dimentions==1:
             self.profile=((1-(x/self.radius[0])**2)**0.5)*self.radius[-1]
         else:
-            y=np.linspace(-0.5*self._global_size[1],
-                    0.5*self._global_size[1],self._pts_each_direction[1])
+            y=np.linspace(-0.5*self.extent[1],
+                    0.5*self.extent[1],self.shape[1])
             (X,Y)=np.meshgrid(x,y)
             self.profile=((1-(X/self.radius[0])**2-
                           (Y/self.radius[1])**2)**0.5)*self.radius[-1]
@@ -122,15 +122,15 @@ class PyramidSurface(Surface):
         #x/xl+y/yl+z/zl=1
         #(1-x/xl-y/yl)*zl=z
         if grid_spacing:
-            self.set_grid_spacing(grid_spacing)
+            self.grid_spacing=grid_spacing
         self._descretise_checks()
-        x=np.abs(np.arange(-0.5*self._global_size[0],
-                    0.5*self._global_size[0],self._grid_spacing))
+        x=np.abs(np.arange(-0.5*self.extent[0],
+                    0.5*self.extent[0],self.grid_spacing))
         if self.dimentions==1:
             self.profile=(1-x/self.lengths[0])*self.lengths[-1]
         else:
-            y=np.abs(np.arange(-0.5*self._global_size[1],
-                        0.5*self._global_size[1],self._grid_spacing))
+            y=np.abs(np.arange(-0.5*self.extent[1],
+                        0.5*self.extent[1],self.grid_spacing))
             (X,Y)=np.meshgrid(x,y)
             self.profile=(1-X/self.lengths[0]-
                           Y/self.lengths[1])*self.lengths[-1]

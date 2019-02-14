@@ -1,0 +1,173 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Introduction &#8212; slippy 1.1.0 alpha documentation</title>
+    <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Surface Operations" href="surface_operations.html" />
+    <link rel="prev" title="Tutorials" href="index.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="surface_operations.html" title="Surface Operations"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Tutorials"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">slippy 1.1.0 alpha documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">Tutorials</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="introduction">
+<h1>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h1>
+<p>SlipPy is a collection of surface analysis, generation and modelling algorithims. The aim of this project is to bring contact mechanics and other models in tribology to a wider audience and provide a high level interface to these models.</p>
+<p>This project is based on python which is a large open source programming language. Within python there are thousands of packages which bring convienient classes and functions to the programmer. At first keeping track of these packages and their different versions can be daunting, those familiar with matlab or labview may see this as an unnecessary difficulty. For people new to python we recommend installing an anaconda distribution and learning about conda virtual environments.</p>
+<p>This tutorial will acquaint the first time SlipPY user with some of the most important features. It assumes the user has already installed the SlipPY package.</p>
+<p>Throughout this tutorial we will often assume that numpy and pyplot have been imported as follows:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="slippy-organisation">
+<h1>SlipPy Organisation<a class="headerlink" href="#slippy-organisation" title="Permalink to this headline">¶</a></h1>
+<p>SlipPy is split into sub packages covering different functionallity.</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="28%" />
+<col width="72%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Subpackage</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>‘surface’</td>
+<td>Surface analysis and generation</td>
+</tr>
+<tr class="row-odd"><td>‘contact’</td>
+<td>Contact mechanics models</td>
+</tr>
+<tr class="row-even"><td>‘lubrication’</td>
+<td>Lubrication models</td>
+</tr>
+<tr class="row-odd"><td>‘friction’</td>
+<td>Friction models</td>
+</tr>
+<tr class="row-even"><td>‘tribosonics’</td>
+<td>Models and functions for tribosonics</td>
+</tr>
+</tbody>
+</table>
+<p>These need to be imported separately, for example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">slippy</span> <span class="k">import</span> <span class="n">surface</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="finding-documentation">
+<h1>Finding documentation<a class="headerlink" href="#finding-documentation" title="Permalink to this headline">¶</a></h1>
+<p>While the online documentaion should cover most aspects of the code this is not garanteed especially for non core functionallity. The online documention is generated from the docstrings of each object. These can be displayed for any of the objects by using the numpy info function:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">np</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">surface</span><span class="o">.</span><span class="n">roughness</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The source code is avalible online (and on your compute) but can also be accesed on the fly with the numpy source funciton:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">np</span><span class="o">.</span><span class="n">source</span><span class="p">(</span><span class="n">surface</span><span class="o">.</span><span class="n">subtract_polynomial</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Introduction</a></li>
+<li><a class="reference internal" href="#slippy-organisation">SlipPy Organisation</a></li>
+<li><a class="reference internal" href="#finding-documentation">Finding documentation</a></li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="index.html"
+                        title="previous chapter">Tutorials</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="surface_operations.html"
+                        title="next chapter">Surface Operations</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/tutorial/general.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="surface_operations.html" title="Surface Operations"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Tutorials"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">slippy 1.1.0 alpha documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >Tutorials</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2019, Mike Watson.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.8.2.
+    </div>
+  </body>
+</html>

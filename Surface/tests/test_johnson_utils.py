@@ -4,7 +4,7 @@ Johnson utils tests
 import numpy as np
 import numpy.testing as npt
 from pytest import raises as assert_raises
-import SlipPY.surface as S
+import slippy.surface as S
 from scipy.stats._continuous_distns import _norm_cdf
 
 
@@ -28,7 +28,8 @@ def test_johnson_fit():
             npt.assert_allclose(moments, params, decimal)
             npt.assert_equal(params[0], myDist.dist.name)
         else:
-            assert_raises(NotImplementedError, S.fit_johnson_by_moments(*params[1]))
+            assert_raises(NotImplementedError, 
+                          S.fit_johnson_by_moments(*params[1]))
 
 fit_quantiles=[[]]
 

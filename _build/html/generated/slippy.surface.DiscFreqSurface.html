@@ -1,0 +1,249 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>slippy.surface.DiscFreqSurface &#8212; slippy 1.1.0 alpha documentation</title>
+    <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="slippy.surface.ProbFreqSurface" href="slippy.surface.ProbFreqSurface.html" />
+    <link rel="prev" title="slippy.surface.RandomSurface" href="slippy.surface.RandomSurface.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="slippy.surface.ProbFreqSurface.html" title="slippy.surface.ProbFreqSurface"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="slippy.surface.RandomSurface.html" title="slippy.surface.RandomSurface"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">slippy 1.1.0 alpha documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../surface.html" accesskey="U">Surface generation and manipulation (<code class="docutils literal notranslate"><span class="pre">slippy.surface</span></code>)</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="slippy-surface-discfreqsurface">
+<h1>slippy.surface.DiscFreqSurface<a class="headerlink" href="#slippy-surface-discfreqsurface" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="slippy.surface.DiscFreqSurface">
+<em class="property">class </em><code class="descclassname">slippy.surface.</code><code class="descname">DiscFreqSurface</code><span class="sig-paren">(</span><em>frequencies, amptitudes=[1], phases_rads=[0], dimentions=2, **kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slippy/surface/FFTBased.html#DiscFreqSurface"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#slippy.surface.DiscFreqSurface" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generates a surface containg discrete frequncy components</p>
+<p>Usage:</p>
+<p>DiscFreqSurface(frequencies, amptitudes=[1], phases_rads=[0], dimentions=2)</p>
+<p>Generates a surface with the specified frequencies, amptitudes and phases
+any kwargs that can be passed to surface can also be passed to this</p>
+<p>mySurf=DiscFreqSurface(10, 0.1)
+mySurf.extent=[0.5,0.5]
+mySurf.descretise(0.001)</p>
+<p>Generates and descretises a 2D surface with a frequency of 10 rads/unit
+of global size, descretised on a grid with a grid_spacing of 0.001</p>
+<dl class="method">
+<dt id="slippy.surface.DiscFreqSurface.__init__">
+<code class="descname">__init__</code><span class="sig-paren">(</span><em>frequencies, amptitudes=[1], phases_rads=[0], dimentions=2, **kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slippy/surface/FFTBased.html#DiscFreqSurface.__init__"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#slippy.surface.DiscFreqSurface.__init__" title="Permalink to this definition">¶</a></dt>
+<dd><p>Initialize self.  See help(type(self)) for accurate signature.</p>
+</dd></dl>
+
+<p class="rubric">Methods</p>
+<table border="1" class="longtable docutils">
+<colgroup>
+<col width="10%" />
+<col width="90%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><a class="reference internal" href="#slippy.surface.DiscFreqSurface.__init__" title="slippy.surface.DiscFreqSurface.__init__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">__init__</span></code></a>(frequencies[,&nbsp;amptitudes,&nbsp;…])</td>
+<td>Initialize self.</td>
+</tr>
+<tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">descretise</span></code>([grid_spacing])</td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">fill_holes</span></code>([hole_value,&nbsp;mk_copy,&nbsp;…])</td>
+<td>Replaces specificed values with filler</td>
+</tr>
+<tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">find_summits</span></code>([mask,&nbsp;four_nearest,&nbsp;…])</td>
+<td>Find summits after low pass filtering</td>
+</tr>
+<tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_acf</span></code>([profile_in])</td>
+<td>Find the auto corelation function of the surface</td>
+</tr>
+<tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_fft</span></code>([profile_in])</td>
+<td>Find the fourier transform of the surface</td>
+</tr>
+<tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_height_of_mat_vr</span></code>(ratio[,&nbsp;void,&nbsp;mask,&nbsp;…])</td>
+<td>Find the height of a given material or void volume ratio</td>
+</tr>
+<tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_mat_vr</span></code>(height[,&nbsp;void,&nbsp;mask,&nbsp;ratio])</td>
+<td>Find the material or void volume ratio for a given height</td>
+</tr>
+<tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_psd</span></code>()</td>
+<td>Find the power spectral density of the surface</td>
+</tr>
+<tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_summit_curvature</span></code>([summits,&nbsp;mask,&nbsp;…])</td>
+<td>Get summit curvatures</td>
+</tr>
+<tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">low_pass_filter</span></code>(cut_off_freq[,&nbsp;return_copy])</td>
+<td>Low pass FIR filter the surface profile</td>
+</tr>
+<tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">read_from_file</span></code>(path,&nbsp;**kwargs)</td>
+<td>Read profile data from a file</td>
+</tr>
+<tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">resample</span></code>(new_grid_spacing[,&nbsp;return_profile,&nbsp;…])</td>
+<td>Resample the profile by interpolation</td>
+</tr>
+<tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">rotate</span></code>(radians)</td>
+<td>Rotate the surface relative to the grid and reinterpolate</td>
+</tr>
+<tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">roughness</span></code>(parameter_name[,&nbsp;mask,&nbsp;…])</td>
+<td>Find areal roughness parameters</td>
+</tr>
+<tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">show</span></code>([property_to_plot,&nbsp;plot_type,&nbsp;ax,&nbsp;…])</td>
+<td>Polt surface properties</td>
+</tr>
+<tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">subtract_polynomial</span></code>(order[,&nbsp;mask])</td>
+<td>Flatten the surface by subtracting a polynomial</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Attributes</p>
+<table border="1" class="longtable docutils">
+<colgroup>
+<col width="10%" />
+<col width="90%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">aacf</span></code></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">acf</span></code></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">dimentions</span></code></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">extent</span></code></td>
+<td>The extent of the surface in the same units as grid spacing</td>
+</tr>
+<tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">fft</span></code></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">grid_spacing</span></code></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">grid_spcaing</span></code></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">hist</span></code></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">is_descrete</span></code></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">mask</span></code></td>
+<td>A mask used to exclude some values from analysis</td>
+</tr>
+<tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">profile</span></code></td>
+<td>The height data for the surface profile</td>
+</tr>
+<tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">psd</span></code></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">sa</span></code></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">shape</span></code></td>
+<td>The shape of the surface profile array, the number of points in each direction</td>
+</tr>
+<tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">size</span></code></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">surface_type</span></code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="slippy.surface.RandomSurface.html"
+                        title="previous chapter">slippy.surface.RandomSurface</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="slippy.surface.ProbFreqSurface.html"
+                        title="next chapter">slippy.surface.ProbFreqSurface</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/generated/slippy.surface.DiscFreqSurface.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="slippy.surface.ProbFreqSurface.html" title="slippy.surface.ProbFreqSurface"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="slippy.surface.RandomSurface.html" title="slippy.surface.RandomSurface"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">slippy 1.1.0 alpha documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../surface.html" >Surface generation and manipulation (<code class="docutils literal notranslate"><span class="pre">slippy.surface</span></code>)</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2019, Mike Watson.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.8.2.
+    </div>
+  </body>
+</html>

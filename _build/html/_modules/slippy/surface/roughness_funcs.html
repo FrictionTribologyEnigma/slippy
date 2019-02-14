@@ -1,0 +1,929 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>slippy.surface.roughness_funcs &#8212; slippy 1.1.0 alpha documentation</title>
+    <link rel="stylesheet" href="../../../_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">slippy 1.1.0 alpha documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for slippy.surface.roughness_funcs</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">itertools</span>
+<span class="kn">from</span> <span class="nn">slippy.surface.ACF_class</span> <span class="k">import</span> <span class="n">ACF</span>
+<span class="kn">import</span> <span class="nn">scipy.signal</span>
+
+<span class="n">__all__</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;roughness&#39;</span><span class="p">,</span> <span class="s1">&#39;subtract_polynomial&#39;</span><span class="p">,</span> <span class="s1">&#39;get_mat_vr&#39;</span><span class="p">,</span>
+         <span class="s1">&#39;get_height_of_mat_vr&#39;</span><span class="p">,</span> <span class="s1">&#39;get_summit_curvatures&#39;</span><span class="p">,</span>
+         <span class="s1">&#39;find_summits&#39;</span><span class="p">,</span> <span class="s1">&#39;low_pass_filter&#39;</span><span class="p">]</span>
+<span class="k">def</span> <span class="nf">_check_surface</span><span class="p">(</span><span class="n">surface</span><span class="p">,</span><span class="n">grid_spacing</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">surface</span><span class="p">,</span><span class="s1">&#39;_profile&#39;</span><span class="p">):</span>
+        <span class="n">p</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">surface</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">grid_spacing</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">grid_spacing</span><span class="o">==</span><span class="nb">float</span><span class="p">(</span><span class="s1">&#39;inf&#39;</span><span class="p">):</span>
+            <span class="n">gs</span><span class="o">=</span><span class="n">surface</span><span class="o">.</span><span class="n">grid_spacing</span>
+        <span class="k">return</span> <span class="n">p</span><span class="p">,</span><span class="n">gs</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">surface</span><span class="p">),</span> <span class="n">grid_spacing</span>
+
+<div class="viewcode-block" id="roughness"><a class="viewcode-back" href="../../../generated/slippy.surface.roughness.html#slippy.surface.roughness">[docs]</a><span class="k">def</span> <span class="nf">roughness</span><span class="p">(</span><span class="n">profile_in</span><span class="p">,</span> <span class="n">parameter_name</span><span class="p">,</span> <span class="n">grid_spacing</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> 
+              <span class="n">curved_surface</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">no_flattening</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">filter_cut_off</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+              <span class="n">four_nearest</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span> 
+    <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Find 3d surface roughness parameters</span>
+<span class="sd">    </span>
+<span class="sd">    Calculates and returns common surface roughness parameters also known </span>
+<span class="sd">    as birmingham parameters</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    profile_in : array like or Surface</span>
+<span class="sd">        The surface profile or surface object to be used</span>
+<span class="sd">    parameter_name : str or list of str</span>
+<span class="sd">        The name of the surface roughness parameter to be returned see notes </span>
+<span class="sd">        for descriptions of each</span>
+<span class="sd">    grid_spacing : float optional (None)</span>
+<span class="sd">        The distance between adjacent grid points in the surface</span>
+<span class="sd">        only required for some parameters, see notes    </span>
+<span class="sd">    mask : array-like same shape as profile or float (None)</span>
+<span class="sd">        If an array, the array is used as a mask for the profile, it must be  </span>
+<span class="sd">        the same shape as the profile, if a float or list of floats is given, </span>
+<span class="sd">        those values are excluded from the calculation. If None, no mask is </span>
+<span class="sd">        used. Limited applicability, see notes</span>
+<span class="sd">    curved_surface : bool optional (False)</span>
+<span class="sd">        True if the measurment surface was curved, in this case a 2nd order</span>
+<span class="sd">        polynomial is subtracted other wise a 1st order polynomial is </span>
+<span class="sd">        subtracted before the measuremt</span>
+<span class="sd">    no_flattening : bool optional (False)</span>
+<span class="sd">        If true, flattening will be skipped, no polynomial will be subtracted</span>
+<span class="sd">        before calculation of parameters, used for periodic surfaces or to </span>
+<span class="sd">        save time</span>
+<span class="sd">        </span>
+<span class="sd">    </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    out : float or list of floats</span>
+<span class="sd">        The requested parameters</span>
+<span class="sd">        </span>
+<span class="sd">    Other parameters</span>
+<span class="sd">    ----------------</span>
+<span class="sd">    four_nearest : bool optional (False) </span>
+<span class="sd">        If true any point that is higher than it&#39;s 4 nearest neigbours will be </span>
+<span class="sd">        counted as a summit, otherwise a point must be higher than it&#39;s 8 </span>
+<span class="sd">        nearest neigbours to be a summit. Only used if summit descriptions</span>
+<span class="sd">        are required, passed to find_summits.</span>
+<span class="sd">    filter_cut_off : float optional (None)</span>
+<span class="sd">        If given the surface will be low pass filtered before finding sumits. </span>
+<span class="sd">        Only used if summit descriptions are required, passed to find_summits.</span>
+<span class="sd">        </span>
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    Surface : a helper class with useful surface analysis functionality</span>
+<span class="sd">    subtract_polynomial</span>
+<span class="sd">    find_summits</span>
+<span class="sd">    get_mat_vr</span>
+<span class="sd">    get_summit_curvatures</span>
+<span class="sd">    </span>
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    </span>
+<span class="sd">    Before calculation the least squares plane is subtracted if a periodic</span>
+<span class="sd">    surface is used this can be prevented by setting the no_flattening key </span>
+<span class="sd">    word to true. If a curved surface is used a bi quadratic polynomial is </span>
+<span class="sd">    fitted and removed before analysis as descirbed in the above text. </span>
+<span class="sd">    </span>
+<span class="sd">    If a list of valid parameter names is given this method will return a </span>
+<span class="sd">    list of parameter values.</span>
+<span class="sd">    </span>
+<span class="sd">    If a parameter based on summit descriptions is needed the key words:</span>
+<span class="sd">        filter_cut_off (default False)</span>
+<span class="sd">        and </span>
+<span class="sd">        four_nearest (default False) </span>
+<span class="sd">    can be set to refine what counts as a summit, see find_summits</span>
+<span class="sd">    for more information. This is only used to find summits, calculations </span>
+<span class="sd">    are run on &#39;raw&#39; surface.</span>
+<span class="sd">    </span>
+<span class="sd">    Descriptions of each of the surface roughness parameters are given below:</span>
+<span class="sd">    </span>
+<span class="sd">    Amptitude parameters:</span>
+<span class="sd">    </span>
+<span class="sd">    - Sq   - RMS deviation of surface height *</span>
+<span class="sd">    - Sz   - Ten point height (based on definition of sumits) *-</span>
+<span class="sd">    - Ssk  - Skew of the surface (3rd moment) *</span>
+<span class="sd">    - Sku  - Kurtosis of the surface (4th moment) *</span>
+<span class="sd">    </span>
+<span class="sd">    Spartial parameters:</span>
+<span class="sd">    </span>
+<span class="sd">    - Sds  - Summit density*-, see note above on definition of summit</span>
+<span class="sd">    - Str  - Texture aspect ratio defined using the aacf </span>
+<span class="sd">    - Std  - Texture direction</span>
+<span class="sd">    - Sal  - Fastest decay auto corelation length +</span>
+<span class="sd">    </span>
+<span class="sd">    hybrid parameters:</span>
+<span class="sd">    </span>
+<span class="sd">    - Sdelq- RMS slope +</span>
+<span class="sd">    - Ssc  - Mean summit curvature, see note above on definition of summit *+ </span>
+<span class="sd">    - Sdr  - Developed interfacial area ratio +</span>
+<span class="sd">    </span>
+<span class="sd">    funcional parameters:</span>
+<span class="sd">    </span>
+<span class="sd">    - Sbi  - Bearing index *</span>
+<span class="sd">    - Sci  - Core fluid retention index *</span>
+<span class="sd">    - Svi  - Valley fluid retention index *</span>
+<span class="sd">    </span>
+<span class="sd">    non &#39;core&#39; parameters (implemented):</span>
+<span class="sd">    </span>
+<span class="sd">    - Sa   - Mean amptitude of surface *</span>
+<span class="sd">    - Stp  - Surface bearing ratio *</span>
+<span class="sd">    - Smr  - Material volume ratio of the surface *</span>
+<span class="sd">    - Svr  - Void volume ratio of the surface, as for previous *</span>
+<span class="sd">    </span>
+<span class="sd">    non &#39;core&#39; parameters (not implemented):</span>
+<span class="sd">    </span>
+<span class="sd">    - Sk   - Core roughness depth</span>
+<span class="sd">    - Spk  - Reduced summit height</span>
+<span class="sd">    - Svk  - Reduced valley depth</span>
+<span class="sd">    - Sr1  - Upper bearing area</span>
+<span class="sd">    - Sr2  - Lower bearing area</span>
+<span class="sd">    </span>
+<span class="sd">    \* masking supported</span>
+<span class="sd">    </span>
+<span class="sd">    \+ requires grid_spacing</span>
+<span class="sd">    </span>
+<span class="sd">    \- requires grid spacing only if filtering is used for summit definition</span>
+<span class="sd">    </span>
+<span class="sd">    Summit parameters only support masking if low pass filtering is not </span>
+<span class="sd">    required</span>
+<span class="sd">    </span>
+<span class="sd">    Parameter names are not case sensitive</span>
+<span class="sd">    </span>
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    </span>
+<span class="sd">    </span>
+<span class="sd">    References</span>
+<span class="sd">    ----------</span>
+<span class="sd">    </span>
+<span class="sd">    Stout, K., Sullivan, P., Dong, W., Mainsah, E., Luo, N., Mathia, </span>
+<span class="sd">    T., &amp; Zahouani, H. (1993). </span>
+<span class="sd">    The development of methods for the characterisation of roughness in </span>
+<span class="sd">    three dimensions. EUR(Luxembourg), 358. </span>
+<span class="sd">    Retrieved from http://cat.inist.fr/?aModele=afficheN&amp;cpsidt=49475</span>
+<span class="sd">    chapter 12</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">profile</span><span class="p">,</span> <span class="n">grid_spacing</span><span class="o">=</span><span class="n">_check_surface</span><span class="p">(</span><span class="n">profile_in</span><span class="p">,</span> <span class="n">grid_spacing</span><span class="p">)</span>
+    
+    <span class="n">needs_gs</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;scc&#39;</span><span class="p">,</span><span class="s1">&#39;sdr&#39;</span><span class="p">,</span><span class="s1">&#39;sal&#39;</span><span class="p">]</span>
+    <span class="n">no_mask</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;sdr&#39;</span><span class="p">,</span><span class="s1">&#39;str&#39;</span><span class="p">,</span><span class="s1">&#39;sal&#39;</span><span class="p">]</span>
+    
+    
+    
+    <span class="k">if</span> <span class="n">mask</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">float</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">mask</span><span class="p">):</span>
+                <span class="n">mask</span><span class="o">=~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">profile</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">mask</span><span class="o">=~</span><span class="n">profile</span><span class="o">==</span><span class="n">mask</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">mask</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">mask</span><span class="o">.</span><span class="n">shape</span><span class="o">==</span><span class="n">profile</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
+                <span class="n">msg</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;profile and mask shapes do not match: profile is&quot;</span>
+                    <span class="s2">&quot;</span><span class="si">{profile.shape}</span><span class="s2">, mask is </span><span class="si">{mask.shape}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="o">**</span><span class="nb">locals</span><span class="p">()))</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+    
+    <span class="c1">#subtract polynomial</span>
+    <span class="k">if</span> <span class="n">curved_surface</span><span class="p">:</span>
+        <span class="n">order</span><span class="o">=</span><span class="mi">2</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">order</span><span class="o">=</span><span class="mi">1</span>
+
+    <span class="k">if</span> <span class="n">no_flattening</span><span class="p">:</span>
+        <span class="n">eta</span><span class="o">=</span><span class="n">profile</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">eta</span><span class="p">,</span><span class="n">_</span><span class="o">=</span><span class="n">subtract_polynomial</span><span class="p">(</span><span class="n">profile</span><span class="p">,</span> <span class="n">order</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="n">mask</span><span class="p">)</span>
+    
+    
+    <span class="k">if</span> <span class="n">mask</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">eta_masked</span><span class="o">=</span><span class="n">eta</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">eta_masked</span><span class="o">=</span><span class="n">eta</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+    
+    <span class="c1"># recursive call to allow lists of parmeters to be retived at once</span>
+    <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">parameter_name</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">list</span><span class="p">:</span>
+        <span class="n">out</span><span class="o">=</span><span class="p">[]</span>
+        <span class="k">for</span> <span class="n">par_name</span> <span class="ow">in</span> <span class="n">parameter_name</span><span class="p">:</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">roughness</span><span class="p">(</span><span class="n">eta</span><span class="p">,</span> <span class="n">par_name</span><span class="p">,</span> <span class="n">grid_spacing</span><span class="o">=</span><span class="n">grid_spacing</span><span class="p">,</span>
+                                 <span class="n">mask</span><span class="o">=</span><span class="n">mask</span><span class="p">,</span> <span class="n">no_flattening</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> 
+                                 <span class="n">filter_cut_off</span><span class="o">=</span><span class="n">filter_cut_off</span><span class="p">,</span>
+                                 <span class="n">four_nearest</span><span class="o">=</span><span class="n">four_nearest</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">out</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">parameter_name</span><span class="o">=</span><span class="n">parameter_name</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+            <span class="n">msg</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;Parameters must be strings or list of strings&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span> 
+    
+    <span class="k">if</span> <span class="n">parameter_name</span> <span class="ow">in</span> <span class="n">needs_gs</span> <span class="ow">and</span> <span class="n">grid_spacing</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Grid spacing required for </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">parameter_name</span><span class="p">))</span>
+    
+    <span class="k">if</span> <span class="n">parameter_name</span> <span class="ow">in</span> <span class="n">no_mask</span> <span class="ow">and</span> <span class="n">mask</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Masking not supported for </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">parameter_name</span><span class="p">))</span>
+    
+    <span class="c1"># return parameter of interst </span>
+    <span class="k">if</span> <span class="n">grid_spacing</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">global_size</span><span class="o">=</span><span class="p">[</span><span class="n">grid_spacing</span><span class="o">*</span><span class="n">dim</span> <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">profile</span><span class="o">.</span><span class="n">shape</span><span class="p">]</span>
+        <span class="n">gs2</span><span class="o">=</span><span class="n">grid_spacing</span><span class="o">**</span><span class="mi">2</span>
+    <span class="n">num_pts_m</span><span class="o">=</span><span class="n">eta_masked</span><span class="o">.</span><span class="n">size</span>
+    <span class="n">p_area_m</span><span class="o">=</span><span class="n">num_pts_m</span><span class="o">*</span><span class="n">gs2</span>
+    
+    <span class="n">p_area_t</span><span class="o">=</span><span class="n">eta</span><span class="o">.</span><span class="n">size</span><span class="o">*</span><span class="n">gs2</span>
+    
+    <span class="k">if</span> <span class="n">parameter_name</span><span class="o">==</span><span class="s1">&#39;sq&#39;</span><span class="p">:</span> <span class="c1">#root mean square checked</span>
+        <span class="n">out</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">eta_masked</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
+        
+    <span class="k">elif</span> <span class="n">parameter_name</span><span class="o">==</span><span class="s1">&#39;sa&#39;</span><span class="p">:</span> <span class="c1">#mean amptitude checked</span>
+        <span class="n">out</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">eta_masked</span><span class="p">))</span>
+        
+    <span class="k">elif</span> <span class="n">parameter_name</span><span class="o">==</span><span class="s1">&#39;ssk&#39;</span><span class="p">:</span> <span class="c1">#skewness checked</span>
+        <span class="n">sq</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">eta_masked</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
+        <span class="n">out</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">eta_masked</span><span class="o">**</span><span class="mi">3</span><span class="p">)</span><span class="o">/</span><span class="n">sq</span><span class="o">**</span><span class="mi">3</span>
+        
+    <span class="k">elif</span> <span class="n">parameter_name</span><span class="o">==</span><span class="s1">&#39;sku&#39;</span><span class="p">:</span> <span class="c1">#kurtosis checked</span>
+        <span class="n">sq</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">eta_masked</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
+        <span class="n">out</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">eta_masked</span><span class="o">**</span><span class="mi">4</span><span class="p">)</span><span class="o">/</span><span class="n">sq</span><span class="o">**</span><span class="mi">4</span>
+    
+    <span class="k">elif</span> <span class="n">parameter_name</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;sds&#39;</span><span class="p">,</span> <span class="s1">&#39;sz&#39;</span><span class="p">,</span> <span class="s1">&#39;ssc&#39;</span><span class="p">]:</span> <span class="c1"># all that require sumits</span>
+        <span class="c1"># summits is logical array of sumit locations</span>
+        <span class="n">summits</span><span class="o">=</span><span class="n">find_summits</span><span class="p">(</span><span class="n">eta</span><span class="p">,</span> <span class="n">grid_spacing</span><span class="p">,</span> <span class="n">mask</span><span class="p">,</span> <span class="n">four_nearest</span><span class="p">,</span> 
+                             <span class="n">filter_cut_off</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">parameter_name</span><span class="o">==</span><span class="s1">&#39;sds&#39;</span><span class="p">:</span> <span class="c1"># summit density</span>
+            <span class="n">out</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">summits</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="n">num_pts_m</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">parameter_name</span><span class="o">==</span><span class="s1">&#39;sz&#39;</span><span class="p">:</span>
+            <span class="n">valleys</span><span class="o">=</span><span class="n">find_summits</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="o">*</span><span class="n">eta</span><span class="p">,</span> <span class="n">grid_spacing</span><span class="p">,</span> <span class="n">mask</span><span class="p">,</span> <span class="n">four_nearest</span><span class="p">,</span> 
+                             <span class="n">filter_cut_off</span><span class="p">)</span>
+            <span class="n">summit_heights</span><span class="o">=</span><span class="n">eta</span><span class="p">[</span><span class="n">summits</span><span class="p">]</span>
+            <span class="n">valley_heights</span><span class="o">=</span><span class="n">eta</span><span class="p">[</span><span class="n">valleys</span><span class="p">]</span>
+            <span class="n">summit_heights</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">summit_heights</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+            <span class="n">valley_heights</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">valley_heights</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+            <span class="n">out</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">valley_heights</span><span class="p">[:</span><span class="mi">5</span><span class="p">])</span><span class="o">+</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">summit_heights</span><span class="p">[</span><span class="o">-</span><span class="mi">5</span><span class="p">:])</span><span class="o">/</span><span class="mi">5</span>
+        <span class="k">else</span><span class="p">:</span> <span class="c1"># ssc mean summit curvature</span>
+            <span class="n">out</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">get_summit_curvatures</span><span class="p">(</span><span class="n">eta</span><span class="p">,</span> <span class="n">summits</span><span class="p">,</span> <span class="n">grid_spacing</span><span class="p">))</span>
+            
+    <span class="k">elif</span> <span class="n">parameter_name</span><span class="o">==</span><span class="s1">&#39;sdr&#39;</span><span class="p">:</span> <span class="c1"># developed interfacial area ratio </span>
+        <span class="c1">#ratio between actual surface area and projected or apparent </span>
+        <span class="c1">#surface area</span>
+        <span class="n">i_areas</span><span class="o">=</span><span class="p">[</span><span class="mf">0.25</span><span class="o">*</span><span class="p">(((</span><span class="n">gs2</span><span class="o">+</span><span class="p">(</span><span class="n">eta</span><span class="p">[</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">]</span><span class="o">-</span><span class="n">eta</span><span class="p">[</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="o">+</span><span class="mi">1</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">**</span><span class="mf">0.5</span><span class="o">+</span>
+                       <span class="p">(</span><span class="n">gs2</span><span class="o">+</span><span class="p">(</span><span class="n">eta</span><span class="p">[</span><span class="n">x</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="n">y</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span><span class="o">-</span><span class="n">eta</span><span class="p">[</span><span class="n">x</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="n">y</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">**</span><span class="mf">0.5</span><span class="p">)</span><span class="o">*</span>
+                      <span class="p">((</span><span class="n">gs2</span><span class="o">+</span><span class="p">(</span><span class="n">eta</span><span class="p">[</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">]</span><span class="o">-</span><span class="n">eta</span><span class="p">[</span><span class="n">x</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="n">y</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">**</span><span class="mf">0.5</span><span class="o">+</span>
+                       <span class="p">(</span><span class="n">gs2</span><span class="o">+</span><span class="p">(</span><span class="n">eta</span><span class="p">[</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span><span class="o">-</span><span class="n">eta</span><span class="p">[</span><span class="n">x</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="n">y</span><span class="o">+</span><span class="mi">1</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">**</span><span class="mf">0.5</span><span class="p">))</span> 
+                        <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">eta</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> 
+                        <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">eta</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">-</span><span class="mi">1</span><span class="p">)]</span>
+        <span class="n">i_area</span><span class="o">=</span><span class="nb">sum</span><span class="p">(</span><span class="n">i_areas</span><span class="p">)</span>        
+        <span class="n">out</span><span class="o">=</span><span class="p">(</span><span class="n">i_area</span><span class="o">-</span><span class="n">p_area_t</span><span class="p">)</span><span class="o">/</span><span class="n">i_area</span>
+        
+    <span class="k">elif</span> <span class="n">parameter_name</span><span class="o">==</span><span class="s1">&#39;stp&#39;</span><span class="p">:</span>
+        <span class="c1"># bearing area curve</span>
+        <span class="n">eta_rel</span><span class="o">=</span><span class="n">eta_masked</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">eta_masked</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
+        <span class="n">heights</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="n">eta_rel</span><span class="p">),</span><span class="nb">max</span><span class="p">(</span><span class="n">eta_rel</span><span class="p">),</span><span class="mi">100</span><span class="p">)</span>
+        <span class="n">ratios</span><span class="o">=</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">eta_masked</span><span class="o">&lt;</span><span class="n">height</span><span class="p">)</span><span class="o">/</span><span class="n">p_area_m</span> <span class="k">for</span> <span class="n">height</span> <span class="ow">in</span> <span class="n">heights</span><span class="p">]</span>
+        <span class="n">out</span><span class="o">=</span><span class="p">[</span><span class="n">heights</span><span class="p">,</span> <span class="n">ratios</span><span class="p">]</span>
+        
+    <span class="k">elif</span> <span class="n">parameter_name</span><span class="o">==</span><span class="s1">&#39;sbi&#39;</span><span class="p">:</span> <span class="c1"># bearing index</span>
+        <span class="n">index</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">eta_masked</span><span class="o">.</span><span class="n">size</span><span class="o">/</span><span class="mi">20</span><span class="p">)</span>
+        <span class="n">sq</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">eta_masked</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
+        <span class="n">out</span><span class="o">=</span><span class="n">sq</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">eta_masked</span><span class="p">)[</span><span class="n">index</span><span class="p">]</span>
+        
+    <span class="k">elif</span> <span class="n">parameter_name</span><span class="o">==</span><span class="s1">&#39;sci&#39;</span><span class="p">:</span> <span class="c1"># core fluid retention index</span>
+        <span class="n">sq</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">eta_masked</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
+        <span class="n">eta_m_sorted</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">eta_masked</span><span class="p">)</span>
+        <span class="n">index</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">eta_masked</span><span class="o">.</span><span class="n">size</span><span class="o">*</span><span class="mf">0.05</span><span class="p">)</span>
+        <span class="n">h005</span><span class="o">=</span><span class="n">eta_m_sorted</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
+        <span class="n">index</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">eta_masked</span><span class="o">*</span><span class="mf">0.8</span><span class="p">)</span>
+        <span class="n">h08</span><span class="o">=</span><span class="n">eta_m_sorted</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
+        
+        <span class="n">V005</span><span class="o">=</span><span class="n">get_mat_vr</span><span class="p">(</span><span class="n">h005</span><span class="p">,</span><span class="n">eta</span><span class="p">,</span><span class="n">void</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="n">mask</span><span class="o">=</span><span class="n">mask</span><span class="p">)</span>
+        <span class="n">V08</span><span class="o">=</span><span class="n">get_mat_vr</span><span class="p">(</span><span class="n">h08</span><span class="p">,</span><span class="n">eta</span><span class="p">,</span><span class="n">void</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="n">mask</span><span class="o">=</span><span class="n">mask</span><span class="p">)</span>
+        
+        <span class="n">out</span><span class="o">=</span><span class="p">(</span><span class="n">V005</span><span class="o">-</span><span class="n">V08</span><span class="p">)</span><span class="o">/</span><span class="n">p_area_m</span><span class="o">/</span><span class="n">sq</span>
+        
+    <span class="k">elif</span> <span class="n">parameter_name</span><span class="o">==</span><span class="s1">&#39;svi&#39;</span><span class="p">:</span> <span class="c1"># valley fluid retention index</span>
+        <span class="n">sq</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">eta_masked</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
+        <span class="n">index</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">eta_masked</span><span class="o">.</span><span class="n">size</span><span class="o">*</span><span class="mf">0.8</span><span class="p">)</span>
+        <span class="n">h08</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">eta_masked</span><span class="p">)[</span><span class="n">index</span><span class="p">]</span>
+        <span class="n">V08</span><span class="o">=</span><span class="n">get_mat_vr</span><span class="p">(</span><span class="n">h08</span><span class="p">,</span><span class="n">eta</span><span class="p">,</span><span class="n">void</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="n">mask</span><span class="o">=</span><span class="n">mask</span><span class="p">)</span>
+        <span class="n">out</span><span class="o">=</span><span class="n">V08</span><span class="o">/</span><span class="n">p_area_m</span><span class="o">/</span><span class="n">sq</span>
+        
+    <span class="k">elif</span> <span class="n">parameter_name</span><span class="o">==</span><span class="s1">&#39;str&#39;</span><span class="p">:</span> <span class="c1"># surface texture ratio</span>
+        
+        <span class="n">acf</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">ACF</span><span class="p">(</span><span class="n">eta</span><span class="p">))</span>
+        
+        <span class="n">x</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">eta</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">/-</span><span class="mi">2</span><span class="p">,</span><span class="n">eta</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">y</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">eta</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">/-</span><span class="mi">2</span><span class="p">,</span><span class="n">eta</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">X</span><span class="p">,</span><span class="n">Y</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">)</span>
+        <span class="n">distance_to_centre</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">X</span><span class="o">**</span><span class="mi">2</span><span class="o">+</span><span class="n">Y</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">min_dist</span><span class="o">=</span><span class="nb">min</span><span class="p">(</span><span class="n">distance_to_centre</span><span class="p">[</span><span class="n">acf</span><span class="o">&lt;</span><span class="mf">0.2</span><span class="p">])</span><span class="o">-</span><span class="mf">0.5</span>
+        <span class="n">max_dist</span><span class="o">=</span><span class="nb">max</span><span class="p">(</span><span class="n">distance_to_centre</span><span class="p">[</span><span class="n">acf</span><span class="o">&gt;</span><span class="mf">0.2</span><span class="p">])</span><span class="o">+</span><span class="mf">0.5</span>
+
+        <span class="n">out</span><span class="o">=</span><span class="n">min_dist</span><span class="o">/</span><span class="n">max_dist</span>
+
+    <span class="k">elif</span> <span class="n">parameter_name</span><span class="o">==</span><span class="s1">&#39;std&#39;</span><span class="p">:</span> <span class="c1"># surface texture direction</span>
+        <span class="n">fft</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fft2</span><span class="p">(</span><span class="n">eta</span><span class="p">)</span>
+        
+        <span class="n">apsd</span><span class="o">=</span><span class="n">fft</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">conj</span><span class="p">(</span><span class="n">fft</span><span class="p">)</span><span class="o">/</span><span class="n">p_area_t</span>
+        <span class="n">x</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">eta</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">/-</span><span class="mi">2</span><span class="p">,</span><span class="n">eta</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">y</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">eta</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">/-</span><span class="mi">2</span><span class="p">,</span><span class="n">eta</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">i</span><span class="p">,</span><span class="n">j</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unravel_index</span><span class="p">(</span><span class="n">apsd</span><span class="o">.</span><span class="n">argmax</span><span class="p">(),</span> <span class="n">apsd</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="n">beta</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">arctan</span><span class="p">(</span><span class="n">i</span><span class="o">/</span><span class="n">j</span><span class="p">)</span>
+        
+        <span class="k">if</span> <span class="n">beta</span><span class="o">&lt;</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">/</span><span class="mi">2</span><span class="p">):</span>
+            <span class="n">out</span><span class="o">=-</span><span class="mi">1</span><span class="o">*</span><span class="n">beta</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">out</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">-</span><span class="n">beta</span>
+        
+    <span class="k">elif</span> <span class="n">parameter_name</span><span class="o">==</span><span class="s1">&#39;sal&#39;</span><span class="p">:</span> <span class="c1"># fastest decaying auto corelation length</span>
+        <span class="c1"># shortest distance from center of ACF to point where R&lt;0.2</span>
+        <span class="n">acf</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">ACF</span><span class="p">(</span><span class="n">eta</span><span class="p">))</span>
+        
+        <span class="n">x</span><span class="o">=</span><span class="n">grid_spacing</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">eta</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">/-</span><span class="mi">2</span><span class="p">,</span>
+                                   <span class="n">eta</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">y</span><span class="o">=</span><span class="n">grid_spacing</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">eta</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">/-</span><span class="mi">2</span><span class="p">,</span>
+                                   <span class="n">eta</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">X</span><span class="p">,</span><span class="n">Y</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">)</span>
+        
+        <span class="n">distance_to_centre</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">X</span><span class="o">**</span><span class="mi">2</span><span class="o">+</span><span class="n">Y</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+        
+        <span class="n">out</span><span class="o">=</span><span class="nb">min</span><span class="p">(</span><span class="n">distance_to_centre</span><span class="p">[</span><span class="n">acf</span><span class="o">&lt;</span><span class="mf">0.2</span><span class="p">])</span>
+        
+    <span class="k">else</span><span class="p">:</span>
+        
+        <span class="n">msg</span><span class="o">=</span><span class="s1">&#39;Paramter name not recognised&#39;</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">out</span></div>
+
+<div class="viewcode-block" id="get_height_of_mat_vr"><a class="viewcode-back" href="../../../generated/slippy.surface.get_height_of_mat_vr.html#slippy.surface.get_height_of_mat_vr">[docs]</a><span class="k">def</span> <span class="nf">get_height_of_mat_vr</span><span class="p">(</span><span class="n">ratio</span><span class="p">,</span> <span class="n">profile</span><span class="p">,</span> <span class="n">void</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> 
+                                       <span class="n">accuracy</span><span class="o">=</span><span class="mf">0.001</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Finds the cut off height of a specified material or void volume ratio</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    ratio : float {from 0 to 1}</span>
+<span class="sd">        the target material or void volume ratio</span>
+<span class="sd">    profile : 2D array-like or Surface object</span>
+<span class="sd">        The surface profile to be used in the calculation</span>
+<span class="sd">    void : bool optional (False)</span>
+<span class="sd">        If set to true the height for the void volume ratio will be calculated</span>
+<span class="sd">        otherwise the height for the material volume ratio will be calculated</span>
+<span class="sd">    mask : array-like (bool) same shape as profile or float (defaults to None)</span>
+<span class="sd">        If an array, the array is used as a mask for the profile, must be the </span>
+<span class="sd">        same shape as the profile, if a float is given, values which match are</span>
+<span class="sd">        excluded from the calculation </span>
+<span class="sd">    accuracy : float optional (0.0001)</span>
+<span class="sd">        The threshold value to stop itterations</span>
+
+<span class="sd">    </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    height : float</span>
+<span class="sd">        the height at which the input surface has the specified material or </span>
+<span class="sd">        void ratio</span>
+<span class="sd">    </span>
+<span class="sd">    See also</span>
+<span class="sd">    --------</span>
+<span class="sd">    get_mat_vr</span>
+<span class="sd">    roughness</span>
+<span class="sd">    subtract_polynomial</span>
+<span class="sd">    </span>
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    This function should not be used without first flattening the surface using</span>
+<span class="sd">    subtract_polynomial</span>
+<span class="sd">    </span>
+<span class="sd">    This function uses a simplified algorithim assuming that each point in the</span>
+<span class="sd">    surface can be modeled as a column of material.</span>
+<span class="sd">    </span>
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span> <span class="nn">scipy.optimize</span>
+    
+    <span class="n">p</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">profile</span><span class="p">)</span>
+        
+    <span class="k">if</span> <span class="n">mask</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">float</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">mask</span><span class="p">):</span>
+                <span class="n">mask</span><span class="o">=~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">mask</span><span class="o">=~</span><span class="n">p</span><span class="o">==</span><span class="n">mask</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">mask</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">mask</span><span class="o">.</span><span class="n">shape</span><span class="o">==</span><span class="n">p</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
+                <span class="n">msg</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;profile and mask shapes do not match: profile is&quot;</span>
+                    <span class="s2">&quot;</span><span class="si">{p.shape}</span><span class="s2">, mask is </span><span class="si">{mask.shape}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="o">**</span><span class="nb">locals</span><span class="p">()))</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+        
+        <span class="n">p</span><span class="o">=</span><span class="n">p</span><span class="p">[</span><span class="o">~</span><span class="n">mask</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">p</span><span class="o">=</span><span class="n">p</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+    
+    <span class="n">min_h</span><span class="o">=</span><span class="nb">min</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+    <span class="n">max_h</span><span class="o">=</span><span class="nb">max</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="n">void</span><span class="p">:</span>
+        <span class="n">first_guess</span><span class="o">=</span><span class="n">min_h</span><span class="o">+</span><span class="n">ratio</span><span class="o">*</span><span class="p">(</span><span class="n">max_h</span><span class="o">-</span><span class="n">min_h</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">first_guess</span><span class="o">=</span><span class="n">max_h</span><span class="o">-</span><span class="n">ratio</span><span class="o">*</span><span class="p">(</span><span class="n">max_h</span><span class="o">-</span><span class="n">min_h</span><span class="p">)</span>
+    
+    <span class="n">min_func</span><span class="o">=</span><span class="k">lambda</span> <span class="n">h</span><span class="p">:</span> <span class="p">(</span><span class="n">get_mat_vr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">void</span><span class="p">)</span><span class="o">-</span><span class="n">ratio</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
+    
+    <span class="n">output</span><span class="o">=</span><span class="n">scipy</span><span class="o">.</span><span class="n">optimize</span><span class="o">.</span><span class="n">minimize</span><span class="p">(</span><span class="n">min_func</span><span class="p">,</span> <span class="n">first_guess</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="n">min_h</span><span class="p">,</span><span class="n">max_h</span><span class="p">),</span>
+                                   <span class="n">tol</span><span class="o">=</span><span class="n">accuracy</span><span class="p">)</span>
+    
+    <span class="n">height</span><span class="o">=</span><span class="n">output</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    
+    <span class="k">return</span> <span class="n">height</span></div>
+
+<div class="viewcode-block" id="get_mat_vr"><a class="viewcode-back" href="../../../generated/slippy.surface.get_mat_vr.html#slippy.surface.get_mat_vr">[docs]</a><span class="k">def</span> <span class="nf">get_mat_vr</span><span class="p">(</span><span class="n">height</span><span class="p">,</span> <span class="n">profile</span><span class="p">,</span> <span class="n">void</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                                 <span class="n">ratio</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">grid_spacing</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; Finds the material or void volume ratio</span>
+<span class="sd">    </span>
+<span class="sd">    Finds the material or void volume for a given plane height, uses an </span>
+<span class="sd">    approximation (that each point is a column of material)</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    profile : 2D array-like or Surface object</span>
+<span class="sd">        The surface profile to be used in the calculation</span>
+<span class="sd">    height : float</span>
+<span class="sd">        The height of the cut off plane</span>
+<span class="sd">    void : bool optional (False)</span>
+<span class="sd">        If set to true the void volume will be calculated otherwise the </span>
+<span class="sd">        material volume is calculated</span>
+<span class="sd">    mask : array-like (bool) same shape as profile or float (defaults to None)</span>
+<span class="sd">        If an array, the array is used as a mask for the profile, must be the </span>
+<span class="sd">        same shape as the profile, if a float is given, values which match are</span>
+<span class="sd">        excluded from the calculation </span>
+<span class="sd">    ratio : bool optional (True)</span>
+<span class="sd">        If true the material or void ratio will be returned, if false the</span>
+<span class="sd">        absolute value will be returned, this requires the grid_spacing</span>
+<span class="sd">        keyword to be set</span>
+<span class="sd">    grid_spacing : float </span>
+<span class="sd">        The distance between adjacent grid points in the surface</span>
+
+<span class="sd">    </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    out : float</span>
+<span class="sd">        The requested output parameter</span>
+<span class="sd">    </span>
+<span class="sd">    See also</span>
+<span class="sd">    --------</span>
+<span class="sd">    get_height_of_mat_vr</span>
+<span class="sd">    roughness</span>
+<span class="sd">    subtract_polynomial</span>
+<span class="sd">    </span>
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    This function should not be used without first flattening the surface using</span>
+<span class="sd">    subtract_polynomial</span>
+<span class="sd">    </span>
+<span class="sd">    This function uses a simplified algorithim assuming that each point in the</span>
+<span class="sd">    surface can be modeled as a column of material.</span>
+<span class="sd">    </span>
+<span class="sd">    </span>
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    </span>
+<span class="sd">   </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="n">p</span><span class="p">,</span> <span class="n">grid_spacing</span><span class="o">=</span><span class="n">_check_surface</span><span class="p">(</span><span class="n">profile</span><span class="p">,</span> <span class="n">grid_spacing</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">grid_spacing</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">ratio</span><span class="p">:</span>
+        <span class="n">msg</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;Grid spacing keyword or property of input surface must be set &quot;</span>
+             <span class="s2">&quot;for absoulte results, see Surface.set_grid_spacing if you are&quot;</span>
+             <span class="s2">&quot; using surface objects&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+        
+    <span class="k">if</span> <span class="n">mask</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">float</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">mask</span><span class="p">):</span>
+                <span class="n">mask</span><span class="o">=~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">mask</span><span class="o">=~</span><span class="n">p</span><span class="o">==</span><span class="n">mask</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">mask</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">mask</span><span class="o">.</span><span class="n">shape</span><span class="o">==</span><span class="n">p</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
+                <span class="n">msg</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;profile and mask shapes do not match: profile is&quot;</span>
+                    <span class="s2">&quot;</span><span class="si">{p.shape}</span><span class="s2">, mask is </span><span class="si">{mask.shape}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="o">**</span><span class="nb">locals</span><span class="p">()))</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+        
+        <span class="n">p</span><span class="o">=</span><span class="n">p</span><span class="p">[</span><span class="o">~</span><span class="n">mask</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">p</span><span class="o">=</span><span class="n">p</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+        
+    <span class="n">max_height</span><span class="o">=</span><span class="nb">max</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+    <span class="n">min_height</span><span class="o">=</span><span class="nb">min</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+    
+    <span class="n">n_pts</span><span class="o">=</span><span class="n">p</span><span class="o">.</span><span class="n">size</span>
+    <span class="n">total_vol</span><span class="o">=</span><span class="n">n_pts</span><span class="o">*</span><span class="p">(</span><span class="n">max_height</span><span class="o">-</span><span class="n">min_height</span><span class="p">)</span>
+    <span class="n">max_m</span><span class="o">=</span><span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">-</span><span class="n">min_height</span><span class="p">)</span>
+    
+    <span class="n">material</span><span class="o">=</span><span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">-</span><span class="n">height</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="n">p</span><span class="o">&gt;</span><span class="n">height</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">void</span><span class="p">:</span>
+        <span class="n">all_above</span><span class="o">=</span><span class="p">(</span><span class="n">max_height</span><span class="o">-</span><span class="n">height</span><span class="p">)</span><span class="o">*</span><span class="n">n_pts</span>
+        <span class="n">void_out</span><span class="o">=</span><span class="n">all_above</span><span class="o">-</span><span class="n">material</span> <span class="c1"># void not below height</span>
+        <span class="n">void</span><span class="o">=</span><span class="n">total_vol</span><span class="o">-</span><span class="n">max_m</span><span class="o">-</span><span class="n">void_out</span>
+        <span class="k">if</span> <span class="n">ratio</span><span class="p">:</span>    
+            <span class="n">out</span><span class="o">=</span><span class="n">void</span><span class="o">/</span><span class="p">(</span><span class="n">total_vol</span><span class="o">-</span><span class="n">max_m</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">out</span><span class="o">=</span><span class="n">void</span><span class="o">*</span><span class="n">grid_spacing</span><span class="o">**</span><span class="mi">3</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">ratio</span><span class="p">:</span>
+            <span class="n">out</span><span class="o">=</span><span class="n">material</span><span class="o">/</span><span class="n">max_m</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">out</span><span class="o">=</span><span class="n">material</span><span class="o">*</span><span class="n">grid_spacing</span><span class="o">**</span><span class="mi">3</span>
+    <span class="k">return</span> <span class="n">out</span></div>
+
+<div class="viewcode-block" id="get_summit_curvatures"><a class="viewcode-back" href="../../../generated/slippy.surface.get_summit_curvatures.html#slippy.surface.get_summit_curvatures">[docs]</a><span class="k">def</span> <span class="nf">get_summit_curvatures</span><span class="p">(</span><span class="n">profile</span><span class="p">,</span> <span class="n">summits</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">grid_spacing</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                          <span class="n">filter_cut_off</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">four_nearest</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; find the curvatures of the sumsits</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    profile : N by M array-like or Surface object</span>
+<span class="sd">        The surface profile for analysis</span>
+<span class="sd">    summits : N by M array (optional)</span>
+<span class="sd">        A bool array True at the location of the summits, if not supplied the </span>
+<span class="sd">        summits are found using find_summits first, see notes</span>
+<span class="sd">    grid_spacing : float optional (False)</span>
+<span class="sd">        The distanc between points on the grid of the surface profile. Required</span>
+<span class="sd">        only if the filter_cut_off is set and profile is not a surface object</span>
+<span class="sd">    mask : array-like (bool)N by M or float optional (None)</span>
+<span class="sd">        If an array, the array is used as a mask for the profile, must be the </span>
+<span class="sd">        same shape as the profile, if a float is given, values which match are</span>
+<span class="sd">        excluded from the calculation </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    curves : array</span>
+<span class="sd">        Array of summit curvatures of size sum(summits.flatten())</span>
+<span class="sd">    </span>
+<span class="sd">    Other parameters</span>
+<span class="sd">    ----------------</span>
+<span class="sd">    four_nearest : bool optional (False) </span>
+<span class="sd">        If true any point that is higher than it&#39;s 4 nearest neigbours will be </span>
+<span class="sd">        counted as a summit, otherwise a point must be higher than it&#39;s 8 </span>
+<span class="sd">        nearest neigbours to be a summit. Only used is summits are not given.</span>
+<span class="sd">    filter_cut_off : float optional (None)</span>
+<span class="sd">        If given the surface will be low pass filtered before finding sumits. </span>
+<span class="sd">        Only used if summits are not given</span>
+<span class="sd">    </span>
+<span class="sd">    See also</span>
+<span class="sd">    --------</span>
+<span class="sd">    find_summits</span>
+<span class="sd">    roughness</span>
+<span class="sd">    </span>
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    If the summits parameter is not set, any key word arguments that can be </span>
+<span class="sd">    passed to find_summits can be passed through this function.  </span>
+<span class="sd">    </span>
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">profile</span><span class="p">,</span> <span class="n">grid_spacing</span><span class="o">=</span><span class="n">_check_surface</span><span class="p">(</span><span class="n">profile</span><span class="p">,</span> <span class="n">grid_spacing</span><span class="p">)</span>
+    
+    <span class="n">gs2</span><span class="o">=</span><span class="n">grid_spacing</span><span class="o">**</span><span class="mi">2</span>
+    
+    <span class="k">if</span> <span class="n">summits</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">summits</span><span class="o">=</span><span class="n">find_summits</span><span class="p">(</span><span class="n">profile</span><span class="p">,</span> <span class="n">filter_cut_off</span><span class="o">=</span><span class="n">filter_cut_off</span><span class="p">,</span>
+                             <span class="n">grid_spacing</span><span class="o">=</span><span class="n">grid_spacing</span><span class="p">,</span> 
+                             <span class="n">four_nearest</span><span class="o">=</span><span class="n">four_nearest</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="n">mask</span><span class="p">)</span>
+    <span class="n">verts</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nonzero</span><span class="p">(</span><span class="n">summits</span><span class="p">))</span>
+    <span class="n">curves</span><span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="mf">0.5</span><span class="o">*</span><span class="p">(</span><span class="n">profile</span><span class="p">[</span><span class="n">vert</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="n">vert</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span><span class="o">+</span><span class="n">profile</span><span class="p">[</span><span class="n">vert</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="n">vert</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span><span class="o">+</span>
+                   <span class="n">profile</span><span class="p">[</span><span class="n">vert</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="n">vert</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="n">profile</span><span class="p">[</span><span class="n">vert</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="n">vert</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span>
+                   <span class="o">-</span><span class="mi">4</span><span class="o">*</span><span class="n">profile</span><span class="p">[</span><span class="n">vert</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="n">vert</span><span class="p">[</span><span class="mi">1</span><span class="p">]])</span><span class="o">/</span><span class="n">gs2</span> <span class="k">for</span> <span class="n">vert</span> <span class="ow">in</span> <span class="n">verts</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">curves</span></div>
+    
+    
+<div class="viewcode-block" id="find_summits"><a class="viewcode-back" href="../../../generated/slippy.surface.find_summits.html#slippy.surface.find_summits">[docs]</a><span class="k">def</span> <span class="nf">find_summits</span><span class="p">(</span><span class="n">profile</span><span class="p">,</span> <span class="n">grid_spacing</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> 
+                 <span class="n">four_nearest</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">filter_cut_off</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; Finds highpoints after low pass filtering</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    profile : N by M array-like</span>
+<span class="sd">        The surface profile for analysis</span>
+<span class="sd">    grid_spacing : float optional (False)</span>
+<span class="sd">        The distanc between points on the grid of the surface profile. required</span>
+<span class="sd">        only if the filter_cut_off is set</span>
+<span class="sd">    mask : array-like (bool)N by M or float optional (None)</span>
+<span class="sd">        If an array, the array is used as a mask for the profile, must be the </span>
+<span class="sd">        same shape as the profile, if a float is given, values which match are</span>
+<span class="sd">        excluded from the calculation </span>
+<span class="sd">    four_nearest : bool optional (False)</span>
+<span class="sd">        If true any point that is higher than it&#39;s 4 nearest neigbours will be </span>
+<span class="sd">        counted as a summit, otherwise a point must be higher than it&#39;s 8 </span>
+<span class="sd">        nearest neigbours to be a summit</span>
+<span class="sd">    filter_cut_off : float optional (None)</span>
+<span class="sd">        If given the surface will be low pass filtered before finding sumits</span>
+<span class="sd">    </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    summits : N by M bool array</span>
+<span class="sd">        True at location of sumits</span>
+<span class="sd">    </span>
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    </span>
+<span class="sd">    </span>
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    </span>
+<span class="sd">    </span>
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">profile</span><span class="p">,</span> <span class="n">grid_spacing</span><span class="o">=</span><span class="n">_check_surface</span><span class="p">(</span><span class="n">profile</span><span class="p">,</span> <span class="n">grid_spacing</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="n">mask</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">float</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">mask</span><span class="p">):</span>
+                <span class="n">mask</span><span class="o">=~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">profile</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">mask</span><span class="o">=~</span><span class="n">profile</span><span class="o">==</span><span class="n">mask</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">mask</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">mask</span><span class="o">.</span><span class="n">shape</span><span class="o">==</span><span class="n">profile</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
+                <span class="n">msg</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;profile and mask shapes do not match: profile is&quot;</span>
+                    <span class="s2">&quot;</span><span class="si">{profile.shape}</span><span class="s2">, mask is </span><span class="si">{mask.shape}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="o">**</span><span class="nb">locals</span><span class="p">()))</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+                
+        <span class="n">profile</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="s1">&#39;nan&#39;</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="n">filter_cut_off</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">filtered_profile</span><span class="o">=</span><span class="n">low_pass_filter</span><span class="p">(</span><span class="n">profile</span><span class="p">,</span> <span class="n">filter_cut_off</span><span class="p">,</span> <span class="n">grid_spacing</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">filtered_profile</span><span class="o">=</span><span class="n">profile</span>
+    <span class="n">summits</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">profile</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">four_nearest</span><span class="p">:</span>
+        <span class="n">x</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">y</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">x</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">y</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span>
+    
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)):</span>   
+        <span class="n">summits</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">logical_and</span><span class="p">(</span><span class="n">summits</span><span class="p">,(</span><span class="n">filtered_profile</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">&gt;</span>
+                                        <span class="n">filtered_profile</span><span class="p">[</span><span class="mi">1</span><span class="o">+</span><span class="n">x</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span><span class="o">-</span><span class="mi">1</span><span class="o">+</span><span class="n">x</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="ow">or</span> 
+                                                         <span class="kc">None</span><span class="p">,</span><span class="mi">1</span><span class="o">+</span><span class="n">y</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span><span class="o">-</span><span class="mi">1</span><span class="o">+</span><span class="n">y</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> 
+                                                         <span class="ow">or</span> <span class="kc">None</span><span class="p">]))</span>
+    
+    <span class="c1">#pad summits with Falses to make same size as original</span>
+    <span class="n">summits</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span><span class="n">summits</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;constant&#39;</span><span class="p">,</span> <span class="n">constant_values</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">summits</span></div>
+    
+<div class="viewcode-block" id="low_pass_filter"><a class="viewcode-back" href="../../../generated/slippy.surface.low_pass_filter.html#slippy.surface.low_pass_filter">[docs]</a><span class="k">def</span> <span class="nf">low_pass_filter</span><span class="p">(</span><span class="n">profile</span><span class="p">,</span> <span class="n">cut_off_freq</span><span class="p">,</span> <span class="n">grid_spacing</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;2d low pass FIR filter with specified cut off frequency</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    profile : N by M array-like or Surface object</span>
+<span class="sd">        The Surface object or profile to be filtered</span>
+<span class="sd">    cut_off_frequency : Float</span>
+<span class="sd">        The cut off frequency of the filter in the same units as the </span>
+<span class="sd">        grid_spacing of the profile</span>
+<span class="sd">    grid_spacing : float optional (None)</span>
+<span class="sd">        The distance between adjacent points of the grid of the surface profile</span>
+<span class="sd">        not required if the grid spacing of the Surface object is set, always</span>
+<span class="sd">        required when an arraylike profile is used</span>
+<span class="sd">        </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    filtered_profile : N by M array</span>
+<span class="sd">        The filtered surface profile</span>
+<span class="sd">    </span>
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    Surface</span>
+<span class="sd">    </span>
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    </span>
+<span class="sd">    </span>
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    </span>
+<span class="sd">    </span>
+<span class="sd">    References</span>
+<span class="sd">    ----------</span>
+<span class="sd">    </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">profile</span><span class="p">,</span> <span class="n">grid_spacing</span><span class="o">=</span><span class="n">_check_surface</span><span class="p">(</span><span class="n">profile</span><span class="p">,</span> <span class="n">grid_spacing</span><span class="p">)</span>    
+    
+    <span class="k">if</span> <span class="n">grid_spacing</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">msg</span><span class="o">=</span><span class="s2">&quot;Grid spacing must be set&quot;</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+    
+    <span class="n">sz</span><span class="o">=</span><span class="n">profile</span><span class="o">.</span><span class="n">shape</span>
+    <span class="n">x</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">sz</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">y</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">sz</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">X</span><span class="p">,</span><span class="n">Y</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">)</span>
+    <span class="n">D</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">X</span><span class="o">**</span><span class="mi">2</span><span class="o">+</span><span class="n">Y</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">ws</span><span class="o">=</span><span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">/</span><span class="n">grid_spacing</span>
+    <span class="n">wc</span><span class="o">=</span><span class="n">cut_off_freq</span><span class="o">*</span><span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span>
+    <span class="n">h</span><span class="o">=</span><span class="p">(</span><span class="n">wc</span><span class="o">/</span><span class="n">ws</span><span class="p">)</span><span class="o">*</span><span class="n">scipy</span><span class="o">.</span><span class="n">special</span><span class="o">.</span><span class="n">j1</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">*</span><span class="p">(</span><span class="n">wc</span><span class="o">/</span><span class="n">ws</span><span class="p">)</span><span class="o">*</span><span class="n">D</span><span class="p">)</span><span class="o">/</span><span class="n">D</span>
+    <span class="n">filtered_profile</span><span class="o">=</span><span class="n">scipy</span><span class="o">.</span><span class="n">signal</span><span class="o">.</span><span class="n">convolve2d</span><span class="p">(</span><span class="n">profile</span><span class="p">,</span><span class="n">h</span><span class="p">,</span><span class="s1">&#39;same&#39;</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">filtered_profile</span></div>
+
+<div class="viewcode-block" id="subtract_polynomial"><a class="viewcode-back" href="../../../generated/slippy.surface.subtract_polynomial.html#slippy.surface.subtract_polynomial">[docs]</a><span class="k">def</span> <span class="nf">subtract_polynomial</span><span class="p">(</span><span class="n">profile</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span> <span class="c1">#Checked</span>
+    <span class="sd">&quot;&quot;&quot; Flattens the surface by fitting and subtracting a polynomial</span>
+<span class="sd">    </span>
+<span class="sd">    Fits a polynomial to the surface the subtracts it from the surface, to</span>
+<span class="sd">    remove slope or curve from imaging machines</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    </span>
+<span class="sd">    order : int</span>
+<span class="sd">        The order of the polynomial to be fitted</span>
+<span class="sd">    profile : array-like or Surface</span>
+<span class="sd">        The surface or profile to be used</span>
+<span class="sd">    mask : array-like (bool) same shape as profile or float (defaults to None)</span>
+<span class="sd">        If an array, the array is used as a mask for the profile, must be the </span>
+<span class="sd">        same shape as the profile, if a float or list of floats is given, </span>
+<span class="sd">        those values are excluded from the calculation </span>
+<span class="sd">        </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    adjusted : array</span>
+<span class="sd">        The flattened profile</span>
+<span class="sd">    coefs : array</span>
+<span class="sd">        The coeficients of the polynomial</span>
+<span class="sd">        </span>
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt;flat_profile, coefs=subtract_polynomial(2, my_surface)</span>
+<span class="sd">    Subtract a quadratic polynomial from the profile of my_surface the result</span>
+<span class="sd">    is returned but the profile property of the surface is not updated</span>
+<span class="sd">    </span>
+<span class="sd">    &gt;&gt;&gt;flat_profile, coefs=subtract_polynomial(2,my_surface.profile)</span>
+<span class="sd">    Identical to the above opertion</span>
+<span class="sd">    </span>
+<span class="sd">    &gt;&gt;&gt;flat_profile_2, coefs=subtract_polynomial(1, profile_2)</span>
+<span class="sd">    Subtract a plane of best fit from profile_2 and return the result</span>
+<span class="sd">    </span>
+<span class="sd">    &gt;&gt;&gt;flat_profile, coefs=subtract_polynomial(1, profile_2, mask=float(&#39;nan&#39;))</span>
+<span class="sd">    Subtract the profile from the surface ignoring nan height values</span>
+<span class="sd">    </span>
+<span class="sd">    &gt;&gt;&gt;mask=numpy.zeros_like(profile, dtype=bool)</span>
+<span class="sd">    &gt;&gt;&gt;mask[5:-5,5:-5]=True</span>
+<span class="sd">    &gt;&gt;&gt;flat_profile, coefs=subtract_polynomial(1, profile_2, mask=mask)</span>
+<span class="sd">    Subtract a polynomial from the surface ignoring a 5 deep boarder</span>
+<span class="sd">    </span>
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    roughness</span>
+<span class="sd">    numpy.linalg.lstsq</span>
+<span class="sd">    </span>
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    In principal polynomials of any integer order are supported however higher</span>
+<span class="sd">    order polynomials will take more time to fit</span>
+<span class="sd">    </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="n">profile</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">profile</span><span class="p">)</span>
+    <span class="n">x</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">profile</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">y</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">profile</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">Xf</span><span class="p">,</span><span class="n">Yf</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">)</span>
+    <span class="n">Zf</span><span class="o">=</span><span class="n">profile</span>
+    
+    <span class="k">if</span> <span class="n">mask</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">float</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">mask</span><span class="p">):</span>
+                <span class="n">mask</span><span class="o">=~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">profile</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">mask</span><span class="o">=~</span><span class="n">profile</span><span class="o">==</span><span class="n">mask</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">mask</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">mask</span><span class="o">.</span><span class="n">shape</span><span class="o">==</span><span class="n">profile</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
+                <span class="n">msg</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;profile and mask shapes do not match: profile is&quot;</span>
+                    <span class="s2">&quot;</span><span class="si">{profile.shape}</span><span class="s2">, mask is </span><span class="si">{mask.shape}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="o">**</span><span class="nb">locals</span><span class="p">()))</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+        <span class="n">Z</span><span class="o">=</span><span class="n">Zf</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+        <span class="n">X</span><span class="o">=</span><span class="n">Xf</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+        <span class="n">Y</span><span class="o">=</span><span class="n">Yf</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+        
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">Z</span><span class="o">=</span><span class="n">Zf</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+        <span class="n">X</span><span class="o">=</span><span class="n">Xf</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+        <span class="n">Y</span><span class="o">=</span><span class="n">Yf</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+    
+    
+    <span class="c1">#fit polynomial</span>
+    <span class="n">n_cols</span><span class="o">=</span><span class="p">(</span><span class="n">order</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
+    <span class="n">G</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">Z</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">n_cols</span><span class="p">))</span>
+    <span class="n">ij</span><span class="o">=</span><span class="n">itertools</span><span class="o">.</span><span class="n">product</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">order</span><span class="o">+</span><span class="mi">1</span><span class="p">),</span> <span class="nb">range</span><span class="p">(</span><span class="n">order</span><span class="o">+</span><span class="mi">1</span><span class="p">))</span>
+    
+    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">ij</span><span class="p">):</span>
+        <span class="n">G</span><span class="p">[:,</span><span class="n">k</span><span class="p">]</span><span class="o">=</span><span class="n">X</span><span class="o">**</span><span class="n">i</span><span class="o">*</span><span class="n">Y</span><span class="o">**</span><span class="n">j</span>
+        
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">coefs</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">lstsq</span><span class="p">(</span><span class="n">G</span><span class="p">,</span> <span class="n">Z</span><span class="p">,</span> <span class="n">rcond</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+        
+    <span class="k">except</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">LinAlgError</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">Z</span><span class="p">))</span> <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isinf</span><span class="p">(</span><span class="n">Z</span><span class="p">)):</span>
+            <span class="n">msg</span><span class="o">=</span><span class="s2">&quot;Nans or infs found in surface these should be masked see docs&quot;</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span>   
+    
+    <span class="n">poly</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">profile</span><span class="p">)</span>
+    <span class="c1">#must reset to itterate again</span>
+    <span class="n">ij</span><span class="o">=</span><span class="n">itertools</span><span class="o">.</span><span class="n">product</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">order</span><span class="o">+</span><span class="mi">1</span><span class="p">),</span> <span class="nb">range</span><span class="p">(</span><span class="n">order</span><span class="o">+</span><span class="mi">1</span><span class="p">))</span>
+    
+    <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">coefs</span><span class="p">,</span><span class="n">ij</span><span class="p">):</span>
+        <span class="n">poly</span><span class="o">+=</span><span class="n">a</span><span class="o">*</span><span class="n">Xf</span><span class="o">**</span><span class="n">i</span><span class="o">*</span><span class="n">Yf</span><span class="o">**</span><span class="n">j</span>
+    <span class="n">poly</span><span class="o">=</span><span class="n">poly</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">profile</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+    <span class="n">adjusted</span><span class="o">=</span><span class="n">profile</span><span class="o">-</span><span class="n">poly</span>
+    
+    <span class="k">if</span> <span class="n">mask</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">adjusted</span><span class="p">[</span><span class="o">~</span><span class="n">mask</span><span class="p">]</span><span class="o">=</span><span class="n">profile</span><span class="p">[</span><span class="o">~</span><span class="n">mask</span><span class="p">]</span>
+    
+    <span class="k">return</span> <span class="n">adjusted</span><span class="p">,</span> <span class="n">coefs</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">slippy 1.1.0 alpha documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2019, Mike Watson.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.8.2.
+    </div>
+  </body>
+</html>

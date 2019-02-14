@@ -1,3 +1,5 @@
+#change random itteration methods to work with scipy optimize way more methods 
+#avalible
 """
 Classes for generating random surfaces based on filtering of random signals:
     ===========================================================================
@@ -23,8 +25,8 @@ Classes for generating random surfaces based on filtering of random signals:
         
 """
 
-from . import Surface
-from . import ACF
+from .Surface_class import Surface
+from .ACF_class import ACF
 import warnings
 import numpy as np
 from numpy.matlib import repmat
@@ -58,7 +60,7 @@ class RandomSurface(Surface):
         if grid_spacing:    
             self.set_grid_spacing(grid_spacing)
         self.descretise_checks()
-        nPts=self._pts_each_direction
+        nPts=self._shape
         if self.dimentions==1:
             profile=dist.rvs(nPts)
         elif self.dimentions==2:
@@ -336,14 +338,14 @@ class RandomSurface(Surface):
     def CGD_itt(self,previous_itteration):
         pass
     
-    def FIR_filter(self, global_size_output, target_acf, *ACFargs):
+    def FIR_filter(self, extent_output, target_acf, *ACFargs):
         """
         Create a 2D FIR filter to produce a surface with the given ACF
             
         Parameters
         ----------
         
-        global_size_output : a 2 element list or integer
+        extent_output : a 2 element list or integer
             The dimentions of the surface to be generated in the same units 
             as the grid_spacing property is set in. 
         
@@ -386,16 +388,16 @@ class RandomSurface(Surface):
         self.surface_type='IIR filter'
         
         #initialise sizes
-        if not self._grid_spacing:
+        if self.grid_spacing is None:
             warnings.warn("Grid grid_spacing is not set assuming grid"
                           " grid_spacing is 1")
-            self.set_grid_spacing(1)
-        if not type(global_size_output) is list:
-            self.set_global_size(2*[global_size_output])
+            self.grid_spacing=1
+        if not type(extent_output) is list:
+            self.extent=2*[extent_output]
         else:
-            self.set_global_size(global_size_output)
+            self.extent=extent_output
         
-        nPts=self._pts_each_direction
+        nPts=self._shape
         
         #genreate ACF object if input is not ACF object
         if type(target_acf) is ACF:
@@ -404,15 +406,15 @@ class RandomSurface(Surface):
             self.target_acf=ACF(target_acf, *ACFargs)
             
         #Generate array of ACF
-        l=self._grid_spacing*np.arange(nPts[0])
-        k=self._grid_spacing*np.arange(nPts[1])
+        l=self.grid_spacing*np.arange(nPts[0])
+        k=self.grid_spacing*np.arange(nPts[1])
         [K,L]=np.meshgrid(k,l)
         ACFarray=self.target_acf(K,L)
         
         #Find FIR filter coeficents
         self._filter_coeficents=np.sqrt(np.fft.fft2(ACFarray))
     
-    def descretise(self, output_size=[512,512], periodic=False, 
+    def descretise(self, output_shape=[512,512], periodic=False, 
                    create_new=False):
         """
         Create a random surface realisation based on preset paramters
@@ -462,7 +464,7 @@ class RandomSurface(Surface):
                  "can be descretised")
             raise AttributeError(msg)
         (n,m)=self._filter_coeficents.shape
-        N,M=output_size
+        N,M=output_shape
         if periodic:
             if n%2==0 or m%2==0:
                 msg=('For a periodic surface the filter coeficents matrix must'
@@ -479,15 +481,14 @@ class RandomSurface(Surface):
         profile=fftconvolve(eta, self._filter_coeficents, 'valid')
         
         if create_new:
-            return Surface(grid_spacing=self.grid_spacing, 
-                           dimentions=self.dimentions, 
+            return Surface(grid_spacing=self.grid_spacing,  
                            is_descrete=True, 
                            profile=profile)
         else:
             self.profile=profile
         return
     
-def surface_like(target_surface, global_size='original', grid_spacing='original',
+def surface_like(target_surface, extent='original', grid_spacing='original',
                  filter_size=[35,35], **kwargs):
     """
     Generates a surface similar to the input surface
@@ -501,7 +502,7 @@ def surface_like(target_surface, global_size='original', grid_spacing='original'
     target_surface : Surface
         A surface object to be 'copied'
         
-    global_size : {'origninal' or 2 element list of ints}
+    extent : {'origninal' or 2 element list of ints}
         The size in each direction of the output surface, 
         if 'original' the dimentions of the input surface are used
         
@@ -586,7 +587,7 @@ def surface_like(target_surface, global_size='original', grid_spacing='original'
         raise ValueError(msg)
     
     if grid_spacing is 'original':
-        if not target_surface._grid_spacing:
+        if target_surface.grid_spacing is None:
             warnings.warn("Grid spacing of the original surface is not set "
                           "assuming it is 1")
             target_surface.set_grid_spacing(1)
@@ -594,12 +595,12 @@ def surface_like(target_surface, global_size='original', grid_spacing='original'
         else:
             grid_spacing=target_surface._grid_spacing
     
-    if global_size is 'original':
-        if target_surface._global_size:
-            global_size=target_surface._global_size
+    if extent is 'original':
+        if target_surface.extent is not None:
+            extent=target_surface.extent
         else:
-            global_size=[grid_spacing*dim for dim in 
-                         target_surface.profile.shape]
+            extent=[grid_spacing*dim for dim in 
+                         target_surface.shape]
     
     target_surface.subtract_polynomial(2)
     
@@ -607,7 +608,7 @@ def surface_like(target_surface, global_size='original', grid_spacing='original'
         target_surface.get_acf()
         
     
-    surf_out=RandomSurface(global_size=global_size, grid_spacing=grid_spacing)
+    surf_out=RandomSurface(extent=extent, grid_spacing=grid_spacing)
     
     surf_out.linear_transform(target_surface.acf, filter_size, filter_method, 
                               **filter_kwargs)
@@ -617,17 +618,9 @@ def surface_like(target_surface, global_size='original', grid_spacing='original'
     
     surf_out.set_quantiles(quantiles)
     
-    pts_each_dir=[int(sz/grid_spacing) for sz in global_size]
+    pts_each_dir=[int(sz/grid_spacing) for sz in extent]
     
     surf_out.descretise(pts_each_dir, periodic, False)
     
     return surf_out
     
-    
-    
-    
-    
-
-
-
-

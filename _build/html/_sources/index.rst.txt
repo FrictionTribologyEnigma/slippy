@@ -17,7 +17,12 @@ slippy is an open source python module which aims to make tribological models mo
 Tutorial
 --------
 
-Tutorials with background infromation for the submodules
+Tutorials with worked examples and background infromation for each of the submodules
+
+.. toctree::
+   :maxdepth: 2
+
+   tutorial/index
 
 
 
