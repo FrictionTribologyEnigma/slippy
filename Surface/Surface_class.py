@@ -354,6 +354,7 @@ class Surface(object):
                 self._extent=value
                 self._grid_spacing=value[0]/self.shape[0]
         else:
+            self._extent=value
             self.dimentions=len(value)
             if self.grid_spacing is not None:
                 self.shape=[v/self.grid_spacing for v in value]

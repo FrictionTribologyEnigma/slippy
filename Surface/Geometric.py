@@ -35,7 +35,7 @@ class FlatSurface(Surface):
     """
     surface_type='flat'
     
-    def __init__(self, slope=0, **kwargs):
+    def __init__(self, slope=[0,0], **kwargs):
         
         self._init_checks(kwargs)
         if type(slope) is list:

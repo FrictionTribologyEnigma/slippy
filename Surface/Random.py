@@ -19,10 +19,10 @@ Classes for generating random surfaces based on filtering of random signals:
         Add comment blocks to each class with examples of use
         Add other surface generation methods
         add citation to relevent method
-        johnson trancslator
         make work with 'generate' keyword 
-        add make like method,
         
+        make helper function for main class, should be able to take an acf, 
+        dist and method to give a surface object out
 """
 
 from .Surface_class import Surface
@@ -169,7 +169,8 @@ class RandomSurface(Surface):
         m=filter_size_n_m[1]
         
         if not self._grid_spacing:
-            warnings.warn("Grid grid_spacing is not set assuming grid grid_spacing is 1")
+            msg="Grid spacing is not set assuming grid grid_spacing is 1"
+            warnings.warn(msg)
             self.set_grid_spacing(1)
         
         #generate the acf array form the ACF object
@@ -203,8 +204,10 @@ class RandomSurface(Surface):
             Jp=[]
             Jm=[]
             for p in range(n):
-                Jp.extend([A0[n+p:2*n+p,m+q:2*m+q].flatten() for q in range(m)])
-                Jm.extend([A0[n-p:2*n-p,m-q:2*m-q].flatten() for q in range(m)])
+                Jp.extend([A0[n+p:2*n+p,m+q:2*m+q].flatten() 
+                           for q in range(m)])
+                Jm.extend([A0[n-p:2*n-p,m-q:2*m-q].flatten() 
+                           for q in range(m)])
             J=(np.array(Jp)+np.array(Jm))
             
             #do the hard bit of the itteration (inverting the jacobian matrik)
