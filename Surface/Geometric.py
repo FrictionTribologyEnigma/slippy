@@ -30,8 +30,7 @@ import warnings
 import numpy as np
 
 class FlatSurface(Surface): 
-    """"
-        simple flat surface can be angled in any direction by changing slope
+    """ Flat surface can be angled in any direction by changing slope
     """
     surface_type='flat'
     
