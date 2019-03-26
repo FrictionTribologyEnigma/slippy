@@ -206,6 +206,9 @@ class Surface(object):
     dimentions=2
     """ The number of spartial dimentions that """
     size=None
+    """ The number of points in the surface """
+    material=None
+    """ A material object describing the properties of the surface """
     
     _profile=None
     _grid_spacing=None
@@ -401,7 +404,7 @@ class Surface(object):
     def shape(self):
         if self.profile is None:
             self._shape=None
-            self._size=None
+            self.size=None
         else:
             msg="Cannot delete shape with a surface profile set"
             raise AttributeError(msg)
