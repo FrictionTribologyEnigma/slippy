@@ -26,6 +26,10 @@ def alicona_read(full_path):
     
     Notes
     -----
+    If the file name in full_path ends with (#) or # where # is an integer 
+    this function will look first for texture (#) or texture # etc. otherwise
+    just texture will be found
+    
     This is a port of the matlab function from the Alicona file format reader 
     (al3D) tool box
     
@@ -58,8 +62,18 @@ def alicona_read(full_path):
     import os
     import sys#
     from matplotlib.pyplot import imread
+    import re
     
-    path=os.path.split(full_path)[0]
+    
+    path, file_name=os.path.split(full_path)
+    name, ext = file_name.split('.')
+    try:
+        number_tag=re.findall('\s\(\d\)',name)[-1] 
+    except IndexError:
+        try:
+            number_tag=re.findall('\s\d',name)[-1]
+        except IndexError:
+            number_tag=''
     
     data = dict()
     tags = dict()
@@ -111,10 +125,14 @@ def alicona_read(full_path):
             data['Icon']=icon
         else:
             try:
-                icon=imread(path+os.path.sep+"icon.bmp")
+                icon=imread(path+os.path.sep+"icon"+number_tag+".bmp")
                 data['Icon']=icon
             except FileNotFoundError:
-                pass
+                try:
+                    icon=imread(path+os.path.sep+"icon.bmp")
+                    data['Icon']=icon
+                except FileNotFoundError:
+                    pass
         
         ## read the depth data
         rows = tags['Rows']
@@ -175,9 +193,14 @@ def alicona_read(full_path):
         else:
             #check if there is a texture image in the current dir
             try:
-                data['TextureData']=imread(path+os.path.sep+"texture.bmp")
+                data['TextureData']=imread(path+os.path.sep+
+                                            "texture"+number_tag+".bmp")
             except FileNotFoundError:
-                pass
+                try:
+                    tex=imread(path+os.path.sep+"texture.bmp")
+                    data['TextureData']=tex
+                except FileNotFoundError:
+                    pass
     return data
 
 if __name__=='__main__':

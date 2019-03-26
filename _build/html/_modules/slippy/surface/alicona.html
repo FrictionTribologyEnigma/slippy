@@ -66,6 +66,10 @@
 <span class="sd">    </span>
 <span class="sd">    Notes</span>
 <span class="sd">    -----</span>
+<span class="sd">    If the file name in full_path ends with (#) or # where # is an integer </span>
+<span class="sd">    this function will look first for texture (#) or texture # etc. otherwise</span>
+<span class="sd">    just texture will be found</span>
+<span class="sd">    </span>
 <span class="sd">    This is a port of the matlab function from the Alicona file format reader </span>
 <span class="sd">    (al3D) tool box</span>
 <span class="sd">    </span>
@@ -98,8 +102,18 @@
     <span class="kn">import</span> <span class="nn">os</span>
     <span class="kn">import</span> <span class="nn">sys</span><span class="c1">#</span>
     <span class="kn">from</span> <span class="nn">matplotlib.pyplot</span> <span class="k">import</span> <span class="n">imread</span>
+    <span class="kn">import</span> <span class="nn">re</span>
     
-    <span class="n">path</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">full_path</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    
+    <span class="n">path</span><span class="p">,</span> <span class="n">file_name</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">full_path</span><span class="p">)</span>
+    <span class="n">name</span><span class="p">,</span> <span class="n">ext</span> <span class="o">=</span> <span class="n">file_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">number_tag</span><span class="o">=</span><span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="s1">&#39;\s\(\d\)&#39;</span><span class="p">,</span><span class="n">name</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> 
+    <span class="k">except</span> <span class="ne">IndexError</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">number_tag</span><span class="o">=</span><span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="s1">&#39;\s\d&#39;</span><span class="p">,</span><span class="n">name</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">IndexError</span><span class="p">:</span>
+            <span class="n">number_tag</span><span class="o">=</span><span class="s1">&#39;&#39;</span>
     
     <span class="n">data</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
     <span class="n">tags</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
@@ -151,10 +165,14 @@
             <span class="n">data</span><span class="p">[</span><span class="s1">&#39;Icon&#39;</span><span class="p">]</span><span class="o">=</span><span class="n">icon</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="n">icon</span><span class="o">=</span><span class="n">imread</span><span class="p">(</span><span class="n">path</span><span class="o">+</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">sep</span><span class="o">+</span><span class="s2">&quot;icon.bmp&quot;</span><span class="p">)</span>
+                <span class="n">icon</span><span class="o">=</span><span class="n">imread</span><span class="p">(</span><span class="n">path</span><span class="o">+</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">sep</span><span class="o">+</span><span class="s2">&quot;icon&quot;</span><span class="o">+</span><span class="n">number_tag</span><span class="o">+</span><span class="s2">&quot;.bmp&quot;</span><span class="p">)</span>
                 <span class="n">data</span><span class="p">[</span><span class="s1">&#39;Icon&#39;</span><span class="p">]</span><span class="o">=</span><span class="n">icon</span>
             <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
-                <span class="k">pass</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">icon</span><span class="o">=</span><span class="n">imread</span><span class="p">(</span><span class="n">path</span><span class="o">+</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">sep</span><span class="o">+</span><span class="s2">&quot;icon.bmp&quot;</span><span class="p">)</span>
+                    <span class="n">data</span><span class="p">[</span><span class="s1">&#39;Icon&#39;</span><span class="p">]</span><span class="o">=</span><span class="n">icon</span>
+                <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+                    <span class="k">pass</span>
         
         <span class="c1">## read the depth data</span>
         <span class="n">rows</span> <span class="o">=</span> <span class="n">tags</span><span class="p">[</span><span class="s1">&#39;Rows&#39;</span><span class="p">]</span>
@@ -215,9 +233,14 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="c1">#check if there is a texture image in the current dir</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="n">data</span><span class="p">[</span><span class="s1">&#39;TextureData&#39;</span><span class="p">]</span><span class="o">=</span><span class="n">imread</span><span class="p">(</span><span class="n">path</span><span class="o">+</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">sep</span><span class="o">+</span><span class="s2">&quot;texture.bmp&quot;</span><span class="p">)</span>
+                <span class="n">data</span><span class="p">[</span><span class="s1">&#39;TextureData&#39;</span><span class="p">]</span><span class="o">=</span><span class="n">imread</span><span class="p">(</span><span class="n">path</span><span class="o">+</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">sep</span><span class="o">+</span>
+                                            <span class="s2">&quot;texture&quot;</span><span class="o">+</span><span class="n">number_tag</span><span class="o">+</span><span class="s2">&quot;.bmp&quot;</span><span class="p">)</span>
             <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
-                <span class="k">pass</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">tex</span><span class="o">=</span><span class="n">imread</span><span class="p">(</span><span class="n">path</span><span class="o">+</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">sep</span><span class="o">+</span><span class="s2">&quot;texture.bmp&quot;</span><span class="p">)</span>
+                    <span class="n">data</span><span class="p">[</span><span class="s1">&#39;TextureData&#39;</span><span class="p">]</span><span class="o">=</span><span class="n">tex</span>
+                <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+                    <span class="k">pass</span>
     <span class="k">return</span> <span class="n">data</span></div>
 
 <span class="k">if</span> <span class="vm">__name__</span><span class="o">==</span><span class="s1">&#39;__main__&#39;</span><span class="p">:</span>

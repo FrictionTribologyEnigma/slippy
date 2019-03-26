@@ -50,16 +50,217 @@
 <dl class="class">
 <dt id="slippy.surface.DiscFreqSurface">
 <em class="property">class </em><code class="descclassname">slippy.surface.</code><code class="descname">DiscFreqSurface</code><span class="sig-paren">(</span><em>frequencies, amptitudes=[1], phases_rads=[0], dimentions=2, **kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slippy/surface/FFTBased.html#DiscFreqSurface"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#slippy.surface.DiscFreqSurface" title="Permalink to this definition">¶</a></dt>
-<dd><p>Generates a surface containg discrete frequncy components</p>
-<p>Usage:</p>
-<p>DiscFreqSurface(frequencies, amptitudes=[1], phases_rads=[0], dimentions=2)</p>
-<p>Generates a surface with the specified frequencies, amptitudes and phases
-any kwargs that can be passed to surface can also be passed to this</p>
-<p>mySurf=DiscFreqSurface(10, 0.1)
-mySurf.extent=[0.5,0.5]
-mySurf.descretise(0.001)</p>
-<p>Generates and descretises a 2D surface with a frequency of 10 rads/unit
-of global size, descretised on a grid with a grid_spacing of 0.001</p>
+<dd><p>Object for reading, manipulating and plotting surfaces</p>
+<p>The Surface class contains methods for setting properties,
+examining measures of roughness and descriptions of surfaces, plotting,
+fixing and editing surfaces.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>amptitudes=</strong><strong>[</strong><strong>1</strong><strong>]</strong><strong>, </strong><strong>phases_rads=</strong><strong>[</strong><strong>0</strong><strong>]</strong><strong>,</strong> (<em>frequencies</em><em>,</em>) – dimentions=2</td>
+</tr>
+<tr class="field-even field"><th class="field-name" colspan="2">Other Parameters:</th></tr>
+<tr class="field-even field"><td>&#160;</td><td class="field-body"><strong>grid_spacing extent</strong></td>
+</tr>
+</tbody>
+</table>
+<dl class="attribute">
+<dt id="slippy.surface.DiscFreqSurface.profile">
+<code class="descname">profile</code><a class="headerlink" href="#slippy.surface.DiscFreqSurface.profile" title="Permalink to this definition">¶</a></dt>
+<dd><p>The height infromation of the surface</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Type:</th><td class="field-body">array</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="slippy.surface.DiscFreqSurface.shape">
+<code class="descname">shape</code><a class="headerlink" href="#slippy.surface.DiscFreqSurface.shape" title="Permalink to this definition">¶</a></dt>
+<dd><p>The numbeer of points in each direction of the profile</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Type:</th><td class="field-body">tuple</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="slippy.surface.DiscFreqSurface.size">
+<code class="descname">size</code><a class="headerlink" href="#slippy.surface.DiscFreqSurface.size" title="Permalink to this definition">¶</a></dt>
+<dd><p>The total number of points in the profile</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Type:</th><td class="field-body">int</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="slippy.surface.DiscFreqSurface.grid_spacing">
+<code class="descname">grid_spacing</code><a class="headerlink" href="#slippy.surface.DiscFreqSurface.grid_spacing" title="Permalink to this definition">¶</a></dt>
+<dd><p>The distance between adjacent points in the profile</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Type:</th><td class="field-body">float</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="slippy.surface.DiscFreqSurface.extent">
+<code class="descname">extent</code><a class="headerlink" href="#slippy.surface.DiscFreqSurface.extent" title="Permalink to this definition">¶</a></dt>
+<dd><p>The size of the profile in the same units as the grid spacing is set in</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Type:</th><td class="field-body">list</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="slippy.surface.DiscFreqSurface.dimentions">
+<code class="descname">dimentions</code><a class="headerlink" href="#slippy.surface.DiscFreqSurface.dimentions" title="Permalink to this definition">¶</a></dt>
+<dd><p>The number of dimentions of the surface</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Type:</th><td class="field-body">int {1, 2}</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="slippy.surface.DiscFreqSurface.surface_type">
+<code class="descname">surface_type</code><a class="headerlink" href="#slippy.surface.DiscFreqSurface.surface_type" title="Permalink to this definition">¶</a></dt>
+<dd><p>A description of the surface type</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Type:</th><td class="field-body">str {‘Experimental’, ‘Analytical’, ‘Random’}</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt>
+<code class="descname">acf, psd, fft</code></dt>
+<dd><p>The acf, psd and fft of the surface set by the get_acf get_psd and
+get_fft methods</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Type:</th><td class="field-body">array or None</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="slippy.surface.DiscFreqSurface.descretise">
+<code class="descname">descretise</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slippy/surface/FFTBased.html#DiscFreqSurface.descretise"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#slippy.surface.DiscFreqSurface.descretise" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="slippy.surface.DiscFreqSurface.show">
+<code class="descname">show</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#slippy.surface.DiscFreqSurface.show" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="slippy.surface.DiscFreqSurface.subtract_polynomial">
+<code class="descname">subtract_polynomial</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#slippy.surface.DiscFreqSurface.subtract_polynomial" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="slippy.surface.DiscFreqSurface.roughness">
+<code class="descname">roughness</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#slippy.surface.DiscFreqSurface.roughness" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="slippy.surface.DiscFreqSurface.get_mat_vr">
+<code class="descname">get_mat_vr</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#slippy.surface.DiscFreqSurface.get_mat_vr" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="slippy.surface.DiscFreqSurface.get_height_of_mat_vr">
+<code class="descname">get_height_of_mat_vr</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#slippy.surface.DiscFreqSurface.get_height_of_mat_vr" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="slippy.surface.DiscFreqSurface.find_summits">
+<code class="descname">find_summits</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#slippy.surface.DiscFreqSurface.find_summits" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="slippy.surface.DiscFreqSurface.get_summit_curvatures">
+<code class="descname">get_summit_curvatures</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#slippy.surface.DiscFreqSurface.get_summit_curvatures" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="slippy.surface.DiscFreqSurface.low_pass_filter">
+<code class="descname">low_pass_filter</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#slippy.surface.DiscFreqSurface.low_pass_filter" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="slippy.surface.DiscFreqSurface.read_from_file">
+<code class="descname">read_from_file</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#slippy.surface.DiscFreqSurface.read_from_file" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="slippy.surface.DiscFreqSurface.fill_holes">
+<code class="descname">fill_holes</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#slippy.surface.DiscFreqSurface.fill_holes" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="slippy.surface.DiscFreqSurface.resample">
+<code class="descname">resample</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#slippy.surface.DiscFreqSurface.resample" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="slippy.surface.DiscFreqSurface.get_fft">
+<code class="descname">get_fft</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#slippy.surface.DiscFreqSurface.get_fft" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="slippy.surface.DiscFreqSurface.get_acf">
+<code class="descname">get_acf</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#slippy.surface.DiscFreqSurface.get_acf" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="slippy.surface.DiscFreqSurface.get_psd">
+<code class="descname">get_psd</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#slippy.surface.DiscFreqSurface.get_psd" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<div class="admonition seealso">
+<p class="first admonition-title">See also</p>
+<p class="last"><a class="reference internal" href="slippy.surface.ProbFreqSurface.html#slippy.surface.ProbFreqSurface" title="slippy.surface.ProbFreqSurface"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProbFreqSurface</span></code></a>, <a class="reference internal" href="slippy.surface.HurstFractalSurface.html#slippy.surface.HurstFractalSurface" title="slippy.surface.HurstFractalSurface"><code class="xref py py-class docutils literal notranslate"><span class="pre">HurstFractalSurface</span></code></a></p>
+</div>
+<p class="rubric">Notes</p>
+<p>Roughness functions are aliased from the functions provided in the surface
+module</p>
+<p class="rubric">Examples</p>
 <dl class="method">
 <dt id="slippy.surface.DiscFreqSurface.__init__">
 <code class="descname">__init__</code><span class="sig-paren">(</span><em>frequencies, amptitudes=[1], phases_rads=[0], dimentions=2, **kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slippy/surface/FFTBased.html#DiscFreqSurface.__init__"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#slippy.surface.DiscFreqSurface.__init__" title="Permalink to this definition">¶</a></dt>
@@ -76,52 +277,52 @@ of global size, descretised on a grid with a grid_spacing of 0.001</p>
 <tr class="row-odd"><td><a class="reference internal" href="#slippy.surface.DiscFreqSurface.__init__" title="slippy.surface.DiscFreqSurface.__init__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">__init__</span></code></a>(frequencies[,&nbsp;amptitudes,&nbsp;…])</td>
 <td>Initialize self.</td>
 </tr>
-<tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">descretise</span></code>([grid_spacing])</td>
+<tr class="row-even"><td><a class="reference internal" href="#slippy.surface.DiscFreqSurface.descretise" title="slippy.surface.DiscFreqSurface.descretise"><code class="xref py py-obj docutils literal notranslate"><span class="pre">descretise</span></code></a>([grid_spacing])</td>
 <td></td>
 </tr>
-<tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">fill_holes</span></code>([hole_value,&nbsp;mk_copy,&nbsp;…])</td>
+<tr class="row-odd"><td><a class="reference internal" href="#slippy.surface.DiscFreqSurface.fill_holes" title="slippy.surface.DiscFreqSurface.fill_holes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">fill_holes</span></code></a>([hole_value,&nbsp;mk_copy,&nbsp;…])</td>
 <td>Replaces specificed values with filler</td>
 </tr>
-<tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">find_summits</span></code>([mask,&nbsp;four_nearest,&nbsp;…])</td>
+<tr class="row-even"><td><a class="reference internal" href="#slippy.surface.DiscFreqSurface.find_summits" title="slippy.surface.DiscFreqSurface.find_summits"><code class="xref py py-obj docutils literal notranslate"><span class="pre">find_summits</span></code></a>([mask,&nbsp;four_nearest,&nbsp;…])</td>
 <td>Find summits after low pass filtering</td>
 </tr>
-<tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_acf</span></code>([profile_in])</td>
+<tr class="row-odd"><td><a class="reference internal" href="#slippy.surface.DiscFreqSurface.get_acf" title="slippy.surface.DiscFreqSurface.get_acf"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_acf</span></code></a>([profile_in])</td>
 <td>Find the auto corelation function of the surface</td>
 </tr>
-<tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_fft</span></code>([profile_in])</td>
+<tr class="row-even"><td><a class="reference internal" href="#slippy.surface.DiscFreqSurface.get_fft" title="slippy.surface.DiscFreqSurface.get_fft"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_fft</span></code></a>([profile_in])</td>
 <td>Find the fourier transform of the surface</td>
 </tr>
-<tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_height_of_mat_vr</span></code>(ratio[,&nbsp;void,&nbsp;mask,&nbsp;…])</td>
+<tr class="row-odd"><td><a class="reference internal" href="#slippy.surface.DiscFreqSurface.get_height_of_mat_vr" title="slippy.surface.DiscFreqSurface.get_height_of_mat_vr"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_height_of_mat_vr</span></code></a>(ratio[,&nbsp;void,&nbsp;mask,&nbsp;…])</td>
 <td>Find the height of a given material or void volume ratio</td>
 </tr>
-<tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_mat_vr</span></code>(height[,&nbsp;void,&nbsp;mask,&nbsp;ratio])</td>
+<tr class="row-even"><td><a class="reference internal" href="#slippy.surface.DiscFreqSurface.get_mat_vr" title="slippy.surface.DiscFreqSurface.get_mat_vr"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_mat_vr</span></code></a>(height[,&nbsp;void,&nbsp;mask,&nbsp;ratio])</td>
 <td>Find the material or void volume ratio for a given height</td>
 </tr>
-<tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_psd</span></code>()</td>
+<tr class="row-odd"><td><a class="reference internal" href="#slippy.surface.DiscFreqSurface.get_psd" title="slippy.surface.DiscFreqSurface.get_psd"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_psd</span></code></a>()</td>
 <td>Find the power spectral density of the surface</td>
 </tr>
 <tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_summit_curvature</span></code>([summits,&nbsp;mask,&nbsp;…])</td>
 <td>Get summit curvatures</td>
 </tr>
-<tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">low_pass_filter</span></code>(cut_off_freq[,&nbsp;return_copy])</td>
+<tr class="row-odd"><td><a class="reference internal" href="#slippy.surface.DiscFreqSurface.low_pass_filter" title="slippy.surface.DiscFreqSurface.low_pass_filter"><code class="xref py py-obj docutils literal notranslate"><span class="pre">low_pass_filter</span></code></a>(cut_off_freq[,&nbsp;return_copy])</td>
 <td>Low pass FIR filter the surface profile</td>
 </tr>
-<tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">read_from_file</span></code>(path,&nbsp;**kwargs)</td>
+<tr class="row-even"><td><a class="reference internal" href="#slippy.surface.DiscFreqSurface.read_from_file" title="slippy.surface.DiscFreqSurface.read_from_file"><code class="xref py py-obj docutils literal notranslate"><span class="pre">read_from_file</span></code></a>(path,&nbsp;**kwargs)</td>
 <td>Read profile data from a file</td>
 </tr>
-<tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">resample</span></code>(new_grid_spacing[,&nbsp;return_profile,&nbsp;…])</td>
+<tr class="row-odd"><td><a class="reference internal" href="#slippy.surface.DiscFreqSurface.resample" title="slippy.surface.DiscFreqSurface.resample"><code class="xref py py-obj docutils literal notranslate"><span class="pre">resample</span></code></a>(new_grid_spacing[,&nbsp;return_profile,&nbsp;…])</td>
 <td>Resample the profile by interpolation</td>
 </tr>
 <tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">rotate</span></code>(radians)</td>
 <td>Rotate the surface relative to the grid and reinterpolate</td>
 </tr>
-<tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">roughness</span></code>(parameter_name[,&nbsp;mask,&nbsp;…])</td>
+<tr class="row-odd"><td><a class="reference internal" href="#slippy.surface.DiscFreqSurface.roughness" title="slippy.surface.DiscFreqSurface.roughness"><code class="xref py py-obj docutils literal notranslate"><span class="pre">roughness</span></code></a>(parameter_name[,&nbsp;mask,&nbsp;…])</td>
 <td>Find areal roughness parameters</td>
 </tr>
-<tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">show</span></code>([property_to_plot,&nbsp;plot_type,&nbsp;ax,&nbsp;…])</td>
+<tr class="row-even"><td><a class="reference internal" href="#slippy.surface.DiscFreqSurface.show" title="slippy.surface.DiscFreqSurface.show"><code class="xref py py-obj docutils literal notranslate"><span class="pre">show</span></code></a>([property_to_plot,&nbsp;plot_type,&nbsp;ax,&nbsp;…])</td>
 <td>Polt surface properties</td>
 </tr>
-<tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">subtract_polynomial</span></code>(order[,&nbsp;mask])</td>
+<tr class="row-odd"><td><a class="reference internal" href="#slippy.surface.DiscFreqSurface.subtract_polynomial" title="slippy.surface.DiscFreqSurface.subtract_polynomial"><code class="xref py py-obj docutils literal notranslate"><span class="pre">subtract_polynomial</span></code></a>(order[,&nbsp;mask])</td>
 <td>Flatten the surface by subtracting a polynomial</td>
 </tr>
 </tbody>
@@ -139,22 +340,22 @@ of global size, descretised on a grid with a grid_spacing of 0.001</p>
 <tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">acf</span></code></td>
 <td></td>
 </tr>
-<tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">dimentions</span></code></td>
+<tr class="row-odd"><td><a class="reference internal" href="#slippy.surface.DiscFreqSurface.dimentions" title="slippy.surface.DiscFreqSurface.dimentions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dimentions</span></code></a></td>
 <td></td>
 </tr>
-<tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">extent</span></code></td>
+<tr class="row-even"><td><a class="reference internal" href="#slippy.surface.DiscFreqSurface.extent" title="slippy.surface.DiscFreqSurface.extent"><code class="xref py py-obj docutils literal notranslate"><span class="pre">extent</span></code></a></td>
 <td>The extent of the surface in the same units as grid spacing</td>
 </tr>
 <tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">fft</span></code></td>
 <td></td>
 </tr>
-<tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">grid_spacing</span></code></td>
+<tr class="row-even"><td><a class="reference internal" href="#slippy.surface.DiscFreqSurface.grid_spacing" title="slippy.surface.DiscFreqSurface.grid_spacing"><code class="xref py py-obj docutils literal notranslate"><span class="pre">grid_spacing</span></code></a></td>
 <td></td>
 </tr>
 <tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">grid_spcaing</span></code></td>
 <td></td>
 </tr>
-<tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">hist</span></code></td>
+<tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">DiscFreqSurface.hist</span></code></td>
 <td></td>
 </tr>
 <tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">is_descrete</span></code></td>
@@ -163,22 +364,22 @@ of global size, descretised on a grid with a grid_spacing of 0.001</p>
 <tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">mask</span></code></td>
 <td>A mask used to exclude some values from analysis</td>
 </tr>
-<tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">profile</span></code></td>
+<tr class="row-odd"><td><a class="reference internal" href="#slippy.surface.DiscFreqSurface.profile" title="slippy.surface.DiscFreqSurface.profile"><code class="xref py py-obj docutils literal notranslate"><span class="pre">profile</span></code></a></td>
 <td>The height data for the surface profile</td>
 </tr>
 <tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">psd</span></code></td>
 <td></td>
 </tr>
-<tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">sa</span></code></td>
+<tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">DiscFreqSurface.sa</span></code></td>
 <td></td>
 </tr>
-<tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">shape</span></code></td>
+<tr class="row-even"><td><a class="reference internal" href="#slippy.surface.DiscFreqSurface.shape" title="slippy.surface.DiscFreqSurface.shape"><code class="xref py py-obj docutils literal notranslate"><span class="pre">shape</span></code></a></td>
 <td>The shape of the surface profile array, the number of points in each direction</td>
 </tr>
-<tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">size</span></code></td>
+<tr class="row-odd"><td><a class="reference internal" href="#slippy.surface.DiscFreqSurface.size" title="slippy.surface.DiscFreqSurface.size"><code class="xref py py-obj docutils literal notranslate"><span class="pre">size</span></code></a></td>
 <td></td>
 </tr>
-<tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">surface_type</span></code></td>
+<tr class="row-even"><td><a class="reference internal" href="#slippy.surface.DiscFreqSurface.surface_type" title="slippy.surface.DiscFreqSurface.surface_type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">surface_type</span></code></a></td>
 <td></td>
 </tr>
 </tbody>

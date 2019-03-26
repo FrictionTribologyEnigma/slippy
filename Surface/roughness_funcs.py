@@ -218,14 +218,18 @@ def roughness(profile_in, parameter_name, grid_spacing=None, mask=None,
     if parameter_name in no_mask and mask is not None:
         raise ValueError("Masking not supported for {}".format(parameter_name))
     
-    # return parameter of interst 
+    # return parameter of interst
+    num_pts_m=eta_masked.size
+    
     if grid_spacing is not None:
         global_size=[grid_spacing*dim for dim in profile.shape]
         gs2=grid_spacing**2
-    num_pts_m=eta_masked.size
-    p_area_m=num_pts_m*gs2
-    
-    p_area_t=eta.size*gs2
+        p_area_m=num_pts_m*gs2
+        p_area_t=eta.size*gs2
+    else:
+        gs2=None
+        p_area_m=None
+        p_area_t=None
     
     if parameter_name=='sq': #root mean square checked
         out=np.sqrt(np.mean(eta_masked**2))

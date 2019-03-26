@@ -20,7 +20,7 @@ Classes for generating pseudo-random surfaces based on description of FFT:
     ===========================================================================
 
 #TODO:
-        Add comment blocks to each class with examples of use
+        doc strings
         add DtmnFreqSurface
         cheange Prob and dtm to allow for more descriptios of FFTs inc passing
         actual functions and some built in functions
@@ -29,12 +29,91 @@ Classes for generating pseudo-random surfaces based on description of FFT:
 """
 
 from .Surface_class import Surface
-import warnings
+#import warnings
 import numpy as np
 
 __all__=["DiscFreqSurface", "ProbFreqSurface", "HurstFractalSurface"]#, "DtmnFreqSurface"]
 
 class DiscFreqSurface(Surface):
+    r""" Object for reading, manipulating and plotting surfaces
+    
+    The Surface class contains methods for setting properties, 
+    examining measures of roughness and descriptions of surfaces, plotting,
+    fixing and editing surfaces.
+    
+    Parameters
+    ----------
+    frequencies, amptitudes=[1], phases_rads=[0], 
+                 dimentions=2
+
+                 
+    Other Parameters
+    ----------------
+    
+    grid_spacing extent
+    
+    
+    Attributes
+    ----------
+    profile : array
+        The height infromation of the surface
+        
+    shape : tuple
+        The numbeer of points in each direction of the profile
+        
+    size : int
+        The total number of points in the profile
+    
+    grid_spacing: float
+        The distance between adjacent points in the profile
+        
+    extent : list
+        The size of the profile in the same units as the grid spacing is set in
+        
+    dimentions : int {1, 2}
+        The number of dimentions of the surface
+    
+    surface_type : str {'Experimental', 'Analytical', 'Random'}
+        A description of the surface type    
+    
+    acf, psd, fft : array or None
+        The acf, psd and fft of the surface set by the get_acf get_psd and
+        get_fft methods
+    
+    Methods
+    -------
+    
+    descretise
+    show
+    subtract_polynomial
+    roughness
+    get_mat_vr
+    get_height_of_mat_vr
+    find_summits
+    get_summit_curvatures
+    low_pass_filter
+    read_from_file
+    fill_holes
+    resample
+    get_fft
+    get_acf
+    get_psd
+    
+    See Also
+    --------
+    ProbFreqSurface
+    HurstFractalSurface
+    
+    Notes
+    -----
+    Roughness functions are aliased from the functions provided in the surface 
+    module
+    
+    Examples
+    --------
+    
+    
+    """
     """
     Generates a surface containg discrete frequncy components
     
@@ -55,9 +134,13 @@ class DiscFreqSurface(Surface):
     is_descrete=False
     surface_type='discreteFreq'
     
-    def __init__(self, frequencies, amptitudes=[1], phases_rads=[0], dimentions=2, **kwargs):
+    def __init__(self, frequencies, amptitudes=[1], phases_rads=[0], 
+                 dimentions=2, **kwargs):
         
-        self._init_checks(kwargs)
+        kwargs=self._init_checks(kwargs)
+        if kwargs:
+            raise ValueError("Unrecognised keys in keywords: "+str(kwargs))
+        
         if type(frequencies) is list or type(frequencies) is np.ndarray:
             self.frequencies=frequencies
         else:

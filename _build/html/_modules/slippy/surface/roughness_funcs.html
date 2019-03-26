@@ -258,14 +258,18 @@
     <span class="k">if</span> <span class="n">parameter_name</span> <span class="ow">in</span> <span class="n">no_mask</span> <span class="ow">and</span> <span class="n">mask</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Masking not supported for </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">parameter_name</span><span class="p">))</span>
     
-    <span class="c1"># return parameter of interst </span>
+    <span class="c1"># return parameter of interst</span>
+    <span class="n">num_pts_m</span><span class="o">=</span><span class="n">eta_masked</span><span class="o">.</span><span class="n">size</span>
+    
     <span class="k">if</span> <span class="n">grid_spacing</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">global_size</span><span class="o">=</span><span class="p">[</span><span class="n">grid_spacing</span><span class="o">*</span><span class="n">dim</span> <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">profile</span><span class="o">.</span><span class="n">shape</span><span class="p">]</span>
         <span class="n">gs2</span><span class="o">=</span><span class="n">grid_spacing</span><span class="o">**</span><span class="mi">2</span>
-    <span class="n">num_pts_m</span><span class="o">=</span><span class="n">eta_masked</span><span class="o">.</span><span class="n">size</span>
-    <span class="n">p_area_m</span><span class="o">=</span><span class="n">num_pts_m</span><span class="o">*</span><span class="n">gs2</span>
-    
-    <span class="n">p_area_t</span><span class="o">=</span><span class="n">eta</span><span class="o">.</span><span class="n">size</span><span class="o">*</span><span class="n">gs2</span>
+        <span class="n">p_area_m</span><span class="o">=</span><span class="n">num_pts_m</span><span class="o">*</span><span class="n">gs2</span>
+        <span class="n">p_area_t</span><span class="o">=</span><span class="n">eta</span><span class="o">.</span><span class="n">size</span><span class="o">*</span><span class="n">gs2</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">gs2</span><span class="o">=</span><span class="kc">None</span>
+        <span class="n">p_area_m</span><span class="o">=</span><span class="kc">None</span>
+        <span class="n">p_area_t</span><span class="o">=</span><span class="kc">None</span>
     
     <span class="k">if</span> <span class="n">parameter_name</span><span class="o">==</span><span class="s1">&#39;sq&#39;</span><span class="p">:</span> <span class="c1">#root mean square checked</span>
         <span class="n">out</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">eta_masked</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>

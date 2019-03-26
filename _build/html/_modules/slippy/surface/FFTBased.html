@@ -60,7 +60,7 @@
 <span class="sd">    ===========================================================================</span>
 
 <span class="sd">#TODO:</span>
-<span class="sd">        Add comment blocks to each class with examples of use</span>
+<span class="sd">        doc strings</span>
 <span class="sd">        add DtmnFreqSurface</span>
 <span class="sd">        cheange Prob and dtm to allow for more descriptios of FFTs inc passing</span>
 <span class="sd">        actual functions and some built in functions</span>
@@ -69,12 +69,91 @@
 <span class="sd">&quot;&quot;&quot;</span>
 
 <span class="kn">from</span> <span class="nn">.Surface_class</span> <span class="k">import</span> <span class="n">Surface</span>
-<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="c1">#import warnings</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 
 <span class="n">__all__</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;DiscFreqSurface&quot;</span><span class="p">,</span> <span class="s2">&quot;ProbFreqSurface&quot;</span><span class="p">,</span> <span class="s2">&quot;HurstFractalSurface&quot;</span><span class="p">]</span><span class="c1">#, &quot;DtmnFreqSurface&quot;]</span>
 
 <div class="viewcode-block" id="DiscFreqSurface"><a class="viewcode-back" href="../../../generated/slippy.surface.DiscFreqSurface.html#slippy.surface.DiscFreqSurface">[docs]</a><span class="k">class</span> <span class="nc">DiscFreqSurface</span><span class="p">(</span><span class="n">Surface</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sd">&quot;&quot;&quot; Object for reading, manipulating and plotting surfaces</span>
+<span class="sd">    </span>
+<span class="sd">    The Surface class contains methods for setting properties, </span>
+<span class="sd">    examining measures of roughness and descriptions of surfaces, plotting,</span>
+<span class="sd">    fixing and editing surfaces.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    frequencies, amptitudes=[1], phases_rads=[0], </span>
+<span class="sd">                 dimentions=2</span>
+
+<span class="sd">                 </span>
+<span class="sd">    Other Parameters</span>
+<span class="sd">    ----------------</span>
+<span class="sd">    </span>
+<span class="sd">    grid_spacing extent</span>
+<span class="sd">    </span>
+<span class="sd">    </span>
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    profile : array</span>
+<span class="sd">        The height infromation of the surface</span>
+<span class="sd">        </span>
+<span class="sd">    shape : tuple</span>
+<span class="sd">        The numbeer of points in each direction of the profile</span>
+<span class="sd">        </span>
+<span class="sd">    size : int</span>
+<span class="sd">        The total number of points in the profile</span>
+<span class="sd">    </span>
+<span class="sd">    grid_spacing: float</span>
+<span class="sd">        The distance between adjacent points in the profile</span>
+<span class="sd">        </span>
+<span class="sd">    extent : list</span>
+<span class="sd">        The size of the profile in the same units as the grid spacing is set in</span>
+<span class="sd">        </span>
+<span class="sd">    dimentions : int {1, 2}</span>
+<span class="sd">        The number of dimentions of the surface</span>
+<span class="sd">    </span>
+<span class="sd">    surface_type : str {&#39;Experimental&#39;, &#39;Analytical&#39;, &#39;Random&#39;}</span>
+<span class="sd">        A description of the surface type    </span>
+<span class="sd">    </span>
+<span class="sd">    acf, psd, fft : array or None</span>
+<span class="sd">        The acf, psd and fft of the surface set by the get_acf get_psd and</span>
+<span class="sd">        get_fft methods</span>
+<span class="sd">    </span>
+<span class="sd">    Methods</span>
+<span class="sd">    -------</span>
+<span class="sd">    </span>
+<span class="sd">    descretise</span>
+<span class="sd">    show</span>
+<span class="sd">    subtract_polynomial</span>
+<span class="sd">    roughness</span>
+<span class="sd">    get_mat_vr</span>
+<span class="sd">    get_height_of_mat_vr</span>
+<span class="sd">    find_summits</span>
+<span class="sd">    get_summit_curvatures</span>
+<span class="sd">    low_pass_filter</span>
+<span class="sd">    read_from_file</span>
+<span class="sd">    fill_holes</span>
+<span class="sd">    resample</span>
+<span class="sd">    get_fft</span>
+<span class="sd">    get_acf</span>
+<span class="sd">    get_psd</span>
+<span class="sd">    </span>
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    ProbFreqSurface</span>
+<span class="sd">    HurstFractalSurface</span>
+<span class="sd">    </span>
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    Roughness functions are aliased from the functions provided in the surface </span>
+<span class="sd">    module</span>
+<span class="sd">    </span>
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    </span>
+<span class="sd">    </span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Generates a surface containg discrete frequncy components</span>
 <span class="sd">    </span>
@@ -95,9 +174,13 @@
     <span class="n">is_descrete</span><span class="o">=</span><span class="kc">False</span>
     <span class="n">surface_type</span><span class="o">=</span><span class="s1">&#39;discreteFreq&#39;</span>
     
-<div class="viewcode-block" id="DiscFreqSurface.__init__"><a class="viewcode-back" href="../../../generated/slippy.surface.DiscFreqSurface.html#slippy.surface.DiscFreqSurface.__init__">[docs]</a>    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">frequencies</span><span class="p">,</span> <span class="n">amptitudes</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">phases_rads</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dimentions</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<div class="viewcode-block" id="DiscFreqSurface.__init__"><a class="viewcode-back" href="../../../generated/slippy.surface.DiscFreqSurface.html#slippy.surface.DiscFreqSurface.__init__">[docs]</a>    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">frequencies</span><span class="p">,</span> <span class="n">amptitudes</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">phases_rads</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> 
+                 <span class="n">dimentions</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         
-        <span class="bp">self</span><span class="o">.</span><span class="n">_init_checks</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="n">kwargs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_init_checks</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unrecognised keys in keywords: &quot;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">kwargs</span><span class="p">))</span>
+        
         <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">frequencies</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">list</span> <span class="ow">or</span> <span class="nb">type</span><span class="p">(</span><span class="n">frequencies</span><span class="p">)</span> <span class="ow">is</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">frequencies</span><span class="o">=</span><span class="n">frequencies</span>
         <span class="k">else</span><span class="p">:</span>
@@ -121,7 +204,7 @@
                                      <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mi">1</span><span class="n">j</span><span class="o">*</span><span class="n">phases_rads</span><span class="p">[</span><span class="n">idx</span><span class="p">]))</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">amptitudes</span><span class="o">=</span><span class="n">cplx_amps</span></div>
             
-    <span class="k">def</span> <span class="nf">descretise</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid_spacing</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="DiscFreqSurface.descretise"><a class="viewcode-back" href="../../../generated/slippy.surface.DiscFreqSurface.html#slippy.surface.DiscFreqSurface.descretise">[docs]</a>    <span class="k">def</span> <span class="nf">descretise</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid_spacing</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">grid_spacing</span><span class="p">:</span>    
             <span class="bp">self</span><span class="o">.</span><span class="n">grid_spacing</span><span class="o">=</span><span class="n">grid_spacing</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_descretise_checks</span><span class="p">()</span>
@@ -144,7 +227,7 @@
                                  <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="n">j</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">frequencies</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span><span class="o">*</span><span class="n">X</span><span class="o">*</span><span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span><span class="o">+</span>
                                  <span class="bp">self</span><span class="o">.</span><span class="n">amptitudes</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span><span class="o">*</span>
                                  <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="n">j</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">frequencies</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span><span class="o">*</span><span class="n">Y</span><span class="o">*</span><span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">))</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">profile</span><span class="o">=</span><span class="n">profile</span></div>
+            <span class="bp">self</span><span class="o">.</span><span class="n">profile</span><span class="o">=</span><span class="n">profile</span></div></div>
     
 <div class="viewcode-block" id="ProbFreqSurface"><a class="viewcode-back" href="../../../generated/slippy.surface.ProbFreqSurface.html#slippy.surface.ProbFreqSurface">[docs]</a><span class="k">class</span> <span class="nc">ProbFreqSurface</span><span class="p">(</span><span class="n">Surface</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
