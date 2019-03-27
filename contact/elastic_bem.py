@@ -10,7 +10,28 @@ __all__=['convert_array', 'convert_dict', 'elastic_displacement', '_solve_ed',
 #todo 
 def contact_rigid(surface1: S.Surface, rigid_surface: S.surface=0, 
                   displacement: list=None, load: list=None, material=None):
-    """ Contact between a 
+    """ Contact between a rigid surface and an elastic surface
+    can be load or displacement controlled
+    
+    Parameters
+    ----------
+    
+    
+    Returns
+    -------
+    
+    
+    See Also
+    --------
+    
+    
+    Notes
+    -----
+    
+    
+    Examples
+    --------
+    
     
     """
 
@@ -74,15 +95,15 @@ def convert_dict(loads_or_displacements: dict):
     directions=list(ld.keys())
         
     if not set(directions).issubset(set(valid_directions)):
-        msg=("invalid keys in loads dict, supplied keys are: " +
-             ''.join(directions) + " Valid keys are: " + 
-             ''.join(valid_directions))
+        msg=("invalid keys in dict, keys found:" +
+             ' '.join(directions) + " Valid keys are:" + 
+             ' '.join(valid_directions))
         raise ValueError(msg)
     
     shapes=[value.shape for (key,value) in ld.items()]
     
     if len(set(shapes))!=1:
-        raise ValueError("Deflection vectors are not all the same shape")
+        raise ValueError("Vectors are not all the same shape")
     
     out=np.zeros([3]+list(shapes[0]))
     
