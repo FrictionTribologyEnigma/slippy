@@ -38,9 +38,35 @@ __all__=['RandomSurface', 'surface_like']
 
 
 class RandomSurface(Surface):
-    """ 
-    Surfaces based on transformations of random sequences
-    #TODO
+    """ Surfaces based on transformations of random sequences
+    
+    Attributes
+    ----------
+    dist : scipy distribution
+        The statistical distribution which the random sequenc is drawn from
+    
+    Methods
+    -------
+    linear_transforms
+    set_moments
+    set_quantiles
+    fir_filter
+    descretise
+    
+    See Also
+    --------
+    surface_like
+    
+    Notes
+    -----
+    This is a subclass of Surface and inherits all methods. All key words that
+    can be passed to Surface on instantiation can also be passed to this class
+    apart from 'profile'
+    
+    Examples
+    --------
+    
+    
     """
 
     surface_type='Random'
@@ -53,7 +79,7 @@ class RandomSurface(Surface):
         
         self.dimentions=dimentions
         
-    def fill(self, grid_spacing=None, dist=None):
+    def _fill(self, grid_spacing=None, dist=None):
         if not dist: 
             dist=self.dist
             

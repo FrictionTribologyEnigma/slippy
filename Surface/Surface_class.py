@@ -15,6 +15,7 @@ from .ACF_class import ACF
 from .roughness_funcs import roughness, subtract_polynomial, find_summits
 from .roughness_funcs import get_mat_vr, get_summit_curvatures
 from .roughness_funcs import get_height_of_mat_vr, low_pass_filter
+from slippy.contact.materials import _Material, material
 
 __all__=['Surface', 'assurface', 'read_surface']
 
@@ -209,7 +210,11 @@ class Surface(object):
     """ The number of points in the surface """
     material=None
     """ A material object describing the properties of the surface """
+    analytic=False
+    """ A bool, true if the surface can be described by an equaiton and a 
+    Z=height(X,Y) method is provided"""
     
+    _material=None
     _profile=None
     _grid_spacing=None
     _shape=None
@@ -308,40 +313,15 @@ class Surface(object):
     
     @property
     def extent(self):
-        """ The extent of the surface in the same units as grid spacing
+        """ The overall dimentions of the surface in the same units as grid 
+        spacing
         """
         return self._extent
     
     @extent.setter
     def extent(self, value):
-        """ Changes the global size of the surface
-        
-        Sets the global size of the surface without reinterpolation, keeps all
-        other dimnetions up to date
-        
-        Parameters
-        ----------
-        extent : 2 element list
-            The global size to be set in length units
-            
-        Returns
-        -------
-        
-        Nothing
-        
-        See Also
-        --------
-        resample - changes the grid spacing with reinterpolation
-        set_grid_spacing
-        
-        Notes
-        -----
-        
-        This method should be used over editing the properties directly
-        
-        Examples
-        --------
-        
+        """ 
+        The overall dimentions of the surface
         """
         if type(value) is not list:
             msg="Extent must be a list, got {}".format(type(value))
@@ -504,7 +484,56 @@ class Surface(object):
         else:
             self._extent=[s*grid_spacing for s in self.shape]
         return
-            
+    
+    @property
+    def material(self):
+        return self._material
+    
+    @material.setter
+    def material(self, value):
+        if issubclass(type(value),_Material):
+            self._material=value
+        else:
+            raise ValueError("Unable to set material, expected material object"
+                             " recived %s" % str(type(value)))
+    @material.deleter
+    def material(self):
+        self._material=None
+        
+    def set_material(self, material_type: str, properties: dict, model=None):
+        """Create a material object and set it to this surface
+        
+        Parameters
+        ----------
+        material_type : str {elastic, visco_elastic, elastic_plastic}
+            The name of the type of material you want to set, not case 
+            sensitive
+        properties : dict
+            A dictionary containing the properties of the material
+        model : str optional
+            The material model to be used, only required for plastic and visco
+            elastic materials
+        
+        See Also
+        --------
+        slippy.contact.make_material
+        slippy.contact.materials.Elastic
+        slippy.contact.materials.ElasticPlastic
+        slippy.contact.materials.ViscoElastic
+        
+        Notes
+        -----
+        For a detailed description of the models avalible and the properties 
+        required for each model see the class descriptions given above
+        
+        Examples
+        --------
+        >>> # set an elastic material
+        >>> my_surface.set_material("elastic", {'E' : 200E9, 'v' : 0.3})
+        
+        """
+        self._material=material(material_type, properties, model=model)
+    
     def get_fft(self, profile_in=None):
         """ Find the fourier transform of the surface
         

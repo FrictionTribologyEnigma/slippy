@@ -7,34 +7,6 @@ import warnings
 __all__=['convert_array', 'convert_dict', 'elastic_displacement', '_solve_ed',
          'elastic_loading', '_solve_el', 'elastic_im', 'combined_modulus']
 
-#todo 
-def contact_rigid(surface1: S.Surface, rigid_surface: S.surface=0, 
-                  displacement: list=None, load: list=None, material=None):
-    """ Contact between a rigid surface and an elastic surface
-    can be load or displacement controlled
-    
-    Parameters
-    ----------
-    
-    
-    Returns
-    -------
-    
-    
-    See Also
-    --------
-    
-    
-    Notes
-    -----
-    
-    
-    Examples
-    --------
-    
-    
-    """
-
 def convert_array(loads_or_displacements: np.array):
     """ Converts an array of loads or displacements to a dict of loads
     
