@@ -99,6 +99,7 @@ def roughness(profile_in, parameter_name, grid_spacing=None, mask=None,
     - Sz   - Ten point height (based on definition of sumits) *-
     - Ssk  - Skew of the surface (3rd moment) *
     - Sku  - Kurtosis of the surface (4th moment) *
+    - Sv   - Lowest valley in the sample *
     
     Spartial parameters:
     
@@ -244,6 +245,9 @@ def roughness(profile_in, parameter_name, grid_spacing=None, mask=None,
     elif parameter_name=='sku': #kurtosis checked
         sq=np.sqrt(np.mean(eta_masked**2))
         out=np.mean(eta_masked**4)/sq**4
+    
+    elif parameter_name=='sv':
+        out=np.min(eta_masked)
     
     elif parameter_name in ['sds', 'sz', 'ssc']: # all that require sumits
         # summits is logical array of sumit locations
