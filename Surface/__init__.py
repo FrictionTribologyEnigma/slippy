@@ -49,6 +49,7 @@ Functions
    assurface             -- Make a surface object
    read_surface          -- Read a surface object from file
    alicona_read          -- Read alicona data files
+   read_tst_file         -- Read a bruker umt tst file
    roughness             -- Find 2d roughness parameters
    subtract_polynomial   -- fit and subtract a n degree polynomail
    get_mat_vr            -- get the material or void volume ratio for a height
@@ -71,5 +72,6 @@ from .Random import *
 from .FFTBased import *
 from .alicona import *
 from .roughness_funcs import *
+from .read_tst_file import *
 
 __all__ = [s for s in dir() if not s.startswith("_")]

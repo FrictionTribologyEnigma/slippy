@@ -120,7 +120,7 @@ def read_step(file, file_metadata, run_metadata):
             break
         metadata[name]=value
     
-    if metadata['isdata']:
+    if metadata['samples']:
         step_data=read_data(file, file_metadata, run_metadata, metadata)
     else:
         step_data=None
@@ -149,7 +149,12 @@ def read_channel(file):
     return channel_data
         
 def split_line(file):
-    line_str = file.readline().decode()
+    try:
+        line=file.readline()
+        line_str = line.decode()
+    except UnicodeDecodeError:
+        print(line)
+        raise ValueError("could not decode above")
     number,*rest=line_str.split('#')[1:]
     rest=''.join(rest)
     number=number.strip(' ')
@@ -168,10 +173,11 @@ def split_line(file):
     elif number in ['33','37','38']:
         value=float(value)
     number=int(number)
-    
     return number, name, value
 
 if __name__=='__main__':
-    filename=r"I:\UMT\Mike\17May2019\testdata-1.tst"
+    import numpy as np
+    filename=r"I:\UMT\Mike\17May2019\running in-1.tst"
     data=read_tst_file(filename)
+    mean_mu=np.mean(np.abs(data['runs'][0]['steps'][1]['data']['Fx']))/10
     
