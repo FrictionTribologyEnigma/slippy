@@ -1529,7 +1529,13 @@ class Surface(object):
         X,Y=np.meshgrid(x,y)
         
         return(X,Y)
-    
+        
+    def __str__(self):
+        pass
+        
+    def __repl__(self):
+        return ("Surface(profile="+self.profile.__repl__()+", grid_spacing="+self.grid_spacing.__repl__()+")")
+        
     def rotate(self, radians):
         """Rotate the surface relative to the grid and reinterpolate
         """
@@ -1560,6 +1566,10 @@ class Surface(object):
             warnings.warn('surface contains over 10^7 points calculations will'
                           ' be slow, consider splitting surface for analysis')
         return    
+    def mesh(self, depth, method='grid', parameters=None):
+        if self.is_descrete==False:
+            raise ValueError("Surface must be descrete before meshing")
+        
 
 if __name__=='__main__':
     A=Surface(file_name='C:\\Users\\44779\\code\\SlipPY\\data\\image1_no head'

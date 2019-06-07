@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.interpolate import interp1d
-from _material_utils import _Bunch, _get_properties
+from slippy.contact._material_utils import _get_properties
 
 __all__=["Elastic", "ElasticPlastic", "ViscoElastic", "material"]
 
@@ -166,7 +166,7 @@ class Elastic(_Material):
     
     layer_thickness=float('inf')
     
-    def __init__(self, properties:dict)
+    def __init__(self, properties : dict):
         """
         
         """
@@ -178,7 +178,7 @@ class Elastic(_Material):
         elif len(properties)!=0:
             raise ValueError("Too many properties suplied, must be 1 or 2")
         
-        self.density=density
+        self.density=properties['density']
     
     
     

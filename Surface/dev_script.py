@@ -1,6 +1,72 @@
 import numpy as np
 import slippy.surface as S
 
+surf = S.FlatSurface(grid_spacing=1, extent=[9,9])
+surf.descretise()
+profile=surf.profile
+grid_spacing=surf.grid_spacing
+depth=5
+parameters={}
+
+
+#def _full(profile, grid_spacing, parameters, depth):
+"""
+Meshes a surface with hexahedral elements in a grid
+
+Parameters
+----------
+
+
+valid keys in parameters:
+    max_aspect
+    min_aspect
+    mode {linear, exponential}
+"""
+valid_modes=['linear', 'exponential']
+aspect=[1,3]
+mode='linear'
+if depth is None:
+    raise ValueError("Depth must be set, meshing failed")
+
+if 'max_aspect' in parameters:
+    aspect[1]=parameters.pop('max_aspect')
+if 'min_aspect' in parameters:
+    aspect[0]=parameters.pop('min_aspect')
+if 'mode' in parameters:
+    mode=parameters.pop('mode')
+    if not mode in valid_modes:
+        raise ValueError("Unrecognised mode : "
+                         "{}, mesh failed".format(mode))
+
+h_min=min(profile.flatten())
+profile=profile-h_min+depth
+
+h_min=depth
+h_max=max(profile.flatten())
+
+if aspect[0]>aspect[1]:
+    seg_max_top=aspect[0]*grid_spacing
+    seg_max_bottom=aspect[1]*grid_spacing/h_min*h_max
+else:
+    seg_max_top=aspect[0]*grid_spacing/h_min*h_max
+    seg_max_bottom=aspect[1]*grid_spacing
+
+n_segs=int(np.ceil(h_max/(seg_max_top+seg_max_bottom)*2))
+segs_raw=np.cumsum(np.linspace(seg_max_bottom, seg_max_top, n_segs))
+
+# normalised y coodinates for each node multiply by the hieght of the 
+# surface to get the actual y coordinates
+segs_norm=np.insert(segs_raw, 0, 0)/max(segs_raw)
+
+n_pts=profile.size
+
+#just index X and Y using mod operator
+X, Y = np.meshgrid(np.arange(profile.shape[0])*grid_spacing,
+                   np.arange(profile.shape[1])*grid_spacing)
+Z=np.reshape(np.repeat(segs_norm, n_pts), (n_segs+1, 
+  profile.shape[0], profile.shape[1]))*profile
+
+# got all the nodes now construct the elements
 
 
 #import numpy as np
