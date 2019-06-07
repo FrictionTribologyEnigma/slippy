@@ -1,7 +1,50 @@
 import struct
 
+__all__=['read_tst_file']
+
 def read_tst_file(filename):
-    "Reads a .tst file from a bruker UMT machine"
+    """Reads a .tst file from a bruker UMT machine
+    
+    Parameters
+    ----------
+    filename : str
+        The full path to the .tst file including extention
+        
+    Returns
+    -------
+    data : dict
+        The full data including all metadata from the .tst file
+    
+    Notes
+    -----
+    The stucture of data can be a little confusing at the top level it is a 
+    dict with two keys: one for the metadata that applies to the entire file
+    and one for the data from each run of the script. 
+    
+    The metadata is stored in another dict while the data for each run are in a
+    list with the same order as they were run in.
+    
+    This structure is kept all the way though every time somthing is ordered a 
+    list is used other wise a dictionary is used.
+    
+    To acces data from the first run:
+    >>>first_run=data['runs'][0]
+    
+    To acces data from the second step in that run:
+    >>>second_step=first_run['steps'][1]
+    
+    To get the numerical data from that step:
+    >>>num_data=second_step['data']
+    
+    This dosn't need to be split:
+    >>>num_data=data['runs'][0]['steps'][1]['data']
+    
+    Gives the same result.
+    
+    num_data is a dict of lists with keys of the results recorded:
+    >>>num_data['Fx'] 
+    Gives the force results in the x direction
+    """
     data=dict()
     with open(filename, 'rb') as file:
         metadata=dict()
@@ -23,7 +66,7 @@ def read_tst_file(filename):
         run_data=[]
         for run in range(n_runs):
             run_data.append(read_run(file, metadata))
-        data['run_data']=run_data
+        data['runs']=run_data
     return data
 
 
@@ -112,6 +155,7 @@ def split_line(file):
     number=number.strip(' ')
     name,value=rest.split('$')[0:2]
     name=name.strip(' ')
+    value=value.strip(' ')
     
     if name.strip('*')=='':
         name=None

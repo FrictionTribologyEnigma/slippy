@@ -1,3 +1,5 @@
+import numpy as np
+
 __all__=['_Bunch', '_get_properties']
 
 class _Bunch(object):

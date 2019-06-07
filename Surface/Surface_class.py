@@ -15,7 +15,7 @@ from .ACF_class import ACF
 from .roughness_funcs import roughness, subtract_polynomial, find_summits
 from .roughness_funcs import get_mat_vr, get_summit_curvatures
 from .roughness_funcs import get_height_of_mat_vr, low_pass_filter
-from slippy.contact.materials import _Material, material
+#from slippy.contact.materials import _Material, material
 
 __all__=['Surface', 'assurface', 'read_surface']
 
@@ -500,7 +500,8 @@ class Surface(object):
     def material(self):
         self._material=None
         
-    def set_material(self, material_type: str, properties: dict, model=None):
+    def set_material(self, material_type: str, properties: dict= None, 
+                     model=None):
         """Create a material object and set it to this surface
         
         Parameters
@@ -516,15 +517,16 @@ class Surface(object):
         
         See Also
         --------
-        slippy.contact.make_material
+        slippy.contact.material
         slippy.contact.materials.Elastic
         slippy.contact.materials.ElasticPlastic
         slippy.contact.materials.ViscoElastic
         
         Notes
         -----
-        For a detailed description of the models avalible and the properties 
-        required for each model see the class descriptions given above
+        This is an alias of the material function, for more detailed usage 
+        information see the doumentation for that function or pass 'info' as
+        the name to this method
         
         Examples
         --------
@@ -532,7 +534,8 @@ class Surface(object):
         >>> my_surface.set_material("elastic", {'E' : 200E9, 'v' : 0.3})
         
         """
-        self._material=material(material_type, properties, model=model)
+        
+        self._material=material(material_type, properties, model)
     
     def get_fft(self, profile_in=None):
         """ Find the fourier transform of the surface
@@ -1321,6 +1324,10 @@ class Surface(object):
         
         from mpl_toolkits.mplot3d import Axes3D
         import matplotlib.pyplot as plt
+        
+        if self.profile is None:
+            raise AttributeError('The profile of the surface must be set befor'
+                                  'e it can be shown')
         
         types2d=['profile', 'fft2d', 'psd', 'acf', 'apsd']
         types1d=['histogram','fft1d', 'qq', 'disthist']

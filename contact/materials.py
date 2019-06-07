@@ -1,6 +1,9 @@
 import numpy as np
 from scipy.interpolate import interp1d
-from slippy.contact._material_utils import _get_properties
+from _material_utils import _get_properties
+
+__all__=["Elastic", "ElasticPlastic", "ViscoElastic", "material"]
+
 
 __all__=["Elastic", "ElasticPlastic", "ViscoElastic", "material"]
 
@@ -9,7 +12,7 @@ def material(material_type:str, properties:dict, model:str=None):
     
     Parameters
     ----------
-    material_type : str {elastic, visco_elastic, elastic_plastic}
+    material_type : str {elastic, viscoelastic, elastic_plastic}
         The name of the type of material you want to set, not case 
         sensitive
     properties : dict
@@ -35,10 +38,31 @@ def material(material_type:str, properties:dict, model:str=None):
     
     Examples
     --------
+    >>> # define an elastic material similar to steel
+    >>> material('elastic', {'E':200E9, 'v':0.3})
+    
+    >>> # define an elastic perfectly plastic material
+    >>> material('elastic_plastic', {'E':200E9, 'v':0.3, 'yield_stress':250E6})
+    
+    >>> # define a visco elastic material 
     >>> #TODO
     """
-    pass
+    material_type=material_type.lower()
     
+    if material_type=='rigid':
+        return Rigid()
+    elif material_type=='elastic':
+        return Elastic(properties)
+    elif material_type=='visco_elastic' or material_type=='viscoelastic':
+        if model is None:
+            raise ValueError('Model must be set for viscoelastic materials')
+        return ViscoElastic(properties, model)
+    elif material_type=='elastic_plastic':
+        if model is None:
+            raise ValueError('Model must be set for plastic materials')
+        return ElasticPlastic(properties, model)
+    else:
+        raise ValueError(f"Unrecognised material type {material_type}")
 
 class _Material(object):
     """ A class for describing material behaviour
@@ -94,6 +118,12 @@ class _Material(object):
     --------
     
     """
+class Rigid(_Material):
+    """ A rigid material
+    
+    """
+    def __init__(self):
+        pass
 
             
 class Elastic(_Material):
@@ -160,27 +190,26 @@ class Elastic(_Material):
                  'Lam':None,
                  'M':None,}
     
-    _last_set=None
+    _last_set=[]
     
     density=None
     
     layer_thickness=float('inf')
     
+<<<<<<< HEAD
     def __init__(self, properties : dict):
+=======
+    def __init__(self, properties:dict):
+>>>>>>> 3ceea631adeba007014d1f3b8aa6f0bd9c5d3547
         """
         
         """
-        if len(properties)==2:
-            self._properties=_get_properties(properties)
-        elif len(properties)==1:
-            kv=list(properties.items())[0]
-            self._set_props(*kv)
-        elif len(properties)!=0:
+        if len(properties)>2:
             raise ValueError("Too many properties suplied, must be 1 or 2")
         
-        self.density=properties['density']
-    
-    
+        kv=list(properties.items())
+        for k in kv:
+            self._set_props(*k)
     
     def _del_props(self, prop):
         #delete any of the material properties
@@ -199,16 +228,16 @@ class Elastic(_Material):
                  ' '.join(allowed_props))
             raise ValueError(msg)
         
-        self._properties[prop]=value
+        self._properties[prop]=np.float64(value)
         
-        if self._last_set is None or self._last_set==prop:
-            self._last_set=prop
-        else:
-            self._last_set=prop
-            #first find E and v
-            set_props={prop:value, 
-                        self._last_set:self._properties[self._last_set]}
+        if len(self._last_set)==0:
+            self._last_set.append(prop) # if none ever set just set it
+        elif self._last_set[-1]!=prop:
+            self._last_set.append(prop) # if the last set is different replace it
             
+        if len(self._last_set)>1: # if 2 props have been set update all
+            set_props={prop:np.float64(value), 
+                        self._last_set[-2]:self._properties[self._last_set[-2]]}
             self._properties=_get_properties(set_props)
         return
     
@@ -216,7 +245,7 @@ class Elastic(_Material):
     @property
     def E(self):
         """The Young's modulus of the material"""
-        return self._properties('E')
+        return self._properties['E']
     @E.deleter
     def E(self):
         self._del_props('E')
@@ -227,7 +256,7 @@ class Elastic(_Material):
     @property
     def v(self):
         """The Poissions's ratio of the material"""
-        return self._properties('v')
+        return self._properties['v']
     @v.deleter
     def v(self):
         self._del_props('v')
@@ -238,7 +267,7 @@ class Elastic(_Material):
     @property
     def G(self):
         """The shear modulus of the material"""
-        return self._properties('G')
+        return self._properties['G']
     @G.deleter
     def G(self):
         self._del_props('G')
@@ -249,7 +278,7 @@ class Elastic(_Material):
     @property
     def K(self):
         """The bulk modulus of the material"""
-        return self._properties('K')
+        return self._properties['K']
     @K.deleter
     def K(self):
         self._del_props('K')
@@ -260,7 +289,7 @@ class Elastic(_Material):
     @property
     def Lam(self):
         """Lame's first parameter for the material"""
-        return self._properties('Lam')
+        return self._properties['Lam']
     @Lam.deleter
     def Lam(self):
         self._del_props('Lam')
@@ -271,7 +300,7 @@ class Elastic(_Material):
     @property
     def M(self):
         """The p wave modulus of the material"""
-        return self._properties('M')
+        return self._properties['M']
     @M.deleter
     def M(self):
         self._del_props('M')
@@ -328,19 +357,12 @@ class ElasticPlastic(Elastic):
     ----------
     
     properties : dict
-        dict of properties, dicts must have exactly 2 items. 
-        Allowed keys are : 'E', 'v', 'G', 'K', 'M', 'Lam'
+        dict of properties, dicts must have exactly 2 items describing the
+        elastic properties and the required items for the chosen plastic model
+        (see notes)
         See notes for definitions
-    layer_thickness : optional ([inf])
-        The material is a thin layer on a rigid substrate, the thickness of the
-        layer. If this is set the layered form of the BEM equations will be
-        used by default
-    density : float optional (None)
-        The density of the material
-    behaviour : str {'perfet', 'table'}
-        The type of behaviour
-    plastic_params : tuple optional (None)
-        The paramters needed for the desired behaviuor
+    model : str {'perfet', 'table'}
+        The type of plastic behaviour
     
     Attributes
     ----------
@@ -363,14 +385,28 @@ class ElasticPlastic(Elastic):
     
     Notes
     -----
-    
-    Keys refer to:
+    The properties dict must contain exactly two of the following elastic 
+    properties:
         - E   - Young's modulus
         - v   - Poission's ratio
         - K   - Bulk Modulus
         - Lam - Lame's first parameter
         - G   - Shear modulus
         - M   - P wave modulus 
+    
+    In addition, the properties dict must contain the properties needed for the
+    chosen plastic model:
+    ========  ============================
+    model     required keys
+    ========  ============================
+    perfect   yield_stress
+    --------  ----------------------------
+    table     stress, plastic_strain
+    ========  ============================
+    
+    For the exponent material model the stress and strain are related through 
+    the following formula:
+        stress=strength_coefficent*plastic_strain**exponent
     
     Examples
     --------
@@ -384,44 +420,57 @@ class ElasticPlastic(Elastic):
     >>> sos=steel.speed_of_sound()
     """
     _plastic_method=None
+    yield_stress=None
+    _strain_method=None
     
-    def __init__(self, properties:dict, layer_thickness:float=float('inf'), 
-                 density=None, behaviour: str='perfect', plastic_params=None):
-        if len(properties)==2:
-            self._properties=_get_properties(properties)
-        elif len(properties)==1:
-            kv=list(properties.items())[0]
-            self._set_props(*kv)
-        elif len(properties)!=0:
+    def __init__(self, properties:dict, model: str='perfect'):
+        
+        if model=='perfect':
+            self.yield_stress=properties.pop('yield_stress')
+            self._stress_method=self._perfect_mm
+        elif model=='table':
+            p_strain=properties.pop('plastic_strain')
+            if p_strain[0]!=0:
+                raise ValueError("First value of the plastic strain list must "
+                                 "be 0")
+            stress=properties.pop('stress')
+            self.yield_stress=stress[0]
+            self._stress_method=self._table_mm
+            self._interpolator=interp1d(p_strain,stress)
+        
+        if len(properties)>2:
             raise ValueError("Too many properties suplied, must be 1 or 2")
         
-        self.density=density
-        self.layer_thickness=layer_thickness
-        if behaviour=='perfect':
-            self._yield_stress=plastic_params.pop('yield_stress')
-            self._plastic_method=self._perfect
-        elif behaviour=='table':
-            self._plastic_method=interp1d(plastic_params.pop('stress'), 
-                                          plastic_params.pop('plastic strain'))
-        elif behaviour=='exponent':
-            self._plastic_method=self._exponent_mm
-            self._exponent=plastic_params.pop('exponent')
-            self._strength_coefficent=plastic_params.pop('strength coefficent')
-        
-        if plastic_params:
-            keys=' '.join(list(plastic_params.keys()))
-            msg=f"Unrecognised keys : {keys} in plastic_params"
-            raise ValueError(msg)
+        kv=list(properties.items())
+        for k in kv:
+            self._set_props(*k)
         
             
-    def _perfect_mm(self, plastic_strain):
-        return self._yield_stress
+    def _perfect_mm(self, strain):
+        if abs(strain)<self.yield_stress/self.E:
+            return strain*self.E
+        else: 
+            return self.yield_stress*np.sign(strain)
+    
+    def _table_mm(self, strain):
+        if abs(strain)<self.yield_stress/self.E:
+            return strain*self.E
+        else: 
+            return self._interpolator(strain-self.yield_stress/self.E)
+    
+    def stress(self, strain):
+        """ gives the stress required to give a particular strain
         
-    def _exponent_mm(self, plastic_strain):
-        return self._strength_coefficent*plastic_strain**self._exponent
-        
-    def plastic_stress(self, plastic_strain):
-        return self._plastic_mathod(plastic_strain)
+        Parameters
+        ----------
+        strain : float
+            The total strain
+        Returns
+        -------
+        stress : float
+            The stress required to oroduce the given strain
+        """
+        return self._stress_method(strain)
         
 
 class ViscoElastic(_Material):
@@ -429,3 +478,7 @@ class ViscoElastic(_Material):
     materials
     
     """
+    def __init__(self):
+        pass
+        #TODO
+    
