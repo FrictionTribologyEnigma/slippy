@@ -1,11 +1,8 @@
 import numpy as np
 from scipy.interpolate import interp1d
-from _material_utils import _get_properties
+from ._material_utils import _get_properties
 
-__all__=["Elastic", "ElasticPlastic", "ViscoElastic", "material"]
-
-
-__all__=["Elastic", "ElasticPlastic", "ViscoElastic", "material"]
+__all__=["Elastic", "ElasticPlastic", "ViscoElastic", "material", "_Material"]
 
 def material(material_type:str, properties:dict, model:str=None):
     """Create a new material object

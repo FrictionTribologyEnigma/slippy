@@ -12,10 +12,10 @@ The Surface class
 =================
 
 Each of the generation classes are subclasses of the main surface class this
-class contains all the functionallity for analysing and displaying surfaces.
+class contains all the functionality for analysing and displaying surfaces.
 
 This class can be used with experimentally measured surfaces and contains 
-functionallity for reading common file types including .csv, .txt and .al3d
+functionality for reading common file types including .csv, .txt and .al3d
 
 .. autosummary::
    :toctree: generated
@@ -26,7 +26,7 @@ functionallity for reading common file types including .csv, .txt and .al3d
 Generation classes
 ==================
 
-Several generation calsses exist to help generate a wide variety of analytical 
+Several generation classes exist to help generate a wide variety of analytical
 or random surfaces.
 
 .. autosummary::
@@ -36,8 +36,8 @@ or random surfaces.
    RoundSurface        -- Round surfaces
    PyramidSurface      -- Square based pyramid surfaces
    RandomSurface       -- Surfaces based on transformations of random sequences
-   DiscFreqSurface     -- Surfaces containing specific frequency componenets
-   ProbFreqSurface     -- Surfaces containing stocastic frequency components
+   DiscFreqSurface     -- Surfaces containing specific frequency components
+   ProbFreqSurface     -- Surfaces containing stochastic frequency components
    HurstFractalSurface -- A Hurst Fractal Surface
 
 Functions
@@ -51,7 +51,7 @@ Functions
    alicona_read          -- Read alicona data files
    read_tst_file         -- Read a bruker umt tst file
    roughness             -- Find 2d roughness parameters
-   subtract_polynomial   -- fit and subtract a n degree polynomail
+   subtract_polynomial   -- fit and subtract a n degree polynomial
    get_mat_vr            -- get the material or void volume ratio for a height
    get_height_of_mat_vr  -- get the height of particular material or void ratio
    get_summit_curvatures -- find curvatures of points on the surface
@@ -60,10 +60,6 @@ Functions
    surface_like          -- Generate a random surface 'like' another surface
    
 """
-
-
-import numpy as np
-import warnings
 
 from .ACF_class import ACF
 from .Surface_class import *

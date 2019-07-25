@@ -1,6 +1,7 @@
 import numpy as np
 from slippy.surface import Surface
 import math
+import ittertools
 
 __all__=['Mesh']
 
@@ -21,7 +22,7 @@ class Mesh(object):
     method : str {'full', 'reducing'} optional ('full')
         The method used to create the mesh, see notes
     parameters : dict optional (None)
-        Parameters required for the selected method
+        Parameters required for the selected method, see notes
     depth : int optional (10)
         The depth of the mesh in the same units as the grid spacing and the 
         height infromation
@@ -29,9 +30,10 @@ class Mesh(object):
         Array of nodes in the mesh (x,y,z coordinates for each node) makes 
         functionallity avalible to externally gererated meshes if this is 
         provided elements must also be provided
-    elements : 8 by E numpy array optional (None)
-        Array of elements in the mesh, with node numbers for each if this is 
-        set nodes must also be set
+    elements : Dict
+        With keys: hex_elements, wedge_elements, tet_elements, pyramid_elements
+        each of which should be an array of node numbers realting to each
+        element of the relevent type 
     
     Attributes
     ----------
@@ -51,10 +53,13 @@ class Mesh(object):
     Notes
     -----
     """
-    nodes=np.array([])
-    elements=np.array([])
+    nodes=None
+    hex_elements=None
+    wedge_elements=None
+    pyramid_elements=None
+    tet_elements=None
     _is_quadratic=False
-    profile=np.array([])
+    profile=None
     
     def __init__(self, surface : Surface = None, grid_spacing : float = None,
                  method : str = 'full', parameters : dict = None, 
@@ -94,9 +99,11 @@ class Mesh(object):
                 raise ValueError("Depth and parameters must be provided for "
                                  "meshing")
             if method=="full":
-                parameters=self._full(parameters, depth)
+                nodes, elements, parameters=self._full(parameters, depth)
             elif method=="reducing":
-                parameters=self._reducing(parameters, depth)
+                nodes, elements, parameters=self._reducing(parameters, depth)
+            elif method=="gmsh":
+                nodes, elements, parameters=self._gmsh(parameters, depth)
             else:
                 raise ValueError("Unrecognised mesh method {}".format(method))
             if parameters:
@@ -149,24 +156,73 @@ class Mesh(object):
         
         n_pts=self.profile.size
         
-        #just index X and Y using mod operator
+        #Just repete over X and Y
         X, Y = np.meshgrid(np.arange(self.profile.shape[0])*self.grid_spacing,
                            np.arange(self.profile.shape[1])*self.grid_spacing)
         Z=np.reshape(np.repeat(segs_norm, n_pts, (n_segs, 
           self.profile.shape[0], self.profile.shape[1])))*self.profile
         
-        # got all the nodes now construct the elements
+        node_shape=list(X.shape).append(n_pts)
         
+        nodes=zip(ittertools.cycle(X.flatten()), ittertools.cycle(Y.flatten()),
+                  Z)
+        self.nodes=nodes
+        
+        el_nums=np.array(range(np.prod([e-1 for e in node_shape])))
+        first_nodes=(el_nums+el_nums//(node_shape[0]-1)+
+                    node_shape[0]*(el_nums//((node_shape[0]-1)*(node_shape[1]-1))))
+        plane_nodes=node_shape[0]*node_shape[1]
+        elements=zip([first_nodes, 
+                      1+first_nodes, 
+                      node_shape[0]+first_nodes+1, 
+                      node_shape+first_nodes,
+                      first_nodes+plane_nodes, 
+                      1+first_nodes+plane_nodes, 
+                      node_shape[0]+first_nodes+1+plane_nodes,
+                      node_shape+first_nodes+plane_nodes])
+        self.hex_elements=elements        
+        
+    def _reducing(self, parameters, depth):
+        """
+        start bottom up, mesh all the planes then work out the height of all the z points.... how though, same as previous you want rough doubling every time 
+        """
+        
+        pass
+        
+    def _gmsh(self, parameters, depth):
+        import gmsh
+        
+        pass
     
     def merge_points(self, distance):
         pass
         
-    def save(self, file, output_type):
+    def save(self, output_type, file_or_filename=None):
+        """
+        #TODO docs
+        """
+        if type(file_or_filename) is str:
+            file = open(file_or_filename, 'wb')
+        else:
+            file = file_or_filename
+        
+        if output_type == 'vtk':
+            self._write_vtk(file)
+        elif output_type == 'inp':
+            self._write_inp(file)
+        
+        if type(file_or_filename) is str:
+            file.close()
+    
+    def _write_inp(file):
+        pass
+    
+    def  _write_vtk(file):
         pass
     
     def make_quadratic():
         #make set of edges
-        #add node with 'number' half way between the two nodes for each edge
+        #add node with 'number' half way between the two nodes for each edge, but thats not always unique....
         pass
         
         

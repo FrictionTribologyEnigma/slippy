@@ -1,4 +1,0 @@
-name: slippy
-channels:
-  - defaults
-prefix: C:\Users\44779\AppData\Local\conda\conda\envs\slippy

@@ -39,5 +39,6 @@ Elastic perfectly plastic B.E.M.
 """
 
 from .elastic_bem import *
+from .hertz import *
 
 __all__ = [s for s in dir() if not s.startswith("_")]

@@ -10,12 +10,11 @@ import slippy.contact as C
 import slippy.lubrication as L
 
 steel=C.material('elastic', 200, 0.3) #< materials done
-surface_1.material=steel # this should works now
+surface_1.material=steel # this should work now
 surface_2.set_material('rigid') # equavilent to above 2 lines #Check this
 
 viscosity=1
 parameters=1e-10
-<<<<<<< HEAD
 # init gives viscosity behaviour
 oil=C.lubricant('newtonian', viscosity) #add place holder class for now, get this API wporking with just dry contacts then move on to lubricated
 # add density changes under load or temp after or in kwargs for init mehtod
