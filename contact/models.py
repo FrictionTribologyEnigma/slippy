@@ -1,11 +1,17 @@
 """
-model object
+model object just a container for step object that do the real work
 """
-__all__=["ContactModel"]
 from slippy.lubrication import _LubricantModel, lubricant_model
-from slippy.contact import _FrictionModel, _AdhesionModel
-from slipy.contact import friction_model, adhesion_model, step
+from slippy.contact import _FrictionModel, _AdhesionModel, _WearModel, _ModelStep, _InitialStep
+from slippy.contact import friction_model, adhesion_model, step  # , wear_model
+from slippy.surface import Surface
+from .outputs import FieldOutputRequest, HistoryOutputRequest, possible_field_outpts, possible_history_outpts
 from datetime import datetime
+from typing import Sequence
+from collections import OrderedDict
+
+__all__ = ["ContactModel"]
+
 
 class ContactModel(object):
     """ A container for contact mechanics problems
@@ -21,72 +27,81 @@ class ContactModel(object):
     
     
     """
-    steps=[]
-    surface_1=None
-    surface_2=None
-    sets={}
-    _lubricant=None
-    _friction=None
-    _adhesion=None
-    _wear=None
-    historyOutputs={}
-    fieldOutputs={}
-    
-    def __init__(self, surface_1, surface_2, lubricant=None, 
-                 frition=None, adhesion=None, wear=None,
-                 outputs=None):
-        self.surface_1=surface_1
-        self.surface_2=surface_2
-        
-        if lubricant is not None:
-            self.lubricant=lubricant
-        pass
-    
+    steps = OrderedDict({'Initial': _InitialStep()})
+    history_outputs = {}
+    field_outputs = {}
+    _domains = {'all': None}
+    _lubricant: _LubricantModel = None
+    _friction: _FrictionModel = None
+    _wear: _WearModel = None
+    _adhesion: _AdhesionModel = None
+    _is_rigid: bool = False
+    """Flag set to true if one of the surfaces is rigid"""
+
+    def __init__(self, surface_1: Surface, surface_2: Surface, lubricant: _LubricantModel = None,
+                 friction: _FrictionModel = None, adhesion: _AdhesionModel = None,
+                 wear_model: _WearModel = None):
+        self.surface_1 = surface_1
+        self.surface_2 = surface_2
+
+        self.lubricant_model = lubricant
+        self.friciton_model = friction
+        self.adhesion = adhesion
+        self.wear_model = wear_model
+
     @property
     def lubricant_model(self):
         return self._lubricant
+
     @lubricant_model.setter
     def lubricant_model(self, value):
-        if issubclass(type(value),_LubricantModel):
-            self._lubricant=value
+        if issubclass(type(value), _LubricantModel):
+            self._lubricant = value
         else:
             raise ValueError("Unable to set lubricant, expected lubricant "
                              "object recived %s" % str(type(value)))
+
     @lubricant_model.deleter
     def lubricant_model(self):
-        self._lubricant=None
-    
+        # noinspection PyTypeChecker
+        self._lubricant = None
+
     @property
     def friction_model(self):
         return self._friction
+
     @friction_model.setter
     def friction_model(self, value):
-        if issubclass(type(value),_FrictionModel):
-            self._friction=value
+        if issubclass(type(value), _FrictionModel):
+            self._friction = value
         else:
             raise ValueError("Unable to set friction model, expected "
                              "friction model object recived "
                              "%s" % str(type(value)))
+
     @friction_model.deleter
     def friction_model(self):
-        self._friction=None
-        
+        # noinspection PyTypeChecker
+        self._friction = None
+
     @property
     def adhesion_model(self):
         return self._adhesion
+
     @adhesion_model.setter
     def adhesion_model(self, value):
-        if issubclass(type(value),_AdhesionModel):
-            self._adhesion=value
+        if issubclass(type(value), _AdhesionModel):
+            self._adhesion = value
         else:
             raise ValueError("Unable to set adhsion model, expected "
                              "adhesion model object recived "
                              "%s" % str(type(value)))
+
     @adhesion_model.deleter
     def adhesion_model(self):
-        self._adhesion=None
-    
-    
+        # noinspection PyTypeChecker
+        self._adhesion = None
+
     def add_friction_model(self, name: str, parameters: dict = None):
         """Add a friciton model to this instance of a contact model
         
@@ -109,14 +124,16 @@ class ContactModel(object):
         
         Examples
         --------
-        
+        >>> import numpy as np
+        >>> import slippy.surface as s
+        >>> surface1, surface2 = s.assurface(np.random.rand(128,128),0.01), s.assurface(np.random.rand(128,128),0.01)
         >>> # add coulomb friction to a contact model
         >>> my_model=ContactModel(surface1, surface2)
-        >>> my_model.add_friciton_model('coulomb', {'mu':0.3})
+        >>> my_model.add_friction_model('coulomb', {'mu':0.3})
         """
-        self.friction_model=friction_model(name, parameters)
-    
-    def add_adhesion_model(self, name: str, parameters: dict= None):
+        self.friction_model = friction_model(name, parameters)
+
+    def add_adhesion_model(self, name: str, parameters: dict = None):
         """Add an adhesion model to this instance of a contaact model
         
         Parameters
@@ -141,10 +158,10 @@ class ContactModel(object):
         
         >>> #TODO
         """
-        
-        self.adhesion_model=adhesion_model(name, parameters)
-    
-    def add_lubricant_model(self, name:str, parameters: dict):
+
+        self.adhesion_model = adhesion_model(name, parameters)
+
+    def add_lubricant_model(self, name: str, parameters: dict):
         """Add a lubricant to this instace of a contact model
         
         Parameters
@@ -169,10 +186,10 @@ class ContactModel(object):
         
         >>> #TODO
         """
-        self.lubricant_model=lubricant_model(name, parameters)
-    
-    def add_step(self, step_name:str, step_type:str, step_parameters:dict, 
-                 position:int='last'):
+        self.lubricant_model = lubricant_model(name, parameters)
+
+    def add_step(self, step_name: str, step_type: {str, _ModelStep}, step_parameters: dict = None,
+                 position: {int, str}=None):
         """ Adds a solution stepe to the current model
         
         Parameters
@@ -180,11 +197,11 @@ class ContactModel(object):
         step_name : str
             A unique name given to the step, used to specify when outputs 
             should be recorded
-        step_type : str
-            The type of step to be added #TODO
+        step_type : {str, _ModelStep}
+            The type of step to be added, or a step object to be added to the model
         step_parameters : dict
             A dict containing the parameters required by the step
-        positon : {int, 'last'}, optional ('last')
+        position : {int, 'last'}, optional ('last')
             The position of the step in the existing order
         
         See Also
@@ -206,42 +223,152 @@ class ContactModel(object):
         added to the steps at the data check stage, essentially there should be 
         nothing you can do to make a nontrivial error here.
         """
-        new_step=step(step_type, step_parameters)
-        if position=='last':
-            self.steps.append(new_step)
+
+        new_step = step(step_type, **step_parameters)
+        if position is None:
+            self.steps[step_name] = new_step
         else:
-            self.steps.insert(position, new_step)
-    
-    def add_field_output(self):
+            keys = list(self.steps.keys())
+            values = list(self.steps.values())
+            if type(position) is str:
+                position = keys.index(position)
+            keys.insert(position, step_name)
+            values.insert(position, new_step)
+            self.steps = OrderedDict()
+            for k, v in zip(keys, values):
+                self.steps[k] = v
+
+    def add_field_output(self, name: str, domain: {str, Sequence}, step_name: str, time_points: Sequence,
+                         output: Sequence[str]):
+        f"""
+        Adds a field output reques to the model
+
+        Parameters
+        ----------
+        name : str
+            The name of the output request
+        domain : {{str, Sequence}}
+            The name of the node set or the node set to be used, node sets for 'all', 'surface_1' and 'surface_2' are
+            created auomatically
+        step_name : str
+            The name of the step that the field output is to be taken from, ues 'all' for all steps
+        time_points : Sequence
+            The time points for the field output. If the output is only required at the start of the step use (0,) if it
+            is only required at the end of the step used (None,), otherwise pass a sequence of time points or a slice
+            object.
+        output : Sequence[str]
+            Names of output parrameters to be included in the request, for more information see the documentaion of
+            FieldOutputRequest
+
+        See Also
+        --------
+        FieldOutputRequest
+
+        Notes
+        -----
+        Valid output request are {', '.join(possible_field_outpts)}
         """
+        # check that domain exists
+        if domain not in self._domains:
+            model_domains = ', '.join(self._domains.keys())
+            raise ValueError(f"Unrecognised domain :{domain}, model domains are: {model_domains}")
+        # check that name is str (dosn't start with _)
+        if type(name) is not str:
+            raise TypeError(f"Field output name should be string, not {type(name)}")
+        elif name.startswith('_'):
+            raise ValueError("Field output names cannot start with _")
+        # check that step exists
+        if step_name not in self.steps and step_name != 'all':
+            raise ValueError(f"Step name {step_name} not found.")
+        # check that all outpust are valid
+        out_in = [o in possible_field_outpts for o in output]
+        if not all(out_in):
+            raise ValueError(f"Unrecognised output request: {output[out_in.index(False)]}, valid outputs are: "
+                             f"{', '.join(possible_field_outpts)}")
+
+        output_dict = {key: True for key in output}
+
+        self.field_outputs[name] = FieldOutputRequest(domain=domain, step=step_name, time_points=time_points,
+                                                      **output_dict)
+
+    def add_history_output(self, name: str, step_name: str, time_points: Sequence, output: Sequence[str]):
+        f"""
+        Adds a field output reques to the model
+
+        Parameters
+        ----------
+        name : str
+            The name of the output request
+        step_name : str
+            The name of the step that the field output is to be taken from, ues 'all' for all steps
+        time_points : Sequence
+            The time points for the field output. If the output is only required at the start of the step use (0,) if it
+            is only required at the end of the step used (None,), otherwise pass a sequence of time points or a slice
+            object.
+        output : Sequence[str]
+            Names of output parrameters to be included in the request, for more information see the documentaion of
+            HistoryOutputRequest
+
+        See Also
+        --------
+        HistoryOutputRequest
+
+        Notes
+        -----
+        Valid outputs are {', '.join(possible_history_outpts)}
         """
-        #notes
-        """
-        Field output should be a dict, of field output objects, steps should 
-        be named or all
-        """
-        
-        pass
-    
-    def add_history_output(self):
-        pass
-    
+        # check that name is str (dosn't start with _)
+        if type(name) is not str:
+            raise TypeError(f"History output name should be string, not {type(name)}")
+        elif name.startswith('_'):
+            raise ValueError("History output names cannot start with _")
+        # check that step exists
+        if step_name not in self.steps and step_name != 'all':
+            raise ValueError(f"Step name {step_name} not found.")
+        # check that all outpust are valid
+        out_in = [o in possible_history_outpts for o in output]
+        if not all(out_in):
+            raise ValueError(f"Unrecognised output request: {output[out_in.index(False)]}, valid outputs are: "
+                             f"{', '.join(possible_history_outpts)}")
+
+        output_dict = {key: True for key in output}
+
+        self.history_outputs[name] = HistoryOutputRequest(step=step_name, time_points=time_points,
+                                                          **output_dict)
+
     def data_check(self):
-        pass
-    
-    def solve(self, output_file_name:str = 'output'):
-        current_state=None
-        
-        output_file=open(output_file_name+'.sdb', 'w')
-        log_file=open(output_file_name+'.log','w')
-        
-        self.data_check(log_file)
-        
+        self._model_check()
+
         for this_step in self.steps:
-            this_step.solve(current_state, output_file, log_file)
-            
-        now=datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            if this_step == 'Initial':
+                pass
+            else:
+                self.steps[this_step]._data_check()
+
+    def _model_check(self):
+        """
+        Checks the model for possible errors (only the model steps are checked independently
+        """
+        # check that if only one surface is provided this is ok with all steps
+        # check if one of the surfaces is rigid, make sure both are not rigid
+        # if one is rigid it must be the second one, if this is true set self._is_rigid to true
+        # check all have materials
+        # check all are discrete
+        pass
+
+    def solve(self, output_file_name: str = 'output'):
+        current_state = None
+
+        output_file = open(output_file_name + '.sdb', 'wb')
+        log_file = open(output_file_name + '.log', 'w')
+
+        self.data_check()
+
+        for this_step in self.steps:
+            this_step._solve(current_state, log_file, output_file)
+
+        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         log_file.write(f"Analysis completed sucessfully at: {now}")
-        
+
         output_file.close()
         log_file.close()

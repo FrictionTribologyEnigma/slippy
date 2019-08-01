@@ -192,12 +192,8 @@ class Elastic(_Material):
     density=None
     
     layer_thickness=float('inf')
-    
-<<<<<<< HEAD
+
     def __init__(self, properties : dict):
-=======
-    def __init__(self, properties:dict):
->>>>>>> 3ceea631adeba007014d1f3b8aa6f0bd9c5d3547
         """
         
         """

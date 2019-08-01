@@ -40,5 +40,10 @@ Elastic perfectly plastic B.E.M.
 
 from .elastic_bem import *
 from .hertz import *
+from .dummy_classes import *
+from .steps import *
+from .static_step import *
+from .models import *
+from .steps import *
 
 __all__ = [s for s in dir() if not s.startswith("_")]

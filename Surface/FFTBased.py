@@ -308,7 +308,7 @@ class HurstFractalSurface(Surface):
         extent=self.extent
         grid_spacing=self.grid_spacing
         
-        X,Y=self._get_points_from_extent(extent, grid_spacing)
+        X,Y= _get_points_from_extent(extent, grid_spacing)
         input_shape=X.shape
         coords=np.array([X.flatten(), Y.flatten()])
         

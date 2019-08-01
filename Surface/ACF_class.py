@@ -3,9 +3,10 @@ import types
 import scipy.signal
 import scipy.interpolate
 
-__all__=['ACF']
+__all__ = ['ACF']
 
-class ACF():
+
+class ACF(object):
     """ A helper calss for autocorelation functions
     
     Produces acfs that are independent ot the original grid spacing, these can 
@@ -75,129 +76,122 @@ class ACF():
     >>> np.array(my_acf)
     
     """
-    
-    method=None
+
+    method = None
     """The method which is called to generate points"""
-    original=None
+    original = None
     """If the source is an array or a Surface object, the original acf array"""
-    acf_type=''
+    acf_type = ''
     """A description of the acf source"""
-    
+
     def __init__(self, source, grid_spacing=None, *args):
         if type(source) is str:
             self._input_check_string(source, args)
-            self.acf_type="string"
+            self.acf_type = "string"
         elif hasattr(source, 'profile'):
             self._input_check_array(source.profile, source.grid_spacing)
-            self.acf_type="surface"
-        elif type(source) is types.FunctionType:
+            self.acf_type = "surface"
+        elif isinstance(source, types.FunctionType):
             self._input_check_method(source)
-            self.acf_type="function"
+            self.acf_type = "function"
         else:
             if grid_spacing is None:
-                msg=("grid spacing positional argument must be supplied if "
-                     "is an array")
+                msg = ("grid spacing positional argument must be supplied if "
+                       "is an array")
                 raise ValueError(msg)
             self.input_check_array(source, grid_spacing)
             # args should contain the grid_spacing of the array
-            self.acf_type="array"
-           
+            self.acf_type = "array"
 
     def _input_check_string(self, source, args):
-        supported_funcions=['exp', 'polynomial']
-        if not(source in supported_funcions):
-            msg=("Function type not supported, supported types are:\n" +
-                 "\n".join(supported_funcions) + "\nfor custom functions pass "
-                 "the function object to this constructor")
+        supported_funcions = ['exp', 'polynomial']
+        if not (source in supported_funcions):
+            msg = ("Function type not supported, supported types are:\n" +
+                   "\n".join(supported_funcions) + "\nfor custom functions pass "
+                                                   "the function object to this constructor")
             raise NotImplementedError(msg)
-        if source=='exp':
+        if source == 'exp':
             sigma = args[0]
             beta_x = args[1]
             beta_y = args[2]
-            method = lambda X, Y : sigma**2*np.exp(-2.3*np.sqrt((
-                                     X/beta_x)**2+(Y/beta_y)**2))
-        elif source=='polynomial':
+            self.method = lambda x, y: sigma ** 2 * np.exp(-2.3 * np.sqrt((x / beta_x) ** 2 + (y / beta_y) ** 2))
+        elif source == 'polynomial':
             pass
         raise NotImplementedError("polynomial functions are not implemented")
-        self.method=method
 
     def _input_check_array(self, source, grid_spacing, origin='centre'):
-        try:    
-            profile=np.asarray(source)
+        try:
+            profile = np.asarray(source)
         except ValueError:
-            msg=("invalid input, input should be either a surface, function " 
-                 "handle, funtion name as a string with relavent params or "
-                 "array-like")
+            msg = ("invalid input, input should be either a surface, function "
+                   "handle, funtion name as a string with relavent params or "
+                   "array-like")
             raise ValueError(msg)
-        x=profile.shape[0]
-        y=profile.shape[1]
-        self.o_grid_spacing=grid_spacing
-        self.original=(scipy.signal.correlate(profile,profile,'same')/(x*y))
-        
-        x=np.arange(x)*grid_spacing
-        y=np.arange(y)*grid_spacing
-        
+        x = profile.shape[0]
+        y = profile.shape[1]
+        self.o_grid_spacing = grid_spacing
+        self.original = (scipy.signal.correlate(profile, profile, 'same') / (x * y))
+
+        x = np.arange(x) * grid_spacing
+        y = np.arange(y) * grid_spacing
+
         if type(origin) is str:
-            origin=origin.lower()
-            if origin=='centre':
-                origin=[np.mean(x), np.mean(y)]
+            origin = origin.lower()
+            if origin == 'centre':
+                origin = [np.mean(x), np.mean(y)]
             else:
-                description=origin
-                origin=[0,0]
-                if description[1]=='r' or description[1]=='e':
-                    origin[0]=max(x)
-                if description[0]=='t' or description[0]=='n':
-                    origin[1]=max(y)
-        x=x-origin[0]
-        y=y-origin[1]
-        
-        self.method=scipy.interpolate.RectBivariateSpline(x, y, self.original)
-    
+                description = origin
+                origin = [0, 0]
+                if description[1] == 'r' or description[1] == 'e':
+                    origin[0] = max(x)
+                if description[0] == 't' or description[0] == 'n':
+                    origin[1] = max(y)
+        x = x - origin[0]
+        y = y - origin[1]
+
+        self.method = scipy.interpolate.RectBivariateSpline(x, y, self.original)
+
     def _input_check_method(self, source):
-        self.method=source
-        
-    def __call__(self, x,y):
+        self.method = source
+
+    def __call__(self, x, y):
         """
-        x and y are vectors that get meshgridded befroe returning matrix of points, dunno why but rect b spline works this way
-        """
-        #####TODO redo docs
-        
-        """ 
-        Retuns part of the ACF descretised on the requested grid
-        
+        Evaluate the ACF at specified grid points
+
         Parameters
         ----------
-        grid_spacing : 2 element list or scalar
-            The grid_spacing of the grid for descretisation in each direction 
-            if a scalar is given the grid_spacing will be the same in each direction
-        extent : list of lists or list
-            The extent to be returned in each dimention:
-            [[xstart, xstop], [ystart, ystop]]
-            or [start, stop] which is interpreted as the same for all dimentions
-        
+        x,y : 1D np.array
+            The x and y coordinates of the grid points to be evaluated, see notes for usage
+
         Returns
         -------
-        out : np.array
-            A grid of values corresponding to the height of the ACF at each of
-            the requested grid points
-            
-        See also
+        np.array
+            The 'height' of the acf at the grip points requested
+
+        Notes
+        -----
+        The x and y parameters are turned into a grid before evaluating the ACF function
+
+        Examples
         --------
-        this.__array__ : returns the acf of the original input with no 
-                         interpolation
-                         
+        >>> my_acf = ACF('exp', None, 1, 1) # Make an ACF object with an exponential ACf
+        >>> # evaluate the acf a the points x=[-10,-8....,10], y==[-10,-8....,10]
+        >>> discrete_acf = my_acf(np.arange(-10, 11, 2), np.arange(-10, 11, 2))
+        >>> # The results is evaluated over the grid, not just at the specified points
+        >>> discrete_acf.shape
+        (11,11)
         """
         # feed to self. method 
         if self.acf_type in ['array', 'surface']:
-            return self.method(x,y)
+            return self.method(x, y)
         else:
-            X,Y=np.meshgrid(x,y)
-            return self.method(X,Y)
-        
+            mesh_x, mesh_y = np.meshgrid(x, y)
+            return self.method(mesh_x, mesh_y)
+
     def __array__(self):
-        if self.original is not None:    
+        if self.original is not None:
             return self.original
         else:
             raise ValueError("Could not return ACF as array, ACF must be made from"
-                       " an array or surface for this to work in stead use "
-                       "array(this(grid_grid_spacing, extent))")
+                             " an array or surface for this to work in stead use "
+                             "array(this(x_pts,y_pts)), see documentation for __call__ for more information")

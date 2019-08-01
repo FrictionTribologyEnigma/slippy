@@ -24,7 +24,6 @@ C.add_behaviour('property', 'rule', parameters)
 oil=L.lubricant('newtonian', viscosity)
 oil.add_behaviour('property', 'rule', parameters)
 oil.add_behaviour('property', 'rule', parameters)
->>>>>>> 3ceea631adeba007014d1f3b8aa6f0bd9c5d3547
 
 # make model
 my_model=C.model(surface_1, surface_2) 

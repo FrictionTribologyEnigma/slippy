@@ -1,6 +1,24 @@
+__all__ = ['step', '_ModelStep', '_InitialStep']
+
 """
-Steps including solve functions
+Steps including solve functions, ecah actual step is a subclass of ModelStep should provide an __init__, _solve
+ and _check method. thses do all the heavy lifting  
 """
+
+
+def step(model, movement, load):
+    """
+    A helper function for creating step objects
+
+    Parameters
+    ----------
+
+    Returns
+    -------
+    The step object for the relevent system
+    """
+    raise NotImplementedError("Steps are not implemented")
+
 
 class _ModelStep(object):
     """ A step in a contact mechanics problem
@@ -28,78 +46,53 @@ class _ModelStep(object):
         Checks that each of the outputc can be found and other checks (each surface has a material)
         
     """
-    loads=None
-    displacements=None
-    solver=None
-    rotation_centre=None
-    rotation=None
-    outputs=None
-    name=None
-    lubrication=False
-    lubrication_model=False
-    subsurface_stress=False
-    wear=False
-    wear_model=None
-    
-    def __init__(self, step_name : str, 
-                 loads = None, 
-                 displacements : dict = None, 
-                 output_requests : list = None, 
-                 solver = 'BEM',
-                 wear : WearModel = None):
-        
-        self.name=step_name
-        self.loads=loads
-        self.displacements=displacements
-        ouptputs=set([o_r['outputs'] for o_r in output_requests 
-                      if step_name in o_r or 'all' in o_r])
-        self.wear=not wear is None
-        if self.wear:
-            self.wear_model=wear
-            self.subsurface_stress += wear.needs_subsurface_stress
-        self.subsurface_stress+= 'sss' in outputs
-        
-            
+    name = None
+    _surfaces_required = None
 
-class StaticStep(_ModelStep):
-    """ A static contact step
-    
-    Keyword Parameters
-    ------------------
-    loads : dict optional 
-        global loads with members 'x', 'y' and/or 'z' 
-    displacements : dict optional
-        global displacements with members 'x', 'y' and/or 'z'
-    rotation_centre : array-like optional 
-        The coordinates at the centre of rotation only required if rotation 
-        keyword is also given
-    rotation : dict optional
-        global rotations with members 'x', 'y' and/or 'z'
-    solver : str 
-        The solver to be used
+    def __init__(self, step_name: str):
+        self.name = step_name
+
+    def _data_check(self):
+        raise NotImplementedError("Data check have not been implemented for this step type!")
+
+    def _solve(self, current_state, log_file, output_file):
+        raise NotImplementedError("Solver not specified for this step!")
+
+
+class _InitialStep(_ModelStep):
     """
-    
-    
-        
-    def _analysis_check(self):
-        if not (loads is None ^ displacements is None):
-            raise ValueError("Either Loads or displacement must be set for "
-                             "static step")
-        
-    def _solve(self, surface_1, surface_2):
-        
-        
-    
+    The initial step run at the start of each model
+    """
+    # Should calculate the just touching postion of two surfaces, set inital guesses etc.
+    separation: float = 0.0
+
+    def __init__(self, step_name: str = 'initial', separation: float = None):
+        super().__init__(step_name=step_name)
+        if separation is not None:
+            self.separation = float(separation)
+
+    def _data_check(self):
+        pass
+
+    def _solve(self, current_state, log_file, output_file):
+        """
+        Need to:
+        find separtion, initialise current state(does this mean looking through the outputs? or should that be in the
+        model solve function), ???? anthing else?
+        """
+
+
 class QuasiStaticStep(_ModelStep):
     """ A quasi static step which alows changing loads/ displacements
     
     """
-    def __init__(self, loads = None, displacements = None, heating = None, 
-                 output_requests = None, solver = 'BEM'):
+
+    def __init__(self, step_name: str, loads=None, displacements=None, heating=None, output_requests=None,
+                 solver='BEM'):
+        super().__init__(step_name)
+
+    def _data_check(self):
         pass
-    
-    def _analysis_check():
-    
-    def _solve():
+
+    def _solve(self, current_state, log_file, output_file):
         pass
-    
