@@ -13,6 +13,22 @@ import math
 __all__ = ['_johnsonsl', '_fit_johnson_by_moments', '_fit_johnson_by_quantiles']
 
 
+def sl_distribution_fit(mean, sd, root_beta_1, omega, return_rv):
+    dist_type = 1  # log normal
+    if root_beta_1 < 0:
+        xlam = -1
+    else:
+        xlam = 1
+    u = xlam * mean
+    delta = 1 / math.sqrt(math.log(omega))
+    gamma = 0.5 * delta * math.log(omega * (omega - 1) / (sd ** 2))
+    xi = u - math.exp((0.5 / delta - gamma) / delta)
+    if return_rv:
+        return _johnsonsl(gamma, delta, scale=xlam, loc=xi)
+    else:
+        return dist_type, xi, xlam, gamma, delta
+
+
 def _johnsonsl(a, b, loc=0, scale=1):
     sq = np.log(b / scale) * b ** 2
 
@@ -25,20 +41,34 @@ def _johnsonsl(a, b, loc=0, scale=1):
     return scipy.stats.lognorm(a_log, loc=loc, scale=scale_log)
 
 
-def _fit_johnson_by_moments(mean, sd, root_beta_1, beta_2, return_rv=True):
+def _fit_johnson_by_moments(mean: float, sd: float, root_beta_1: float, beta_2: float, return_rv=True)\
+        -> scipy.stats.rv_continuous:
     """
     Fits a johnson family distribution to the specified moments
     
     Parameters
     ----------
-    mean : scalar, The population mean
-    sd : scalar, The population standard deviation
-    root_beta_1 : scalar, the skew of the distribution
-    beta_2 : scalar, the kurtosis of the distribution (not normalised)
+    mean : float
+        The mean of the distribution
+    sd : float
+        The population standard deviation
+    root_beta_1 : float
+        The skew of the distribution
+    beta_2 : float
+        The kurtosis of the distribution (not normalised)
+    return_rv: bool, optional (True)
+        If flase the descriptive parameters found in the reference will be returned, else a scipy.stats.rv_continuous
+        object fitted to the desired parametes will be returned
     
     Returns
     -------
-    
+    rv: scipy.stats.rv_continuous
+        fitted distribtuion
+
+    Notes
+    -----
+    If return_rv is set to False the following will be returned:
+
     DistType : {1 - log normal johnson Sl, 2 - unbounded johnson Su, 3 bounded
                 johnson Sb, 4 - normal, 5 - Boundary johnson St}
         integer, a number corresponding to the type of distribution that has
@@ -136,21 +166,6 @@ def _fit_johnson_by_moments(mean, sd, root_beta_1, beta_2, return_rv=True):
 
     # if x is 0 log normal, positive - bounded, negative - unbounded
     x = beta_2_lognormal - beta_2
-
-    def sl_distribution_fit(mean, sd, root_beta_1, omega, return_rv):
-        dist_type = 1  # log normal
-        if root_beta_1 < 0:
-            xlam = -1
-        else:
-            xlam = 1
-        u = xlam * mean
-        delta = 1 / math.sqrt(math.log(omega))
-        gamma = 0.5 * delta * math.log(omega * (omega - 1) / (sd ** 2))
-        xi = u - math.exp((0.5 / delta - gamma) / delta)
-        if return_rv:
-            return _johnsonsl(gamma, delta, scale=xlam, loc=xi)
-        else:
-            return dist_type, xi, xlam, gamma, delta
 
     if abs(x) < tolerance:
         return sl_distribution_fit(mean, sd, root_beta_1, omega, return_rv)
