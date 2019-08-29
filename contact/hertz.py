@@ -10,6 +10,7 @@ import scipy.optimize as optimize
 import sympy as sp
 from collections import abc
 from collections import namedtuple
+import typing
 
 __all__ = ['hertz_full', 'solve_hertz_line', 'solve_hertz_point', 'HertzLineSolution', 'HertzPointSolution']
 
@@ -473,8 +474,9 @@ def _fill_hertz_solution_point(_system: dict):
     return HertzPointSolution(**system)
 
 
-def hertz_full(r1: list, r2: list, moduli: list, v: list, load: float, angle: float = 0.0,
-               line: bool = False, integration_error: float = 1e-6,
+def hertz_full(r1: typing.Union[typing.Sequence, float], r2: typing.Union[typing.Sequence, float],
+               moduli: typing.Union[typing.Sequence, float], v: typing.Union[typing.Sequence, float],
+               load: float, angle: float = 0.0, line: bool = False, integration_error: float = 1e-6,
                root_error: float = 1e-6):
     """Find the hertzian stress solution for the given system
 

@@ -38,12 +38,11 @@ Elastic perfectly plastic B.E.M.
    
 """
 
-from .elastic_bem import *
 from .hertz import *
 from .dummy_classes import *
-from .steps import *
-from .static_step import *
-from .models import *
-from .steps import *
+from .materials import *
+from .friciton_models import *
+from .adhesion_models import *
+from ._material_utils import Loads, Displacements
 
 __all__ = [s for s in dir() if not s.startswith("_")]

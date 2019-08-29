@@ -2,22 +2,32 @@ import numpy as np
 import itertools
 from slippy.surface.ACF_class import ACF
 import scipy.signal
+import scipy.optimize
+import scipy.special
+import typing
+import collections
 
-__all__=['roughness', 'subtract_polynomial', 'get_mat_vr',
-         'get_height_of_mat_vr', 'get_summit_curvatures',
-         'find_summits', 'low_pass_filter']
-def _check_surface(surface,grid_spacing):
-    if hasattr(surface,'_profile'):
-        p=np.asarray(surface)
-        if grid_spacing is None or grid_spacing==float('inf'):
-            gs=surface.grid_spacing
-        return p,gs
-    else:
-        return np.asarray(surface), grid_spacing
+__all__ = ['roughness', 'subtract_polynomial', 'get_mat_vr',
+           'get_height_of_mat_vr', 'get_summit_curvatures',
+           'find_summits', 'low_pass_filter']
 
-def roughness(profile_in, parameter_name, grid_spacing=None, mask=None, 
-              curved_surface=False, no_flattening=False, filter_cut_off=False,
-              four_nearest=False): 
+
+def _check_surface(surface, grid_spacing):
+    if hasattr(surface, '_profile'):
+        p = np.asarray(surface)
+        if grid_spacing is None or grid_spacing == float('inf'):
+            gs = surface.grid_spacing
+            return p, gs
+        else:
+            return np.asarray(surface), grid_spacing
+
+
+def roughness(profile_in: {np.ndarray, 'Surface'}, parameter_name: {str, typing.Sequence[str]},
+              grid_spacing: typing.Optional[float] = None,
+              mask: typing.Optional[typing.Union[np.ndarray, float]] = None,
+              curved_surface: bool = False, no_flattening: bool = False,
+              filter_cut_off: typing.Optional[float] = None,
+              four_nearest: bool = False) -> {float, list}:
     r"""Find 3d surface roughness parameters
     
     Calculates and returns common surface roughness parameters also known 
@@ -46,23 +56,19 @@ def roughness(profile_in, parameter_name, grid_spacing=None, mask=None,
         If true, flattening will be skipped, no polynomial will be subtracted
         before calculation of parameters, used for periodic surfaces or to 
         save time
-        
+    filter_cut_off: float, optional (None)
+        The cut off frequency of the low pass filter applied to the surfce before finding summits, only used for
+        parameters which need summits, if not set no low pass filter is applied
+    four_nearest: bool, optional (False)
+        If true any point that is higher than it's 4 nearest neigbours will be
+        counted as a summit, otherwise a point must be higher than it's 8
+        nearest neigbours to be a summit. Only used if summit descriptions
+        are required, passed to find_summits.
     
     Returns
     -------
     out : float or list of floats
         The requested parameters
-        
-    Other parameters
-    ----------------
-    four_nearest : bool optional (False) 
-        If true any point that is higher than it's 4 nearest neigbours will be 
-        counted as a summit, otherwise a point must be higher than it's 8 
-        nearest neigbours to be a summit. Only used if summit descriptions
-        are required, passed to find_summits.
-    filter_cut_off : float optional (None)
-        If given the surface will be low pass filtered before finding sumits. 
-        Only used if summit descriptions are required, passed to find_summits.
         
     See Also
     --------
@@ -160,213 +166,214 @@ def roughness(profile_in, parameter_name, grid_spacing=None, mask=None,
     Retrieved from http://cat.inist.fr/?aModele=afficheN&cpsidt=49475
     chapter 12
     """
-    profile, grid_spacing=_check_surface(profile_in, grid_spacing)
-    
-    needs_gs=['scc','sdr','sal']
-    no_mask=['sdr','str','sal']
-    
-    
-    
+    profile, grid_spacing = _check_surface(profile_in, grid_spacing)
+
+    needs_gs = ['scc', 'sdr', 'sal']
+    no_mask = ['sdr', 'str', 'sal']
+
     if mask is not None:
         if type(mask) is float:
             if np.isnan(mask):
-                mask=~np.isnan(profile)
+                mask = ~np.isnan(profile)
             else:
-                mask=~profile==mask
+                mask = ~profile == mask
         else:
-            mask=np.asarray(mask, dtype=bool)
-            if not mask.shape==profile.shape:
-                msg=("profile and mask shapes do not match: profile is"
-                    "{profile.shape}, mask is {mask.shape}".format(**locals()))
+            mask = np.asarray(mask, dtype=bool)
+            if not mask.shape == profile.shape:
+                msg = ("profile and mask shapes do not match: profile is"
+                       "{profile.shape}, mask is {mask.shape}".format(**locals()))
                 raise TypeError(msg)
-    
-    #subtract polynomial
+
+    # subtract polynomial
     if curved_surface:
-        order=2
+        order = 2
     else:
-        order=1
+        order = 1
 
     if no_flattening:
-        eta=profile
+        eta = profile
     else:
-        eta,_=subtract_polynomial(profile, order, mask=mask)
-    
-    
+        eta, _ = subtract_polynomial(profile, order, mask=mask)
+
     if mask is None:
-        eta_masked=eta
+        eta_masked = eta
     else:
-        eta_masked=eta[mask]
-    
+        eta_masked = eta[mask]
+
     # recursive call to allow lists of parmeters to be retived at once
-    if type(parameter_name) is list:
-        out=[]
+    if isinstance(parameter_name, collections.Sequence):
+        out = []
         for par_name in parameter_name:
             out.append(roughness(eta, par_name, grid_spacing=grid_spacing,
-                                 mask=mask, no_flattening=True, 
+                                 mask=mask, no_flattening=True,
                                  filter_cut_off=filter_cut_off,
                                  four_nearest=four_nearest))
         return out
     else:
         try:
-            parameter_name=parameter_name.lower()
+            # noinspection PyUnresolvedReferences
+            parameter_name = parameter_name.lower()
         except AttributeError:
-            msg=("Parameters must be strings or list of strings")
-            raise ValueError(msg) 
-    
+            msg = "Parameters must be strings or list of strings"
+            raise ValueError(msg)
+
     if parameter_name in needs_gs and grid_spacing is None:
         raise ValueError("Grid spacing required for {}".format(parameter_name))
-    
+
     if parameter_name in no_mask and mask is not None:
         raise ValueError("Masking not supported for {}".format(parameter_name))
-    
+
     # return parameter of interst
-    num_pts_m=eta_masked.size
-    
+    num_pts_m = eta_masked.size
+
     if grid_spacing is not None:
-        global_size=[grid_spacing*dim for dim in profile.shape]
-        gs2=grid_spacing**2
-        p_area_m=num_pts_m*gs2
-        p_area_t=eta.size*gs2
+        global_size = [grid_spacing * dim for dim in profile.shape]
+        gs2 = grid_spacing ** 2
+        p_area_m = num_pts_m * gs2
+        p_area_t = eta.size * gs2
     else:
-        gs2=None
-        p_area_m=None
-        p_area_t=None
-    
-    if parameter_name=='sq': #root mean square checked
-        out=np.sqrt(np.mean(eta_masked**2))
-        
-    elif parameter_name=='sa': #mean amptitude checked
-        out=np.mean(np.abs(eta_masked))
-        
-    elif parameter_name=='ssk': #skewness checked
-        sq=np.sqrt(np.mean(eta_masked**2))
-        out=np.mean(eta_masked**3)/sq**3
-        
-    elif parameter_name=='sku': #kurtosis checked
-        sq=np.sqrt(np.mean(eta_masked**2))
-        out=np.mean(eta_masked**4)/sq**4
-    
-    elif parameter_name=='sv':
-        out=np.min(eta_masked)
-    
-    elif parameter_name in ['sds', 'sz', 'ssc']: # all that require sumits
+        gs2 = None
+        p_area_m = None
+        p_area_t = None
+
+    if parameter_name == 'sq':  # root mean square checked
+        out = np.sqrt(np.mean(eta_masked ** 2))
+
+    elif parameter_name == 'sa':  # mean amptitude checked
+        out = np.mean(np.abs(eta_masked))
+
+    elif parameter_name == 'ssk':  # skewness checked
+        sq = np.sqrt(np.mean(eta_masked ** 2))
+        out = np.mean(eta_masked ** 3) / sq ** 3
+
+    elif parameter_name == 'sku':  # kurtosis checked
+        sq = np.sqrt(np.mean(eta_masked ** 2))
+        out = np.mean(eta_masked ** 4) / sq ** 4
+
+    elif parameter_name == 'sv':
+        out = np.min(eta_masked)
+
+    elif parameter_name in ['sds', 'sz', 'ssc']:  # all that require sumits
         # summits is logical array of sumit locations
-        summits=find_summits(eta, grid_spacing, mask, four_nearest, 
-                             filter_cut_off)
-        if parameter_name=='sds': # summit density
-            out=np.sum(summits)/(num_pts_m)
-        elif parameter_name=='sz':
-            valleys=find_summits(-1*eta, grid_spacing, mask, four_nearest, 
-                             filter_cut_off)
-            summit_heights=eta[summits]
-            valley_heights=eta[valleys]
-            summit_heights=np.sort(summit_heights, axis=None)
-            valley_heights=np.sort(valley_heights, axis=None)
-            out=np.abs(valley_heights[:5])+np.abs(summit_heights[-5:])/5
-        else: # ssc mean summit curvature
-            out=np.mean(get_summit_curvatures(eta, summits, grid_spacing))
-            
-    elif parameter_name=='sdr': # developed interfacial area ratio 
-        #ratio between actual surface area and projected or apparent 
-        #surface area
-        i_areas=[0.25*(((gs2+(eta[x,y]-eta[x,y+1])**2)**0.5+
-                       (gs2+(eta[x+1,y+1]-eta[x+1,y])**2)**0.5)*
-                      ((gs2+(eta[x,y]-eta[x+1,y])**2)**0.5+
-                       (gs2+(eta[x,y+1]-eta[x+1,y+1])**2)**0.5)) 
-                        for x in range(eta.shape[0]-1) 
-                        for y in range(eta.shape[1]-1)]
-        i_area=sum(i_areas)        
-        out=(i_area-p_area_t)/i_area
-        
-    elif parameter_name=='stp':
+        summits = find_summits(eta, grid_spacing, mask, four_nearest,
+                               filter_cut_off)
+        if parameter_name == 'sds':  # summit density
+            out = np.sum(summits) / num_pts_m
+        elif parameter_name == 'sz':
+            valleys = find_summits(-1 * eta, grid_spacing, mask, four_nearest,
+                                   filter_cut_off)
+            summit_heights = eta[summits]
+            valley_heights = eta[valleys]
+            summit_heights = np.sort(summit_heights, axis=None)
+            valley_heights = np.sort(valley_heights, axis=None)
+            out = np.abs(valley_heights[:5]) + np.abs(summit_heights[-5:]) / 5
+        else:  # ssc mean summit curvature
+            out = np.mean(get_summit_curvatures(eta, summits, grid_spacing))
+
+    elif parameter_name == 'sdr':  # developed interfacial area ratio
+        # ratio between actual surface area and projected or apparent
+        # surface area
+        i_areas = [0.25 * (((gs2 + (eta[x, y] - eta[x, y + 1]) ** 2) ** 0.5 +
+                            (gs2 + (eta[x + 1, y + 1] - eta[x + 1, y]) ** 2) ** 0.5) *
+                           ((gs2 + (eta[x, y] - eta[x + 1, y]) ** 2) ** 0.5 +
+                            (gs2 + (eta[x, y + 1] - eta[x + 1, y + 1]) ** 2) ** 0.5))
+                   for x in range(eta.shape[0] - 1)
+                   for y in range(eta.shape[1] - 1)]
+        i_area = sum(i_areas)
+        out = (i_area - p_area_t) / i_area
+
+    elif parameter_name == 'stp':
         # bearing area curve
-        eta_rel=eta_masked/np.sqrt(np.mean(eta_masked**2))
-        heights=np.linspace(min(eta_rel),max(eta_rel),100)
-        ratios=[np.sum(eta_masked<height)/p_area_m for height in heights]
-        out=[heights, ratios]
-        
-    elif parameter_name=='sbi': # bearing index
-        index=int(eta_masked.size/20)
-        sq=np.sqrt(np.mean(eta_masked**2))
-        out=sq/np.sort(eta_masked)[index]
-        
-    elif parameter_name=='sci': # core fluid retention index
-        sq=np.sqrt(np.mean(eta_masked**2))
-        eta_m_sorted=np.sort(eta_masked)
-        index=int(eta_masked.size*0.05)
-        h005=eta_m_sorted[index]
-        index=int(eta_masked*0.8)
-        h08=eta_m_sorted[index]
-        
-        V005=get_mat_vr(h005,eta,void=True,mask=mask)
-        V08=get_mat_vr(h08,eta,void=True,mask=mask)
-        
-        out=(V005-V08)/p_area_m/sq
-        
-    elif parameter_name=='svi': # valley fluid retention index
-        sq=np.sqrt(np.mean(eta_masked**2))
-        index=int(eta_masked.size*0.8)
-        h08=np.sort(eta_masked)[index]
-        V08=get_mat_vr(h08,eta,void=True,mask=mask)
-        out=V08/p_area_m/sq
-        
-    elif parameter_name=='str': # surface texture ratio
-        
-        acf=np.asarray(ACF(eta))
-        
-        x=np.arange(eta.shape[0]/-2,eta.shape[0]/2)
-        y=np.arange(eta.shape[1]/-2,eta.shape[1]/2)
-        X,Y=np.meshgrid(x,y)
-        distance_to_centre=np.sqrt(X**2+Y**2)
-        min_dist=min(distance_to_centre[acf<0.2])-0.5
-        max_dist=max(distance_to_centre[acf>0.2])+0.5
+        eta_rel = eta_masked / np.sqrt(np.mean(eta_masked ** 2))
+        heights = np.linspace(min(eta_rel), max(eta_rel), 100)
+        ratios = [np.sum(eta_masked < height) / p_area_m for height in heights]
+        out = [heights, ratios]
 
-        out=min_dist/max_dist
+    elif parameter_name == 'sbi':  # bearing index
+        index = int(eta_masked.size / 20)
+        sq = np.sqrt(np.mean(eta_masked ** 2))
+        out = sq / np.sort(eta_masked)[index]
 
-    elif parameter_name=='std': # surface texture direction
-        fft=np.fft.fft2(eta)
-        
-        apsd=fft*np.conj(fft)/p_area_t
-        x=np.arange(eta.shape[0]/-2,eta.shape[0]/2)
-        y=np.arange(eta.shape[1]/-2,eta.shape[1]/2)
-        i,j = np.unravel_index(apsd.argmax(), apsd.shape)
-        beta=np.arctan(i/j)
-        
-        if beta<(np.pi/2):
-            out=-1*beta
+    elif parameter_name == 'sci':  # core fluid retention index
+        sq = np.sqrt(np.mean(eta_masked ** 2))
+        eta_m_sorted = np.sort(eta_masked)
+        index = int(eta_masked.size * 0.05)
+        h005 = eta_m_sorted[index]
+        index = int(eta_masked * 0.8)
+        h08 = eta_m_sorted[index]
+
+        v005 = get_mat_vr(h005, eta, void=True, mask=mask)
+        v08 = get_mat_vr(h08, eta, void=True, mask=mask)
+
+        out = (v005 - v08) / p_area_m / sq
+
+    elif parameter_name == 'svi':  # valley fluid retention index
+        sq = np.sqrt(np.mean(eta_masked ** 2))
+        index = int(eta_masked.size * 0.8)
+        h08 = np.sort(eta_masked)[index]
+        v08 = get_mat_vr(h08, eta, void=True, mask=mask)
+        out = v08 / p_area_m / sq
+
+    elif parameter_name == 'str':  # surface texture ratio
+
+        # noinspection PyTypeChecker
+        acf = np.asarray(ACF(eta))
+
+        x = np.arange(eta.shape[0] / -2, eta.shape[0] / 2)
+        y = np.arange(eta.shape[1] / -2, eta.shape[1] / 2)
+        x_mesh, y_mesh = np.meshgrid(x, y)
+        distance_to_centre = np.sqrt(x_mesh ** 2 + y_mesh ** 2)
+        min_dist = min(distance_to_centre[acf < 0.2]) - 0.5
+        max_dist = max(distance_to_centre[acf > 0.2]) + 0.5
+
+        out = min_dist / max_dist
+
+    elif parameter_name == 'std':  # surface texture direction
+        fft = np.fft.fft2(eta)
+
+        apsd = fft * np.conj(fft) / p_area_t
+        x = np.arange(eta.shape[0] / -2, eta.shape[0] / 2)
+        y = np.arange(eta.shape[1] / -2, eta.shape[1] / 2)
+        i, j = np.unravel_index(apsd.argmax(), apsd.shape)
+        beta = np.arctan(i / j)
+
+        if beta < (np.pi / 2):
+            out = -1 * beta
         else:
-            out=np.pi-beta
-        
-    elif parameter_name=='sal': # fastest decaying auto corelation length
+            out = np.pi - beta
+
+    elif parameter_name == 'sal':  # fastest decaying auto corelation length
         # shortest distance from center of ACF to point where R<0.2
-        acf=np.asarray(ACF(eta))
-        
-        x=grid_spacing*np.arange(eta.shape[0]/-2,
-                                   eta.shape[0]/2)
-        y=grid_spacing*np.arange(eta.shape[1]/-2,
-                                   eta.shape[1]/2)
-        X,Y=np.meshgrid(x,y)
-        
-        distance_to_centre=np.sqrt(X**2+Y**2)
-        
-        out=min(distance_to_centre[acf<0.2])
-        
+        # noinspection PyTypeChecker
+        acf = np.asarray(ACF(eta))
+
+        x = grid_spacing * np.arange(eta.shape[0] / -2,
+                                     eta.shape[0] / 2)
+        y = grid_spacing * np.arange(eta.shape[1] / -2,
+                                     eta.shape[1] / 2)
+        x_mesh, y_mesh = np.meshgrid(x, y)
+
+        distance_to_centre = np.sqrt(x_mesh ** 2 + y_mesh ** 2)
+
+        out = min(distance_to_centre[acf < 0.2])
+
     else:
-        
-        msg='Paramter name not recognised'
+
+        msg = 'Paramter name not recognised'
         raise ValueError(msg)
-    
+
     return out
 
-def get_height_of_mat_vr(ratio, profile, void=False, mask=None, 
-                                       accuracy=0.001):
+
+def get_height_of_mat_vr(ratio: float, profile: np.ndarray, void=False, mask=None,
+                         accuracy=0.001):
     """Finds the cut off height of a specified material or void volume ratio
     
     Parameters
     ----------
     ratio : float {from 0 to 1}
         the target material or void volume ratio
-    profile : 2D array-like or Surface object
+    profile : array-like
         The surface profile to be used in the calculation
     void : bool optional (False)
         If set to true the height for the void volume ratio will be calculated
@@ -403,46 +410,44 @@ def get_height_of_mat_vr(ratio, profile, void=False, mask=None,
     --------
     
     """
-    import scipy.optimize
-    
-    p=np.asarray(profile)
-        
+
+    p = np.asarray(profile)
+
     if mask is not None:
         if type(mask) is float:
             if np.isnan(mask):
-                mask=~np.isnan(p)
+                mask = ~np.isnan(p)
             else:
-                mask=~p==mask
+                mask = ~p == mask
         else:
-            mask=np.asarray(mask, dtype=bool)
-            if not mask.shape==p.shape:
-                msg=("profile and mask shapes do not match: profile is"
-                    "{p.shape}, mask is {mask.shape}".format(**locals()))
+            mask = np.asarray(mask, dtype=bool)
+            if not mask.shape == p.shape:
+                msg = ("profile and mask shapes do not match: profile is"
+                       "{p.shape}, mask is {mask.shape}".format(**locals()))
                 raise TypeError(msg)
-        
-        p=p[~mask]
+
+        p = p[~mask]
     else:
-        p=p.flatten()
-    
-    min_h=min(p)
-    max_h=max(p)
-    
+        p = p.flatten()
+
+    min_h = min(p)
+    max_h = max(p)
+
     if void:
-        first_guess=min_h+ratio*(max_h-min_h)
+        first_guess = min_h + ratio * (max_h - min_h)
     else:
-        first_guess=max_h-ratio*(max_h-min_h)
-    
-    min_func=lambda h: (get_mat_vr(h, p, void)-ratio)**2
-    
-    output=scipy.optimize.minimize(min_func, first_guess, bounds=(min_h,max_h),
-                                   tol=accuracy)
-    
-    height=output.x[0]
-    
+        first_guess = max_h - ratio * (max_h - min_h)
+
+    output = scipy.optimize.minimize(lambda h: (get_mat_vr(h, p, void) - ratio) ** 2, first_guess,
+                                     bounds=(min_h, max_h), tol=accuracy)
+
+    height = output.x[0]
+
     return height
 
-def get_mat_vr(height, profile, void=False, mask=None,
-                                 ratio=True, grid_spacing=None):
+
+def get_mat_vr(height: float, profile: np.ndarray, void: bool = False, mask: {float, np.ndarray}=None,
+               ratio=True, grid_spacing=None):
     """ Finds the material or void volume ratio
     
     Finds the material or void volume for a given plane height, uses an 
@@ -494,73 +499,80 @@ def get_mat_vr(height, profile, void=False, mask=None,
     
    
     """
-    
-    p, grid_spacing=_check_surface(profile, grid_spacing)
-    
+
+    p, grid_spacing = _check_surface(profile, grid_spacing)
+
     if not grid_spacing and not ratio:
-        msg=("Grid spacing keyword or property of input surface must be set "
-             "for absoulte results, see Surface.set_grid_spacing if you are"
-             " using surface objects")
+        msg = ("Grid spacing keyword or property of input surface must be set "
+               "for absoulte results, see Surface.set_grid_spacing if you are"
+               " using surface objects")
         raise ValueError(msg)
-        
+
     if mask is not None:
         if type(mask) is float:
             if np.isnan(mask):
-                mask=~np.isnan(p)
+                mask = ~np.isnan(p)
             else:
-                mask=~p==mask
+                mask = ~p == mask
         else:
-            mask=np.asarray(mask, dtype=bool)
-            if not mask.shape==p.shape:
-                msg=("profile and mask shapes do not match: profile is"
-                    "{p.shape}, mask is {mask.shape}".format(**locals()))
+            mask = np.asarray(mask, dtype=bool)
+            if not mask.shape == p.shape:
+                msg = ("profile and mask shapes do not match: profile is"
+                       "{p.shape}, mask is {mask.shape}".format(**locals()))
                 raise TypeError(msg)
-        
-        p=p[~mask]
+
+        p = p[~mask]
     else:
-        p=p.flatten()
-        
-    max_height=max(p)
-    min_height=min(p)
-    
-    n_pts=p.size
-    total_vol=n_pts*(max_height-min_height)
-    max_m=sum(p-min_height)
-    
-    material=sum(p-height)*(p>height)
+        p = p.flatten()
+
+    max_height = max(p)
+    min_height = min(p)
+
+    n_pts = p.size
+    total_vol = n_pts * (max_height - min_height)
+    max_m = sum(p - min_height)
+
+    material = sum(p - height) * (p > height)
     if void:
-        all_above=(max_height-height)*n_pts
-        void_out=all_above-material # void not below height
-        void=total_vol-max_m-void_out
-        if ratio:    
-            out=void/(total_vol-max_m)
+        all_above = (max_height - height) * n_pts
+        void_out = all_above - material  # void not below height
+        void = total_vol - max_m - void_out
+        if ratio:
+            out = void / (total_vol - max_m)
         else:
-            out=void*grid_spacing**3
+            out = void * grid_spacing ** 3
     else:
         if ratio:
-            out=material/max_m
+            out = material / max_m
         else:
-            out=material*grid_spacing**3
+            out = material * grid_spacing ** 3
     return out
 
-def get_summit_curvatures(profile, summits=None, grid_spacing=None, mask=None,
-                          filter_cut_off=None, four_nearest=False):
+
+def get_summit_curvatures(profile: np.ndarray, summits: typing.Optional[np.ndarray] = None, grid_spacing: float = None,
+                          mask: typing.Optional[typing.Union[np.ndarray, float]] = None,
+                          filter_cut_off: typing.Optional[float] = None, four_nearest: bool = False):
     """ find the curvatures of the sumsits
     
     Parameters
     ----------
-    profile : N by M array-like or Surface object
+    profile: N by M array-like or Surface object
         The surface profile for analysis
-    summits : N by M array (optional)
+    summits: N by M array (optional)
         A bool array True at the location of the summits, if not supplied the 
         summits are found using find_summits first, see notes
-    grid_spacing : float optional (False)
+    grid_spacing: float optional (False)
         The distanc between points on the grid of the surface profile. Required
         only if the filter_cut_off is set and profile is not a surface object
-    mask : array-like (bool)N by M or float optional (None)
+    mask: array-like (bool)N by M or float optional (None)
         If an array, the array is used as a mask for the profile, must be the 
         same shape as the profile, if a float is given, values which match are
-        excluded from the calculation 
+        excluded from the calculation
+    filter_cut_off: float, optional (None)
+        The cutoff frequency of the low pass filter that is applied before finding summits
+    four_nearest: bool, optional (False)
+        If true a summit is found if it is higher than it's four nearest neigbours, else it must be higher than it's
+        eight nearest neigbours
     Returns
     -------
     curves : array
@@ -590,22 +602,22 @@ def get_summit_curvatures(profile, summits=None, grid_spacing=None, mask=None,
     --------
     
     """
-    profile, grid_spacing=_check_surface(profile, grid_spacing)
-    
-    gs2=grid_spacing**2
-    
+    profile, grid_spacing = _check_surface(profile, grid_spacing)
+
+    gs2 = grid_spacing ** 2
+
     if summits is None:
-        summits=find_summits(profile, filter_cut_off=filter_cut_off,
-                             grid_spacing=grid_spacing, 
-                             four_nearest=four_nearest, mask=mask)
-    verts=np.transpose(np.nonzero(summits))
-    curves= [-0.5*(profile[vert[0]-1,vert[1]]+profile[vert[0]+1,vert[1]]+
-                   profile[vert[0],vert[1]-1]+profile[vert[0],vert[1]+1]
-                   -4*profile[vert[0],vert[1]])/gs2 for vert in verts]
+        summits = find_summits(profile, filter_cut_off=filter_cut_off,
+                               grid_spacing=grid_spacing,
+                               four_nearest=four_nearest, mask=mask)
+    verts = np.transpose(np.nonzero(summits))
+    curves = [-0.5 * (profile[vert[0] - 1, vert[1]] + profile[vert[0] + 1, vert[1]] +
+                      profile[vert[0], vert[1] - 1] + profile[vert[0], vert[1] + 1]
+                      - 4 * profile[vert[0], vert[1]]) / gs2 for vert in verts]
     return curves
-    
-    
-def find_summits(profile, grid_spacing=False, mask=None, 
+
+
+def find_summits(profile, grid_spacing=False, mask=None,
                  four_nearest=False, filter_cut_off=None):
     """ Finds highpoints after low pass filtering
     
@@ -644,45 +656,44 @@ def find_summits(profile, grid_spacing=False, mask=None,
     --------
     
     """
-    profile, grid_spacing=_check_surface(profile, grid_spacing)
-    
+    profile, grid_spacing = _check_surface(profile, grid_spacing)
+
     if mask is not None:
         if type(mask) is float:
             if np.isnan(mask):
-                mask=~np.isnan(profile)
+                mask = ~np.isnan(profile)
             else:
-                mask=~profile==mask
+                mask = ~profile == mask
         else:
-            mask=np.asarray(mask, dtype=bool)
-            if not mask.shape==profile.shape:
-                msg=("profile and mask shapes do not match: profile is"
-                    "{profile.shape}, mask is {mask.shape}".format(**locals()))
+            mask = np.asarray(mask, dtype=bool)
+            if not mask.shape == profile.shape:
+                msg = ("profile and mask shapes do not match: profile is"
+                       "{profile.shape}, mask is {mask.shape}".format(**locals()))
                 raise TypeError(msg)
-                
-        profile[mask]=float('nan')
-    
+
+        profile[mask] = float('nan')
+
     if filter_cut_off is not None:
-        filtered_profile=low_pass_filter(profile, filter_cut_off, grid_spacing)
+        filtered_profile = low_pass_filter(profile, filter_cut_off, grid_spacing)
     else:
-        filtered_profile=profile
-    summits=np.ones(profile[1:-1,1:-1].shape, dtype=bool)
+        filtered_profile = profile
+    summits = np.ones(profile[1:-1, 1:-1].shape, dtype=bool)
     if four_nearest:
-        x=[-1,+1,0,0]
-        y=[0,0,-1,+1]
+        x = [-1, +1, 0, 0]
+        y = [0, 0, -1, +1]
     else:
-        x=[-1,+1,0,0,-1,-1,+1,+1]
-        y=[0,0,-1,+1,-1,+1,-1,+1]
-    
-    for i in range(len(x)):   
-        summits=np.logical_and(summits,(filtered_profile[1:-1,1:-1]>
-                                        filtered_profile[1+x[i]:-1+x[i] or 
-                                                         None,1+y[i]:-1+y[i] 
-                                                         or None]))
-    
-    #pad summits with Falses to make same size as original
-    summits=np.pad(summits, 1, 'constant', constant_values=False)
+        x = [-1, +1, 0, 0, -1, -1, +1, +1]
+        y = [0, 0, -1, +1, -1, +1, -1, +1]
+
+    for i in range(len(x)):
+        summits = np.logical_and(summits, (filtered_profile[1:-1, 1:-1] > filtered_profile[1 + x[i]:-1 + x[i] or None,
+                                           1 + y[i]:-1 + y[i] or None]))
+
+    # pad summits with Falses to make same size as original
+    summits = np.pad(summits, 1, 'constant', constant_values=False)
     return summits
-    
+
+
 def low_pass_filter(profile, cut_off_freq, grid_spacing=None):
     """2d low pass FIR filter with specified cut off frequency
     
@@ -690,7 +701,7 @@ def low_pass_filter(profile, cut_off_freq, grid_spacing=None):
     ----------
     profile : N by M array-like or Surface object
         The Surface object or profile to be filtered
-    cut_off_frequency : Float
+    cut_off_freq : Float
         The cut off frequency of the filter in the same units as the 
         grid_spacing of the profile
     grid_spacing : float optional (None)
@@ -719,25 +730,27 @@ def low_pass_filter(profile, cut_off_freq, grid_spacing=None):
     ----------
     
     """
-    profile, grid_spacing=_check_surface(profile, grid_spacing)    
-    
+    profile, grid_spacing = _check_surface(profile, grid_spacing)
+
     if grid_spacing is None:
-        msg="Grid spacing must be set"
+        msg = "Grid spacing must be set"
         raise ValueError(msg)
-    
-    sz=profile.shape
-    x=np.arange(1, sz[0]+1)
-    y=np.arange(1, sz[1]+1)
-    X,Y=np.meshgrid(x,y)
-    D=np.sqrt(X**2+Y**2)
-    ws=2*np.pi/grid_spacing
-    wc=cut_off_freq*2*np.pi
-    h=(wc/ws)*scipy.special.j1(2*np.pi*(wc/ws)*D)/D
-    filtered_profile=scipy.signal.convolve2d(profile,h,'same')
-    
+
+    sz = profile.shape
+    x = np.arange(1, sz[0] + 1)
+    y = np.arange(1, sz[1] + 1)
+    x_mesh, y_mesh = np.meshgrid(x, y)
+    distance_to_centre = np.sqrt(x_mesh ** 2 + y_mesh ** 2)
+    ws = 2 * np.pi / grid_spacing
+    wc = cut_off_freq * 2 * np.pi
+    h = (wc / ws) * scipy.special.j1(2 * np.pi * (wc / ws) * distance_to_centre) / distance_to_centre
+    filtered_profile = scipy.signal.convolve2d(profile, h, 'same')
+
     return filtered_profile
 
-def subtract_polynomial(profile, order=1, mask=None): #Checked
+
+def subtract_polynomial(profile: np.ndarray, order: int = 1,
+                        mask: typing.Optional[typing.Union[np.ndarray, float]] = None):
     """ Flattens the surface by fitting and subtracting a polynomial
     
     Fits a polynomial to the surface the subtracts it from the surface, to
@@ -745,15 +758,15 @@ def subtract_polynomial(profile, order=1, mask=None): #Checked
     
     Parameters
     ----------
-    
-    order : int
-        The order of the polynomial to be fitted
+
     profile : array-like or Surface
         The surface or profile to be used
-    mask : array-like (bool) same shape as profile or float (defaults to None)
-        If an array, the array is used as a mask for the profile, must be the 
-        same shape as the profile, if a float or list of floats is given, 
-        those values are excluded from the calculation 
+    order : int
+        The order of the polynomial to be fitted
+    mask : np.ndarray (dtype=bool) or float, optional (None)
+        If an array, the array is used as a mask for the profile, must be the same shape as the profile, if a float or
+        list of floats is given, those values are excluded from the calculation, if None all the values are included in
+        the calculation
         
     Returns
     -------
@@ -764,22 +777,26 @@ def subtract_polynomial(profile, order=1, mask=None): #Checked
         
     Examples
     --------
-    >>>flat_profile, coefs=subtract_polynomial(2, my_surface)
+    >>> import slippy.surface as s
+    >>> import numpy as np
+    >>>my_surface = s.assurface(np.random.rand(10,10))
+    >>>flat_profile, coefs = subtract_polynomial(my_surface, 2)
     Subtract a quadratic polynomial from the profile of my_surface the result
     is returned but the profile property of the surface is not updated
     
-    >>>flat_profile, coefs=subtract_polynomial(2,my_surface.profile)
+    >>>flat_profile, coefs = subtract_polynomial(my_surface.profile, 2)
     Identical to the above opertion
-    
-    >>>flat_profile_2, coefs=subtract_polynomial(1, profile_2)
+
+    >>>profile_2 = np.random.rand(100,100)
+    >>>flat_profile_2, coefs = subtract_polynomial(profile_2, 1)
     Subtract a plane of best fit from profile_2 and return the result
     
-    >>>flat_profile, coefs=subtract_polynomial(1, profile_2, mask=float('nan'))
+    >>>flat_profile, coefs = subtract_polynomial(profile_2, 1, mask=float('nan'))
     Subtract the profile from the surface ignoring nan height values
     
-    >>>mask=numpy.zeros_like(profile, dtype=bool)
+    >>>mask=np.zeros_like(profile, dtype=bool)
     >>>mask[5:-5,5:-5]=True
-    >>>flat_profile, coefs=subtract_polynomial(1, profile_2, mask=mask)
+    >>>flat_profile, coefs = subtract_polynomial(profile_2, 1, mask=mask)
     Subtract a polynomial from the surface ignoring a 5 deep boarder
     
     See Also
@@ -793,63 +810,62 @@ def subtract_polynomial(profile, order=1, mask=None): #Checked
     order polynomials will take more time to fit
     
     """
-    
-    profile=np.asarray(profile)
-    x=np.arange(profile.shape[1],dtype=float)
-    y=np.arange(profile.shape[0],dtype=float)
-    Xf,Yf=np.meshgrid(x,y)
-    Zf=profile
-    
+
+    profile = np.asarray(profile)
+    x = np.arange(profile.shape[1], dtype=float)
+    y = np.arange(profile.shape[0], dtype=float)
+    x_mesh_full, y_mesh_full = np.meshgrid(x, y)
+    z_full = profile
+
     if mask is not None:
         if type(mask) is float:
             if np.isnan(mask):
-                mask=~np.isnan(profile)
+                mask = ~np.isnan(profile)
             else:
-                mask=~profile==mask
+                mask = ~profile == mask
         else:
-            mask=np.asarray(mask, dtype=bool)
-            if not mask.shape==profile.shape:
-                msg=("profile and mask shapes do not match: profile is"
-                    "{profile.shape}, mask is {mask.shape}".format(**locals()))
+            mask = np.asarray(mask, dtype=bool)
+            if not mask.shape == profile.shape:
+                msg = ("profile and mask shapes do not match: profile is"
+                       "{profile.shape}, mask is {mask.shape}".format(**locals()))
                 raise TypeError(msg)
-        Z=Zf[mask]
-        X=Xf[mask]
-        Y=Yf[mask]
-        
+        z_masked = z_full[mask]
+        x_masked = x_mesh_full[mask]
+        y_masked = y_mesh_full[mask]
+
     else:
-        Z=Zf.flatten()
-        X=Xf.flatten()
-        Y=Yf.flatten()
-    
-    
-    #fit polynomial
-    n_cols=(order+1)**2
-    G=np.zeros((Z.size, n_cols))
-    ij=itertools.product(range(order+1), range(order+1))
-    
-    for k, (i,j) in enumerate(ij):
-        G[:,k]=X**i*Y**j
-        
+        z_masked = z_full.flatten()
+        x_masked = x_mesh_full.flatten()
+        y_masked = y_mesh_full.flatten()
+
+    # fit polynomial
+    n_cols = (order + 1) ** 2
+    g = np.zeros((z_masked.size, n_cols))
+    ij = itertools.product(range(order + 1), range(order + 1))
+
+    for k, (i, j) in enumerate(ij):
+        g[:, k] = x_masked ** i * y_masked ** j
+
     try:
-        coefs, _, _, _ = np.linalg.lstsq(G, Z, rcond=None)
-        
+        coefs, _, _, _ = np.linalg.lstsq(g, z_masked, rcond=None)
+
     except np.linalg.LinAlgError:
-        if any(np.isnan(Z)) or any(np.isinf(Z)):
-            msg="Nans or infs found in surface these should be masked see docs"
+        if any(np.isnan(z_masked)) or any(np.isinf(z_masked)):
+            msg = "Nans or infs found in surface these should be masked see docs"
             raise ValueError(msg)
         else:
-            raise   
-    
-    poly=np.zeros_like(profile)
-    #must reset to itterate again
-    ij=itertools.product(range(order+1), range(order+1))
-    
-    for a, (i,j) in zip(coefs,ij):
-        poly+=a*Xf**i*Yf**j
-    poly=poly.reshape(profile.shape)
-    adjusted=profile-poly
-    
+            raise
+
+    poly = np.zeros_like(profile)
+    # must reset to itterate again
+    ij = itertools.product(range(order + 1), range(order + 1))
+
+    for a, (i, j) in zip(coefs, ij):
+        poly += a * x_mesh_full ** i * y_mesh_full ** j
+    poly = poly.reshape(profile.shape)
+    adjusted = profile - poly
+
     if mask is not None:
-        adjusted[~mask]=profile[~mask]
-    
+        adjusted[~mask] = profile[~mask]
+
     return adjusted, coefs

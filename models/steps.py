@@ -1,3 +1,5 @@
+from models.models import ContactModel
+
 __all__ = ['step', '_ModelStep', '_InitialStep']
 
 """
@@ -20,7 +22,7 @@ def step(model, movement, load):
     raise NotImplementedError("Steps are not implemented")
 
 
-class _ModelStep(object):
+class _ModelStep:
     """ A step in a contact mechanics problem
     
     Parameters
@@ -47,10 +49,15 @@ class _ModelStep(object):
         
     """
     name = None
+    """The name of the step"""
     _surfaces_required = None
+    """The number of surfaces required to run the step (used in data checks)"""
+    options = None
+    """A named tuple options object should be different for each step type, specifies all of the analysis options"""
 
-    def __init__(self, step_name: str):
+    def __init__(self, step_name: str, model: ContactModel):
         self.name = step_name
+        self._model = model
 
     def _data_check(self):
         raise NotImplementedError("Data check have not been implemented for this step type!")
@@ -66,8 +73,8 @@ class _InitialStep(_ModelStep):
     # Should calculate the just touching postion of two surfaces, set inital guesses etc.
     separation: float = 0.0
 
-    def __init__(self, step_name: str = 'initial', separation: float = None):
-        super().__init__(step_name=step_name)
+    def __init__(self, model: ContactModel, step_name: str = 'initial', separation: float = None):
+        super().__init__(step_name=step_name, model=model)
         if separation is not None:
             self.separation = float(separation)
 
@@ -80,19 +87,3 @@ class _InitialStep(_ModelStep):
         find separtion, initialise current state(does this mean looking through the outputs? or should that be in the
         model solve function), ???? anthing else?
         """
-
-
-class QuasiStaticStep(_ModelStep):
-    """ A quasi static step which alows changing loads/ displacements
-    
-    """
-
-    def __init__(self, step_name: str, loads=None, displacements=None, heating=None, output_requests=None,
-                 solver='BEM'):
-        super().__init__(step_name)
-
-    def _data_check(self):
-        pass
-
-    def _solve(self, current_state, log_file, output_file):
-        pass

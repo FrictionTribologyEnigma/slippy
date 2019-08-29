@@ -2,8 +2,8 @@
 Classes for generating geometric surfaces:
     ===========================================================================
     ===========================================================================
-    Each class inherits functionallity from the Surface but changes the 
-    __init__ and descretise functions
+    Each class inherits functionallity from the _AnalyticalSurface calss but changes the
+    __init__, _height and __repr__ functions
     ===========================================================================
     ===========================================================================
     
@@ -18,23 +18,24 @@ Classes for generating geometric surfaces:
     ===========================================================================
     ===========================================================================
 
-#TODO:
-        Add comment blocks to each class with examples of use
-        make so it can work with the 'generate' keyword arg
+#TODO: make use of the rotaion and shift stuff in _AnalyticalSurface
 """
 
-__all__=['FlatSurface', 'RoundSurface', 'PyramidSurface']
+__all__ = ['FlatSurface', 'RoundSurface', 'PyramidSurface']
 
-from .Surface_class import Surface
+from .Surface_class import _AnalyticalSurface
 import warnings
 import numpy as np
+from numbers import Number
+import typing
 
-class FlatSurface(Surface): 
+
+class FlatSurface(_AnalyticalSurface):
     """ Flat surface can be angled in any direction by changing slope
     
     Parameters
     ----------
-    Slope : list
+    slope : tuple, optional (0,0)
         The gradient of the surface in the x and y directions
     
     Attributes
@@ -57,43 +58,29 @@ class FlatSurface(Surface):
     allowed on instantiation of this class apart from the profile key word.
     
     """
-    surface_type='flat'
-    analytic=True
-    
-    def __init__(self, slope=[0,0], **kwargs):
-        
-        self._init_checks(kwargs)
-        if type(slope) is list:
-            self._slope=slope
+    surface_type = 'flat'
+    analytic = True
+
+    def __init__(self, slope: tuple = (0, 0), rotation: Number = 0,
+                 shift: typing.Union[tuple, str] = 'origin to centre',
+                 generate: bool = False, grid_spacing: float = None,
+                 extent: tuple = None, shape: tuple = None):
+        if type(slope) is tuple:
+            self._slope = slope
         elif type(slope) is int or type(slope) is float:
-            self._slope=[slope,0]
-            if self.dimentions==2:
+            self._slope = [slope, 0]
+            if self.dimentions == 2:
                 warnings.warn("Assumed 0 slope in Y direction for"
                               " analytical flat surface")
-        
-    def descretise(self, grid_spacing=None, centre=[0,0]):
-        
-        if grid_spacing:
-            self.grid_spacing=grid_spacing
-        self._descretise_checks()
-        grid_spacing=self._grid_spacing
-        x=np.linspace(-0.5*self.extent[0],
-                    0.5*self.extent[0],self.shape[0])
-        if self.dimentions==1:
-            self.profile=x*self._slope[0]
-        else:
-            y=np.linspace(-0.5*self.extent[1],
-                    0.5*self.extent[1],self.shape[1])
-            (X,Y)=np.meshgrid(x,y)
-            self.profile=X*self._slope[0]+Y*self._slope[1]
-        self.is_descrete=True
-    
-    def height(self, X, Y):
+        super().__init__(generate=generate, rotation=rotation, shift=shift,
+                         grid_spacing=grid_spacing, extent=extent, shape=shape)
+
+    def _height(self, x_mesh, y_mesh):
         """Analytically determined height of the surface at specified points
         
         Parameters
         ----------
-        X, Y : array-like
+        x_mesh, y_mesh : array-like
             Arrays of X and Y points, must be the same shape
         
         Returns
@@ -108,19 +95,24 @@ class FlatSurface(Surface):
         Examples
         --------
         >>> import numpy as np
-        >>> my_surface=FlatSurface(slope=[1,1])
+        >>> my_surface=FlatSurface(slope=(1,1))
         >>> x, y = np.arange(10), np.arange(10)
         >>> X, Y = np.meshgrid(x,y)
         >>> Z=my_surface.height(X, Y)
         """
-        return X*self._slope[0]+Y*self._slope[1]
-        
-class RoundSurface(Surface):
+        return x_mesh * self._slope[0] + y_mesh * self._slope[1]
+
+    def __repr__(self):
+        string = self._repr_helper()
+        return 'FlatSurface(slope=' + repr(self._slope) + string + ')'
+
+
+class RoundSurface(_AnalyticalSurface):
     """ Round surfaces with any radii
     
     Parameters
     ----------
-    radius : list or float
+    radius : tuple
         The radius of the surface in the X Y and Z directions, or in all 
         directions if a float is given
     
@@ -144,48 +136,31 @@ class RoundSurface(Surface):
     allowed on instantiation of this class apart from the profile key word.
     
     """
-    surface_type='round'
-    analytic=True
-    
-    def __init__(self, radius=[10,10,10], dimentions=2, **kwargs):
-        
-        self._init_checks(kwargs)
-        
-        self.dimentions=dimentions
-        if type(radius) is list:
-            if len(radius)==(self.dimentions+1):
-                self.radius=radius
-            else:
-                msg=('Radius must be either scalar or list of radii equal in '
-                'length to number of dinmetions of the surface +1')
-                raise ValueError(msg)   
-        elif type(radius) is int or type(radius) is float:
-            self.radius=[radius]*(self.dimentions+1)
-            
-    def descretise(self, grid_spacing=False, centre=[0,0]):
-        if grid_spacing:
-            self.grid_spacing=grid_spacing
-        self._descretise_checks()
-        x=np.linspace(-0.5*self.extent[0],
-                    0.5*self.extent[0],self.shape[0])
-        if self.dimentions==1:
-            self.profile=((1-(x/self.radius[0])**2)**0.5)*self.radius[-1]
+    radius: tuple
+
+    def __init__(self, radius: tuple, rotation: Number = 0,
+                 shift: typing.Union[tuple, str] = 'origin to centre',
+                 generate: bool = False, grid_spacing: float = None,
+                 extent: tuple = None, shape: tuple = None):
+
+        if isinstance(radius, Number):
+            radius = (radius,)*3
+        if type(radius) is tuple and len(radius) == 3:
+            self._radius = radius
         else:
-            y=np.linspace(-0.5*self.extent[1],
-                    0.5*self.extent[1],self.shape[1])
-            (X,Y)=np.meshgrid(x,y)
-            self.profile=((1-(X/self.radius[0])**2-
-                          (Y/self.radius[1])**2)**0.5)*self.radius[-1]
-        np.nan_to_num(self.profile, False)
-        self.is_descrete=True
-    
-    def height(self,X,Y):
+            msg = ('Radius must be either scalar or list of radii equal in '
+                   'length to number of dinmetions of the surface +1')
+            raise ValueError(msg)
+        super().__init__(generate=generate, rotation=rotation, shift=shift,
+                         grid_spacing=grid_spacing, extent=extent, shape=shape)
+
+    def _height(self, x_mesh, y_mesh):
         """Analytically determined height of the surface at specified points
         
         Parameters
         ----------
-        X, Y : array-like
-            Arrays of X and Y points, must be the same shape
+        x_mesh, y_mesh : array-like
+            Arrays of x and y points, must be the same shape
         
         Returns
         -------
@@ -199,17 +174,22 @@ class RoundSurface(Surface):
         Examples
         --------
         >>> import numpy as np
-        >>> my_surface=RoundSurface(radius=[1,1,1])
+        >>> my_surface=RoundSurface(radius=(1,1,1))
         >>> x, y = np.arange(10), np.arange(10)
-        >>> X, Y = np.meshgrid(x,y)
-        >>> Z=my_surface.height(X, Y)
+        >>> x_mesh, y_mesh = np.meshgrid(x,y)
+        >>> Z=my_surface.height(x_mesh, y_mesh)
         """
-        Z=((1-(X/self.radius[0])**2-
-            (Y/self.radius[1])**2)**0.5)*self.radius[-1]
-        return np.nan_to_num(Z, False)
-        
-        
-class PyramidSurface(Surface):
+        # noinspection PyTypeChecker
+        z = ((1 - (x_mesh / self._radius[0]) ** 2 -
+              (y_mesh / self._radius[1]) ** 2) ** 0.5) * self._radius[-1]
+        return np.nan_to_num(z, False)
+
+    def __repr__(self):
+        string = self._repr_helper()
+        return 'RoundSurface(slope=' + repr(self._radius) + string + ')'
+
+
+class PyramidSurface(_AnalyticalSurface):
     """ Pyramid surface with any slopes
     
     Keyword parameters
@@ -236,48 +216,31 @@ class PyramidSurface(Surface):
     allowed on instantiation of this class apart from the profile key word.
     
     """
-    surface_type='pyramid'
-    
-    def __init__(self, lengths, dimentions=2, **kwargs):
-        
-        self._init_checks(kwargs)
-        
-        self.dimentions=dimentions
-        if type(lengths) is list:
-            if len(lengths)==(self.dimentions+1):
-                self.lengths=lengths
+    surface_type = 'pyramid'
+
+    def __init__(self, lengths, rotation: Number = 0,
+                 shift: typing.Union[tuple, str] = 'origin to centre',
+                 generate: bool = False, grid_spacing: float = None,
+                 extent: tuple = None, shape: tuple = None):
+        if isinstance(lengths, Number):
+            lengths = (lengths, ) * 3
+
+        if type(lengths) is tuple:
+            if len(lengths) == (self.dimentions + 1):
+                self._lengths = lengths
             else:
-                msg=('Lengths must be either scalar or list of Lengths equal'
-                ' in length to number of dinmetions of the surface +1')
-                raise ValueError(msg)   
-        elif type(lengths) is int or type(lengths) is float:
-            self.lengths=[lengths]*(self.dimentions+1)
-            
-    def descretise(self, grid_spacing=None):
-        #TODO check that ther is no gap around the edge, if so scale so there is not 
-        #x/xl+y/yl+z/zl=1
-        #(1-x/xl-y/yl)*zl=z
-        if grid_spacing:
-            self.grid_spacing=grid_spacing
-        self._descretise_checks()
-        x=np.abs(np.arange(-0.5*self.extent[0],
-                    0.5*self.extent[0],self.grid_spacing))
-        if self.dimentions==1:
-            self.profile=(1-x/self.lengths[0])*self.lengths[-1]
-        else:
-            y=np.abs(np.arange(-0.5*self.extent[1],
-                        0.5*self.extent[1],self.grid_spacing))
-            (X,Y)=np.meshgrid(x,y)
-            self.profile=(1-X/self.lengths[0]-
-                          Y/self.lengths[1])*self.lengths[-1]
-        self.is_descrete=True
-    
-    def height(self,X,Y):
+                msg = ('Lengths must be either scalar or list of Lengths equal'
+                       ' in length to number of dinmetions of the surface +1')
+                raise ValueError(msg)
+        super().__init__(generate=generate, rotation=rotation, shift=shift,
+                         grid_spacing=grid_spacing, extent=extent, shape=shape)
+
+    def _height(self, x_mesh, y_mesh):
         """Analytically determined height of the surface at specified points
         
         Parameters
         ----------
-        X, Y : array-like
+        x_mesh, y_mesh : array-like
             Arrays of X and Y points, must be the same shape
         
         Returns
@@ -297,4 +260,8 @@ class PyramidSurface(Surface):
         >>> X, Y = np.meshgrid(x,y)
         >>> Z=my_surface.height(X, Y)
         """
-        return (1-X/self.lengths[0]-Y/self.lengths[1])*self.lengths[-1]
+        return (0 - x_mesh / self._lengths[0] - y_mesh / self._lengths[1]) * self._lengths[-1]
+
+    def __repr__(self):
+        string = self._repr_helper()
+        return 'PyramidSurface(slope=' + repr(self._lengths) + string + ')'

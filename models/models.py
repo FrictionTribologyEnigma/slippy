@@ -2,10 +2,12 @@
 model object just a container for step object that do the real work
 """
 from slippy.lubrication import _LubricantModel, lubricant_model
-from slippy.contact import _FrictionModel, _AdhesionModel, _WearModel, _ModelStep, _InitialStep
-from slippy.contact import friction_model, adhesion_model, step  # , wear_model
+from slippy.contact import _WearModel
 from slippy.surface import Surface
-from .outputs import FieldOutputRequest, HistoryOutputRequest, possible_field_outpts, possible_history_outpts
+from contact.friciton_models import _FrictionModel, friction_model
+from contact.adhesion_models import _AdhesionModel, adhesion_model
+from models.steps import _ModelStep, _InitialStep, step
+from contact.outputs import FieldOutputRequest, HistoryOutputRequest, possible_field_outpts, possible_history_outpts
 from datetime import datetime
 from typing import Sequence
 from collections import OrderedDict
@@ -27,7 +29,6 @@ class ContactModel(object):
     
     
     """
-    steps = OrderedDict({'Initial': _InitialStep()})
     history_outputs = {}
     field_outputs = {}
     _domains = {'all': None}
@@ -40,7 +41,7 @@ class ContactModel(object):
 
     def __init__(self, surface_1: Surface, surface_2: Surface, lubricant: _LubricantModel = None,
                  friction: _FrictionModel = None, adhesion: _AdhesionModel = None,
-                 wear_model: _WearModel = None):
+                 wear_model: _WearModel = None, steps: OrderedDict[_ModelStep] = None):
         self.surface_1 = surface_1
         self.surface_2 = surface_2
 
@@ -48,6 +49,18 @@ class ContactModel(object):
         self.friciton_model = friction
         self.adhesion = adhesion
         self.wear_model = wear_model
+        self.steps = OrderedDict({'Initial': _InitialStep(self)})
+
+        if steps is not None:
+            if isinstance(steps, OrderedDict) and all([isinstance(st, _ModelStep) for st in steps.values()]):
+                self.steps = steps
+            else:
+                if isinstance(steps, OrderedDict):
+                    raise TypeError("Not all steps in step dict are ModelSteps, typically it is easier to make a new "
+                                    "model object and populate using the new_step method")
+                else:
+                    raise TypeError("Steps keyword argument is not supported type, expected OrderedDict, got: "
+                                    f"{type(steps)}")
 
     @property
     def lubricant_model(self):
@@ -131,7 +144,7 @@ class ContactModel(object):
         >>> my_model=ContactModel(surface1, surface2)
         >>> my_model.add_friction_model('coulomb', {'mu':0.3})
         """
-        self.friction_model = friction_model(name, parameters)
+        self.friction_model = friction_model()  # name, parameters)
 
     def add_adhesion_model(self, name: str, parameters: dict = None):
         """Add an adhesion model to this instance of a contaact model
@@ -159,7 +172,7 @@ class ContactModel(object):
         >>> #TODO
         """
 
-        self.adhesion_model = adhesion_model(name, parameters)
+        self.adhesion_model = adhesion_model()  # name, parameters)
 
     def add_lubricant_model(self, name: str, parameters: dict):
         """Add a lubricant to this instace of a contact model
@@ -372,3 +385,12 @@ class ContactModel(object):
 
         output_file.close()
         log_file.close()
+
+    def __repr__(self):
+        return (f'ContactModel(surface1 = {type(self.surface_1)} at {id(self.surface_1)}, '
+                f'surface2 = {type(self.surface_2)} at {id(self.surface_2)}), '
+                f'steps = {self.steps.__repr__()}')
+
+    def __str__(self):
+        return (f'ContactModel with surfaces: {self.surface_1.__str__()}, {self.surface_2.__str__()}, '
+                f'and {len(self.steps)} steps: {", ".join([st.__str__() for st in self.steps])}')

@@ -5,7 +5,7 @@ Surface generation and manipulation (:mod:`slippy.surface`)
 
 .. currentmodule:: slippy.surface
 
-This module contains functions and classes for reading surfaces from file, 
+This package contains functions and classes for reading surfaces from file,
 manipulating, generating and analysing surfaces.
 
 The Surface class

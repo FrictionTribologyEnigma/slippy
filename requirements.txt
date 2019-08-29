@@ -1,3 +1,4 @@
+scipy
 name: slippy
 channels:
   - defaults
