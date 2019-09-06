@@ -18,7 +18,7 @@ from scipy.stats import probplot
 from mpl_toolkits.mplot3d import Axes3D
 from scipy.io import loadmat
 from skimage.restoration import inpaint
-from slippy.contact.materials import _Material
+from slippy.abcs import _MaterialABC, _SurfaceABC
 from numbers import Number
 
 from .ACF_class import ACF
@@ -26,7 +26,7 @@ from .roughness_funcs import get_height_of_mat_vr, low_pass_filter
 from .roughness_funcs import get_mat_vr, get_summit_curvatures
 from .roughness_funcs import roughness, subtract_polynomial, find_summits
 
-__all__ = ['Surface', 'assurface', 'read_surface']
+__all__ = ['Surface', 'assurface', 'read_surface', '_Surface', '_AnalyticalSurface']
 
 
 def assurface(profile, grid_spacing=None):
@@ -116,7 +116,7 @@ def read_surface(file_name, **kwargs):
     return Surface(file_name=file_name, **kwargs)
 
 
-class _Surface(abc.ABC):
+class _Surface(_SurfaceABC):
     """
     An abstract base class for surface types, this class should be extended to given new types of surface. To create an
     analytical surface please subclass _AnalyticalSurface
@@ -141,7 +141,7 @@ class _Surface(abc.ABC):
     Z=height(X,Y) method is provided"""
     invert_surface: bool = False
 
-    _material: typing.Optional[_Material] = None
+    _material: typing.Optional[_MaterialABC] = None
     _profile: typing.Optional[np.ndarray] = None
     _grid_spacing: typing.Optional[float] = None
     _shape: typing.Optional[tuple] = None
@@ -153,7 +153,7 @@ class _Surface(abc.ABC):
     _size: typing.Optional[int] = None
     _subclass_registry = []
 
-    def __init__(self, grid_spacing:typing.Optional[float] = None, extent: typing.Optional[tuple] = None,
+    def __init__(self, grid_spacing: typing.Optional[float] = None, extent: typing.Optional[tuple] = None,
                  shape: typing.Optional[tuple] = None, is_descrete: bool = False):
         if grid_spacing is not None and extent is not None and shape is not None:
             raise ValueError("Up to two of grid_spacing, extent and size should be set, all three were set")
@@ -403,10 +403,9 @@ class _Surface(abc.ABC):
 
     @material.setter
     def material(self, value):
-        if isinstance(value, _Material):
+        if isinstance(value, _MaterialABC):
             self._material = value
         else:
-            print(_Material)
             raise ValueError("Unable to set material, expected material object"
                              " recived %s" % str(type(value)))
 
@@ -733,7 +732,7 @@ class _Surface(abc.ABC):
         >>> my_surface.shape
         (101,101)
         """
-        if remake_interpolator or not self._inter_func:
+        if remake_interpolator or self._inter_func is None:
             x0 = np.arange(0, self.extent[0], self.grid_spacing)
             y0 = np.arange(0, self.extent[1], self.grid_spacing)
             self._inter_func = scipy.interpolate.RectBivariateSpline(x0, y0,
@@ -826,6 +825,14 @@ class _Surface(abc.ABC):
         else:
             raise ValueError('surfaces are not compatible sizes cannot'
                              ' subtract')
+
+    def __eq__(self, other):
+        if not isinstance(other, _Surface) or self.is_descrete!=other.is_descrete:
+            return False
+        if self.is_descrete:
+            return self.profile == other.profile and self.grid_spacing == other.grid_spacing
+        else:
+            return repr(self) == repr(other)
 
     def show(self, property_to_plot='profile', plot_type='default', ax=False, *, dist=None, stride=None):
         """ Polt surface properties
@@ -1027,7 +1034,7 @@ class _Surface(abc.ABC):
 
             if plot_type == 'default' or plot_type == 'surface':
                 ax.plot_surface(mesh_x, mesh_y, np.transpose(z))
-                plt.axis('equal')
+                # plt.axis('equal')
                 ax.set_zlabel(labels[3])
             elif plot_type == 'mesh':
                 if property_to_plot == 'psd' or property_to_plot == 'fft2d':
@@ -1152,6 +1159,49 @@ class _Surface(abc.ABC):
         # if not self.is_descrete:
         #     raise ValueError("Surface must be descrete before meshing")
 
+    def interpolate(self, x_points: np.ndarray, y_points: np.ndarray, mode: str = 'nearest',
+                    remake_interpolator: bool = False):
+        """
+        Easy memoised interpolation on surface objects
+
+        Parameters
+        ----------
+        x_points: np.ndarray
+            N by M array of x points, in the same units as the grid spacing
+        y_points: np.ndarray
+            N by M array of y points, in the same units as the grid spacing
+        mode: str {'nearest', 'linear', 'cubic'}, optional ('nearest')
+            The mode of the interpolation
+        remake_interpolator: bool, optional (False)
+            If True the interpolator function will be remade, otherwise the existing one will be used, if no
+            interpolator function is found it will be made automatically
+
+        Returns
+        -------
+        sub_profile: np.ndarray
+            The surface heights at the grid points requested, same shape as x_points and y_points
+        """
+        assert(x_points.shape == y_points.shape)
+
+        if mode == 'nearest':
+            x_index = np.array(x_points / self.grid_spacing + 0.5, dtype='int32')
+            y_index = np.array(y_points / self.grid_spacing + 0.5, dtype='int32')
+            return np.reshape(self.profile[x_index, y_index], newshape=x_points.shape)
+        elif mode == 'linear':
+            if remake_interpolator or self._inter_func is None or self._inter_func.degrees != (1, 1):
+                x0 = np.arange(0, self.extent[0], self.grid_spacing)
+                y0 = np.arange(0, self.extent[1], self.grid_spacing)
+                self._inter_func = scipy.interpolate.RectBivariateSpline(x0, y0, self.profile, kx=1, ky=1)
+        elif mode == 'cubic':
+            if remake_interpolator or self._inter_func is None or self._inter_func.degrees != (3, 3):
+                x0 = np.arange(0, self.extent[0], self.grid_spacing)
+                y0 = np.arange(0, self.extent[1], self.grid_spacing)
+                self._inter_func = scipy.interpolate.RectBivariateSpline(x0, y0, self.profile, kx=1, ky=1)
+        else:
+            raise ValueError(f'{mode} is not a recognised mode for the interpolation function')
+
+        return self._inter_func(x_points, y_points, grid=False)
+
 
 class Surface(_Surface):
     """ Object for reading, manipulating and plotting surfaces
@@ -1230,6 +1280,10 @@ class Surface(_Surface):
 
 
         """
+
+    def rotate(self, radians):
+        raise NotImplementedError("Cannot rotate this surface")
+
     surface_type = 'Experimental'
 
     def __init__(self, profile: typing.Optional[np.ndarray] = None, grid_spacing: typing.Optional[float] = None,
@@ -1497,6 +1551,7 @@ class _AnalyticalSurface(_Surface):
     """
     _total_shift: tuple = (0, 0)
     _total_rotation: float = 0
+    _is_analytic = True
 
     def __init__(self, generate: bool = False, rotation: Number = 0,
                  shift: typing.Union[str, tuple] = 'origin to centre',
@@ -1519,7 +1574,7 @@ class _AnalyticalSurface(_Surface):
         if self.is_descrete:
             msg = ('Surface is already discrete this will overwrite surface'
                    ' profile')
-            raise warnings.warn(msg)
+            warnings.warn(msg)
         if self.grid_spacing is None:
             msg = 'A grid spacing must be provided before descretisation'
             raise AttributeError(msg)
@@ -1582,6 +1637,10 @@ class _AnalyticalSurface(_Surface):
             string += ', rotation = ' + repr(self._total_rotation)
         if self.is_descrete:
             string += ', generate = True'
+        if self.grid_spacing:
+            string += f', grid_spacing = {self.grid_spacing}'
+        if self.extent:
+            string += f', extent = {self.extent}'
         return string
 
     @abc.abstractmethod
@@ -1623,7 +1682,31 @@ class _AnalyticalSurface(_Surface):
         if isinstance(other, _AnalyticalSurface):
             return SurfaceCombination(self, other, '-')
 
-        return super().__add__(other)
+        return super().__sub__(other)
+
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            return False
+
+        if self.is_descrete and other.is_descrete:
+            return super().__eq__(other)
+
+        return self.__dict__ == other.__dict__
+
+    def show(self, property_to_plot='profile', plot_type='default', ax=False, *, dist=None, stride=None):
+        if self.is_descrete:
+            return super().show(property_to_plot=property_to_plot, plot_type=plot_type, ax=ax, dist=dist, stride=stride)
+        elif self.grid_spacing is not None and self.shape is not None:
+            profile = self.height(*self.get_points_from_extent())
+            self._profile = profile
+            try:
+                return super().show(property_to_plot=property_to_plot, plot_type=plot_type, ax=ax, dist=dist,
+                                    stride=stride)
+            finally:
+                self._profile = None
+        else:
+            raise AttributeError('The extent and grid spacing of the surface should be set before the surface can be '
+                                 'shown')
 
 
 class SurfaceCombination(_AnalyticalSurface):

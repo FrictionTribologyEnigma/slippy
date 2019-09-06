@@ -1,22 +1,20 @@
 """
 model object just a container for step object that do the real work
 """
-from slippy.lubrication import _LubricantModel, lubricant_model
-from slippy.contact import _WearModel
-from slippy.surface import Surface
-from contact.friciton_models import _FrictionModel, friction_model
-from contact.adhesion_models import _AdhesionModel, adhesion_model
-from models.steps import _ModelStep, _InitialStep, step
-from contact.outputs import FieldOutputRequest, HistoryOutputRequest, possible_field_outpts, possible_history_outpts
+from slippy.abcs import _SurfaceABC, _FrictionModelABC, _WearModelABC, _LubricantModelABC, _AdhesionModelABC, _ContactModelABC
+from slippy.contact.steps import _ModelStep, InitialStep, step
+from slippy.contact.outputs import FieldOutputRequest, HistoryOutputRequest, possible_field_outpts, possible_history_outpts
 from datetime import datetime
-from typing import Sequence
+import typing
 from collections import OrderedDict
+from contextlib import redirect_stdout, ExitStack
+import os
 
 __all__ = ["ContactModel"]
 
 
-class ContactModel(object):
-    """ A container for contact mechanics problems
+class ContactModel(_ContactModelABC):
+    """ A container for multi step contact mechanics and lubrication problems
     
     Parameters
     ----------
@@ -32,35 +30,35 @@ class ContactModel(object):
     history_outputs = {}
     field_outputs = {}
     _domains = {'all': None}
-    _lubricant: _LubricantModel = None
-    _friction: _FrictionModel = None
-    _wear: _WearModel = None
-    _adhesion: _AdhesionModel = None
+    _lubricant: _LubricantModelABC = None
+    _friction: _FrictionModelABC = None
+    _wear: _WearModelABC = None
+    _adhesion: _AdhesionModelABC = None
     _is_rigid: bool = False
+    steps: OrderedDict
+    log_file_name: str = None
+    output_file_name: str = None
     """Flag set to true if one of the surfaces is rigid"""
 
-    def __init__(self, surface_1: Surface, surface_2: Surface, lubricant: _LubricantModel = None,
-                 friction: _FrictionModel = None, adhesion: _AdhesionModel = None,
-                 wear_model: _WearModel = None, steps: OrderedDict[_ModelStep] = None):
+    def __init__(self, name: str, surface_1: _SurfaceABC, surface_2: _SurfaceABC = None,
+                 lubricant: _LubricantModelABC = None,
+                 friction: _FrictionModelABC = None, adhesion: _AdhesionModelABC = None,
+                 wear_model: _WearModelABC = None, log_file_name: str = None):
         self.surface_1 = surface_1
         self.surface_2 = surface_2
-
+        self.name = name
         self.lubricant_model = lubricant
         self.friciton_model = friction
         self.adhesion = adhesion
         self.wear_model = wear_model
-        self.steps = OrderedDict({'Initial': _InitialStep(self)})
-
-        if steps is not None:
-            if isinstance(steps, OrderedDict) and all([isinstance(st, _ModelStep) for st in steps.values()]):
-                self.steps = steps
-            else:
-                if isinstance(steps, OrderedDict):
-                    raise TypeError("Not all steps in step dict are ModelSteps, typically it is easier to make a new "
-                                    "model object and populate using the new_step method")
-                else:
-                    raise TypeError("Steps keyword argument is not supported type, expected OrderedDict, got: "
-                                    f"{type(steps)}")
+        self.steps = OrderedDict({'Initial': InitialStep(self)})
+        if log_file_name is None:
+            log_file_name = name
+        self.log_file_name = log_file_name + '.log'
+        try:
+            os.remove(self.log_file_name)
+        except FileNotFoundError:
+            pass
 
     @property
     def lubricant_model(self):
@@ -68,7 +66,7 @@ class ContactModel(object):
 
     @lubricant_model.setter
     def lubricant_model(self, value):
-        if issubclass(type(value), _LubricantModel):
+        if issubclass(type(value), _LubricantModelABC):
             self._lubricant = value
         else:
             raise ValueError("Unable to set lubricant, expected lubricant "
@@ -85,7 +83,7 @@ class ContactModel(object):
 
     @friction_model.setter
     def friction_model(self, value):
-        if issubclass(type(value), _FrictionModel):
+        if issubclass(type(value), _FrictionModelABC):
             self._friction = value
         else:
             raise ValueError("Unable to set friction model, expected "
@@ -103,7 +101,7 @@ class ContactModel(object):
 
     @adhesion_model.setter
     def adhesion_model(self, value):
-        if issubclass(type(value), _AdhesionModel):
+        if issubclass(type(value), _AdhesionModelABC):
             self._adhesion = value
         else:
             raise ValueError("Unable to set adhsion model, expected "
@@ -115,15 +113,13 @@ class ContactModel(object):
         # noinspection PyTypeChecker
         self._adhesion = None
 
-    def add_friction_model(self, name: str, parameters: dict = None):
+    def add_friction_model(self, friction_model_instance: typing.Optional[_FrictionModelABC] = None):
         """Add a friciton model to this instance of a contact model
         
         Parameters
         ----------
-        name : str
-            The name of the friciton modle to be added e.g. coloumb
-        parameters : dict
-            A dict of the parametes required by the specified friction model
+        friction_model_instance: _FrictionModel, optional (None)
+            A friciton model object, if none is suplied the friciton model helper fucntion is run
             
         See Also
         --------
@@ -144,7 +140,8 @@ class ContactModel(object):
         >>> my_model=ContactModel(surface1, surface2)
         >>> my_model.add_friction_model('coulomb', {'mu':0.3})
         """
-        self.friction_model = friction_model()  # name, parameters)
+
+        self.friction_model = friction_model_instance  # name, parameters)
 
     def add_adhesion_model(self, name: str, parameters: dict = None):
         """Add an adhesion model to this instance of a contaact model
@@ -171,8 +168,7 @@ class ContactModel(object):
         
         >>> #TODO
         """
-
-        self.adhesion_model = adhesion_model()  # name, parameters)
+        pass
 
     def add_lubricant_model(self, name: str, parameters: dict):
         """Add a lubricant to this instace of a contact model
@@ -199,21 +195,19 @@ class ContactModel(object):
         
         >>> #TODO
         """
-        self.lubricant_model = lubricant_model(name, parameters)
+        pass
 
-    def add_step(self, step_name: str, step_type: {str, _ModelStep}, step_parameters: dict = None,
+    def add_step(self, step_name: str, *, step_instance: _ModelStep = None,
                  position: {int, str}=None):
         """ Adds a solution stepe to the current model
         
         Parameters
         ----------
+        step_instance: _ModelStep
+            An instance of a model step
         step_name : str
             A unique name given to the step, used to specify when outputs 
             should be recorded
-        step_type : {str, _ModelStep}
-            The type of step to be added, or a step object to be added to the model
-        step_parameters : dict
-            A dict containing the parameters required by the step
         position : {int, 'last'}, optional ('last')
             The position of the step in the existing order
         
@@ -236,8 +230,13 @@ class ContactModel(object):
         added to the steps at the data check stage, essentially there should be 
         nothing you can do to make a nontrivial error here.
         """
+        if step_instance is None:
+            new_step = step(self)
+        else:
+            if step_instance.model is not self:
+                raise ValueError("The step instance should be made by passing this model to the constructor")
+            new_step = step_instance
 
-        new_step = step(step_type, **step_parameters)
         if position is None:
             self.steps[step_name] = new_step
         else:
@@ -251,8 +250,9 @@ class ContactModel(object):
             for k, v in zip(keys, values):
                 self.steps[k] = v
 
-    def add_field_output(self, name: str, domain: {str, Sequence}, step_name: str, time_points: Sequence,
-                         output: Sequence[str]):
+    def add_field_output(self, name: str, domain: typing.Union[str, typing.Sequence], step_name: str,
+                         time_points: typing.Sequence,
+                         output: typing.Sequence[str]):
         f"""
         Adds a field output reques to the model
 
@@ -304,7 +304,7 @@ class ContactModel(object):
         self.field_outputs[name] = FieldOutputRequest(domain=domain, step=step_name, time_points=time_points,
                                                       **output_dict)
 
-    def add_history_output(self, name: str, step_name: str, time_points: Sequence, output: Sequence[str]):
+    def add_history_output(self, name: str, step_name: str, time_points: typing.Sequence, output: typing.Sequence[str]):
         f"""
         Adds a field output reques to the model
 
@@ -350,47 +350,61 @@ class ContactModel(object):
                                                           **output_dict)
 
     def data_check(self):
-        self._model_check()
+        with open(self.log_file_name, 'a+') as file:
+            with redirect_stdout(file):
+                print("Data check started at:")
+                print(datetime.now().strftime('%H:%M:%S %d-%m-%Y'))
 
-        for this_step in self.steps:
-            if this_step == 'Initial':
-                pass
-            else:
-                self.steps[this_step]._data_check()
+                self._model_check()
+
+                for this_step in self.steps:
+                    self.steps[this_step]._data_check()
 
     def _model_check(self):
         """
-        Checks the model for possible errors (only the model steps are checked independently
+        Checks the model for possible errors (the model steps are checked independently)
         """
         # check that if only one surface is provided this is ok with all steps
         # check if one of the surfaces is rigid, make sure both are not rigid
         # if one is rigid it must be the second one, if this is true set self._is_rigid to true
         # check all have materials
         # check all are discrete
+        # check all steps use the same number of surfaces
         pass
+        # TODO
 
-    def solve(self, output_file_name: str = 'output'):
+    def solve(self, output_file_name: str = None, verbose: bool = False):
+        if output_file_name is None:
+            if self.output_file_name is None:
+                self.output_file_name = self.name + 'sdb'
+        else:
+            self.output_file_name = output_file_name + 'sdb'
+
         current_state = None
+        try:
+            os.remove(self.output_file_name)
+        except FileNotFoundError:
+            pass
 
-        output_file = open(output_file_name + '.sdb', 'wb')
-        log_file = open(output_file_name + '.log', 'w')
+        with ExitStack() as stack:
+            output_file = stack.enter_context(open(self.output_file_name, 'wb+'))
+            if not verbose:
+                log_file = stack.enter_context(open(output_file_name, 'a+'))
+                stack.enter_context(redirect_stdout(log_file))
 
-        self.data_check()
+            self.data_check()
 
-        for this_step in self.steps:
-            this_step._solve(current_state, log_file, output_file)
+            for this_step in self.steps:
+                this_step._solve(current_state, log_file, output_file)
 
-        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        log_file.write(f"Analysis completed sucessfully at: {now}")
-
-        output_file.close()
-        log_file.close()
+            now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            print(f"Analysis completed sucessfully at: {now}")
 
     def __repr__(self):
-        return (f'ContactModel(surface1 = {type(self.surface_1)} at {id(self.surface_1)}, '
-                f'surface2 = {type(self.surface_2)} at {id(self.surface_2)}), '
-                f'steps = {self.steps.__repr__()}')
+        return (f'ContactModel(surface1 = {repr(self.surface_1)}, '
+                f'surface2 = {repr(self.surface_2)}, '
+                f'steps = {repr(self.steps)})')
 
     def __str__(self):
-        return (f'ContactModel with surfaces: {self.surface_1.__str__()}, {self.surface_2.__str__()}, '
-                f'and {len(self.steps)} steps: {", ".join([st.__str__() for st in self.steps])}')
+        return (f'ContactModel with surfaces: {str(self.surface_1)}, {str(self.surface_2)}, '
+                f'and {len(self.steps)} steps: {", ".join([str(st) for st in self.steps])}')

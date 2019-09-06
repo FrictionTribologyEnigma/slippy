@@ -544,7 +544,7 @@ class RandomSurface(_Surface):
             self.is_descrete = True
         return
 
-
+# TODO get rid of kwargs here
 def surface_like(target_surface: Surface, extent: typing.Union[str, tuple] = 'original',
                  grid_spacing: typing.Union[str, float] = 'original',
                  filter_shape: typing.Sequence = (35, 35), **kwargs):

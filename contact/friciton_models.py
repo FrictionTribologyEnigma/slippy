@@ -11,5 +11,6 @@ class _FrictionModel(ABC):
     def friction_force(self):
         raise NotImplementedError("This method must be overwritten")
 
+
 def friction_model():
     pass

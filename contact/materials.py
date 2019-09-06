@@ -3,7 +3,7 @@ import collections
 import typing
 import warnings
 from itertools import product
-
+from slippy.abcs import _MaterialABC
 import numpy as np
 from scipy.signal import fftconvolve
 from ._material_utils import _get_properties, Loads, Displacements, convert_dict
@@ -12,7 +12,7 @@ __all__ = ["Elastic", "_Material", "rigid"]
 
 
 # The base class for materials contains all the itteration functionality for contacts
-class _Material(abc.ABC):
+class _Material(_MaterialABC):
     """ A class for describing material behaviour, the materials do the heavy lifting for the contact mechanics analysis
     """
     material_type: str
@@ -225,7 +225,7 @@ class _Material(abc.ABC):
             length 3 of numpy arrays or None. The surface displacements at each grid point to be solved for.
         span : tuple
             The span of the influence matrix in grid points defaults to same as the surface size
-        grid_spacing : float, optional (None)
+        grid_spacing : float
             The grid spacing only needed if surface is an array
         simple : bool, optional (True)
             If true only deflections in the directions of the loads are calculated, only the Cxx, Cyy and Czz components
@@ -243,6 +243,9 @@ class _Material(abc.ABC):
             Loads object of arrays of surface loads with fileds 'x' 'y' and 'z', if simple is True loads will only be
             defined in the same direction as the displacements were specified, in other directions the filed will be
             None
+        displacements : tuple
+            Tuple of Displacement namedtuples the first element is the total deflection, the remaining 2 are for this
+            surface and the other surface (if the other surface is given)
 
         See Also
         --------

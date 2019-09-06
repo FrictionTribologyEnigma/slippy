@@ -21,11 +21,6 @@ Classes for generating pseudo-random surfaces based on description of FFT:
 
 #TODO:
         doc strings
-        add DtmnFreqSurface
-        cheange Prob and dtm to allow for more descriptios of FFTs inc passing
-        actual functions and some built in functions
-        overide resampling function should resample based on the FFT not simple intep
-        make work with generate keyword
 """
 
 from .Surface_class import _AnalyticalSurface

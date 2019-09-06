@@ -18,7 +18,6 @@ Classes for generating geometric surfaces:
     ===========================================================================
     ===========================================================================
 
-#TODO: make use of the rotaion and shift stuff in _AnalyticalSurface
 """
 
 __all__ = ['FlatSurface', 'RoundSurface', 'PyramidSurface']
@@ -61,7 +60,7 @@ class FlatSurface(_AnalyticalSurface):
     surface_type = 'flat'
     analytic = True
 
-    def __init__(self, slope: tuple = (0, 0), rotation: Number = 0,
+    def __init__(self, slope: tuple = (0, 0), rotation: float = 0,
                  shift: typing.Union[tuple, str] = 'origin to centre',
                  generate: bool = False, grid_spacing: float = None,
                  extent: tuple = None, shape: tuple = None):
@@ -138,7 +137,7 @@ class RoundSurface(_AnalyticalSurface):
     """
     radius: tuple
 
-    def __init__(self, radius: tuple, rotation: Number = 0,
+    def __init__(self, radius: tuple, rotation: float = 0,
                  shift: typing.Union[tuple, str] = 'origin to centre',
                  generate: bool = False, grid_spacing: float = None,
                  extent: tuple = None, shape: tuple = None):
@@ -186,7 +185,7 @@ class RoundSurface(_AnalyticalSurface):
 
     def __repr__(self):
         string = self._repr_helper()
-        return 'RoundSurface(slope=' + repr(self._radius) + string + ')'
+        return 'RoundSurface(radius=' + repr(self._radius) + string + ')'
 
 
 class PyramidSurface(_AnalyticalSurface):
@@ -218,7 +217,7 @@ class PyramidSurface(_AnalyticalSurface):
     """
     surface_type = 'pyramid'
 
-    def __init__(self, lengths, rotation: Number = 0,
+    def __init__(self, lengths, rotation: float = 0,
                  shift: typing.Union[tuple, str] = 'origin to centre',
                  generate: bool = False, grid_spacing: float = None,
                  extent: tuple = None, shape: tuple = None):
@@ -260,8 +259,8 @@ class PyramidSurface(_AnalyticalSurface):
         >>> X, Y = np.meshgrid(x,y)
         >>> Z=my_surface.height(X, Y)
         """
-        return (0 - x_mesh / self._lengths[0] - y_mesh / self._lengths[1]) * self._lengths[-1]
+        return (0 - np.abs(x_mesh) / self._lengths[0] - np.abs(y_mesh) / self._lengths[1]) * self._lengths[-1]
 
     def __repr__(self):
         string = self._repr_helper()
-        return 'PyramidSurface(slope=' + repr(self._lengths) + string + ')'
+        return 'PyramidSurface(lengths=' + repr(self._lengths) + string + ')'

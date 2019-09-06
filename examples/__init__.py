@@ -18,5 +18,6 @@ The last command will open your default notebooks folder, navigate to this packa
 
 Examples in the forlder are:
 
-
+Recreating the hertz solution numerically (static contact between two elastic bodies
 """
+
