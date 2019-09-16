@@ -6,7 +6,7 @@ from itertools import product
 from slippy.abcs import _MaterialABC
 import numpy as np
 from scipy.signal import fftconvolve
-from ._material_utils import _get_properties, Loads, Displacements, convert_dict
+from ._material_utils import _get_properties, Loads, Displacements
 
 __all__ = ["Elastic", "_Material", "rigid"]
 
@@ -109,18 +109,19 @@ class _Material(_MaterialABC):
         --------
 
         """
-
-        if type(loads) is dict:
-            try:
-                loads = Loads(**{key: np.array(value, dtype=float) for key, value in loads.items()})
-            except TypeError:
-                raise ValueError("Unrecognised keys in loads dict, allowed keys are x,y,z found keys are: "
-                                 f"{', '.join(loads.keys())}")
-        elif isinstance(loads, collections.Sequence):
-            try:
-                loads = Loads(*[np.array(ld, dtype=float) for ld in loads])
-            except TypeError:
-                raise ValueError(f"length of the loads sequence must be 3, length is {len(loads)}")
+        if not isinstance(loads, Loads):
+            if type(loads) is dict:
+                try:
+                    loads = {key: value for key, value in loads if value is not None}
+                    loads = Loads(**{key: np.array(value, dtype=float) for key, value in loads.items()})
+                except TypeError:
+                    raise ValueError("Unrecognised keys in loads dict, allowed keys are x,y,z found keys are: "
+                                     f"{', '.join(loads.keys())}")
+            elif isinstance(loads, collections.Sequence):
+                try:
+                    loads = Loads(*[np.array(ld, dtype=float) if ld is not None else None for ld in loads])
+                except TypeError:
+                    raise ValueError(f"length of the loads sequence must be 3, length is {len(loads)}")
 
         valid_directions = 'xyz'
         load_directions = [vd for vd, el in zip(valid_directions, loads) if el is not None]
@@ -155,7 +156,7 @@ class _Material(_MaterialABC):
         return displacements
 
     @staticmethod
-    def _solve_im_loading(loads, components):
+    def _solve_im_loading(loads, components) -> Displacements:
         """The meat of the elastic loading algorithm
 
         Parameters
@@ -170,8 +171,8 @@ class _Material(_MaterialABC):
 
         Returns
         -------
-        displacements : dict
-            dict of N by M arrays of surface displacements with labels 'x', 'y',
+        displacements : Displacements
+            namedtuple of N by M arrays of surface displacements with labels 'x', 'y',
             'z'
 
         See Also
@@ -202,12 +203,12 @@ class _Material(_MaterialABC):
             load_name = c_name[1]
             dis_name = c_name[0]
             dis_comp = displacements.__getattribute__(dis_name)
-            dis_comp += fftconvolve(loads[load_name], component, mode='same')
+            dis_comp += fftconvolve(loads.__getattribute__(load_name), component, mode='same')
         return displacements
 
     def loads_from_surface_displacement(self,
-                                        displacements: {dict, Displacements,
-                                                        typing.Sequence[typing.Optional[np.ndarray]]},
+                                        displacements: typing.Union[dict, Displacements,
+                                                                    typing.Sequence[typing.Optional[np.ndarray]]],
                                         grid_spacing: {typing.Sequence[float], float},
                                         other: typing.Optional['_Material'] = None,
                                         span: typing.Sequence[int] = None,
@@ -263,18 +264,19 @@ class _Material(_MaterialABC):
         Complete boundry element formulation for normal and tangential contact
 
         """
-        if type(displacements) is dict:
-            try:
-                displacements = Displacements(
-                    **{key: np.array(value, dtype=float) for key, value in displacements.items()})
-            except TypeError:
-                raise ValueError(
-                    f'Unexpected key in displacements dict, valid keys are "x", "y", "z", found keys are: '
-                    f'{", ".join(displacements.keys())}')
-        elif isinstance(displacements, collections.Sequence):
-            if len(displacements) != 3:
-                raise ValueError(f"Deflections sequence must be length 3, length is: {len(displacements)}")
-            displacements = Displacements(*[np.array(de, dtype=float) for de in displacements])
+        if not isinstance(displacements, Displacements):
+            if type(displacements) is dict:
+                try:
+                    displacements = Displacements(**{key: np.array(value, dtype=float) for key, value in
+                                                     displacements.items() if value is not None})
+                except TypeError:
+                    raise ValueError(
+                        f'Unexpected key in displacements dict, valid keys are "x", "y", "z", found keys are: '
+                        f'{", ".join(displacements.keys())}')
+            elif isinstance(displacements, collections.Sequence):
+                if len(displacements) != 3:
+                    raise ValueError(f"Deflections sequence must be length 3, length is: {len(displacements)}")
+                displacements = Displacements(*[np.array(de, dtype=float) for de in displacements if de is not None])
 
         shapes = [el.shape for el in displacements if el is not None]
         valid_directions = 'xyz'
@@ -303,8 +305,9 @@ class _Material(_MaterialABC):
         # get componets of the influence matrix
         if other is None:
             components = self.fft_influence_matrix(grid_spacing=grid_spacing, span=span, components=comp_names)
+            initial_guess = self.guess_loads_from_displacement(displacements, grid_spacing, components)
             loads, full_deflections = self._solve_im_displacement(displacements=displacements, components=components,
-                                                                  max_it=max_it, tol=tol)
+                                                                  max_it=max_it, tol=tol, initial_guess=initial_guess)
             return loads, (full_deflections,)
 
         # other is not None
@@ -317,14 +320,17 @@ class _Material(_MaterialABC):
             for comp in comp_names:
                 combined_components[comp] = components_self[comp] + components_other[comp]
             # solve the problem
+            initial_guess = self.guess_loads_from_displacement(displacements, grid_spacing, combined_components)
             loads, full_deflections = self._solve_im_displacement(displacements=displacements,
                                                                   components=combined_components,
-                                                                  max_it=max_it, tol=tol)
+                                                                  max_it=max_it, tol=tol, initial_guess=initial_guess)
             # split up the deflections by surface
             deflections_1 = self.displacement_from_surface_loads(loads=loads, grid_spacing=grid_spacing,
-                                                                 deflections='xyz', simple=simple, span=span)
+                                                                 deflections=''.join(def_directions), simple=simple,
+                                                                 span=span)
             deflections_2 = other.displacement_from_surface_loads(loads=loads, grid_spacing=grid_spacing,
-                                                                  deflections='xyz', simple=simple, span=span)
+                                                                  deflections=''.join(def_directions), simple=simple,
+                                                                  span=span)
 
             return loads, (full_deflections, deflections_1, deflections_2)
 
@@ -334,6 +340,42 @@ class _Material(_MaterialABC):
         # if you got here then this, the other surface or both have no influence matrix method, so we have to iterate
         # on the sum of the displacements using the displacement_from_surface_loads method directly
         # TODO
+
+    @staticmethod
+    def guess_loads_from_displacement(displacements: Displacements, grid_spacing:typing.Sequence, components: dict) -> \
+            Loads:
+        """
+        Defines the starting point for the default loads from displacement method
+
+        This method should be overwritten for non IM based surfaces
+
+        Parameters
+        ----------
+        displacements: Displacements
+            The point wise displacement
+        grid_spacing: float
+            The spacing of the grid points
+        components: dict
+            Dict of influence ematrix components
+
+        Returns
+        -------
+        guess_of_loads: Loads
+            A named tuple of the loads
+        """
+
+        directions = 'xyz'
+
+        loads = dict()
+        for direction in directions:
+            if displacements.__getattribute__(direction) is None:
+                continue
+            max_im = max(components[direction * 2].flatten())
+            load = displacements.__getattribute__(direction)*max_im
+            load = np.nan_to_num(load)
+            loads[direction] = load
+
+        return Loads(**loads)
 
     def _solve_general_displacement(self, other, displacements, components, max_it, tol, simple, span, grid_spacing):
         """
@@ -357,7 +399,7 @@ class _Material(_MaterialABC):
         pass
 
     def _solve_im_displacement(self, displacements: Displacements, components: dict, max_it: int,
-                               tol: float) -> typing.Tuple[Loads, Displacements]:
+                               tol: float, initial_guess: Loads) -> typing.Tuple[Loads, Displacements]:
         """ The meat of the elastic deflection algorithm
 
         Split away from the main function to allow for faster compuation avoiding
@@ -378,6 +420,8 @@ class _Material(_MaterialABC):
         tol : float
             The tolerance on the itterations, the loop is ended when the norm of
             the residual is below tol
+        initial_guess : Loads
+            The initial guess of the surface loads
 
         Returns
         -------
@@ -406,11 +450,8 @@ class _Material(_MaterialABC):
         sub_domain_sizes = {key: np.sum(value) for (key, value) in sub_domains.items()}
 
         # find first residual
-        loads = Loads(np.zeros_like(displacements.__getattribute__(def_directions[0])),
-                      np.zeros_like(displacements.__getattribute__(def_directions[0])),
-                      np.zeros_like(displacements.__getattribute__(def_directions[0])))
-
-        calc_displacements = Displacements(*[np.zeros_like(displacements[def_directions[0]])] * 3)
+        loads = initial_guess
+        calc_displacements = self._solve_im_loading(loads, components)
 
         residual = np.array([])
 
@@ -423,19 +464,23 @@ class _Material(_MaterialABC):
         itnum = 0
         resid_norm = np.linalg.norm(residual)
 
-        while resid_norm > tol:
+        while resid_norm >= tol:
             # put calculated values back into right place
+
             start = 0
+            search_direction_full = dict()
             for dd in def_directions:
                 end = start + sub_domain_sizes[dd]
-                displacements.__getattribute__(dd)[sub_domains[dd]] = search_direction[start:end]
+                search_direction_full[dd] = np.zeros_like(displacements.__getattribute__(dd))
+                search_direction_full[dd][sub_domains[dd]] = search_direction[start:end]
                 start = end
 
-            # find z (equation 25 in ref)
-            calc_displacements = self._solve_im_loading(loads, components)
+            # find z (equation 25 in ref):
+            z_full = self._solve_im_loading(Loads(**search_direction_full), components)
+
             z = np.array([])
             for dd in def_directions:
-                z = np.append(z, calc_displacements.__getattribute__(dd)[sub_domains[dd]])
+                z = np.append(z, z_full.__getattribute__(dd)[sub_domains[dd]])
 
             # find alpha (equation 26)
             alpha = np.matmul(residual, residual) / np.matmul(search_direction, z)
@@ -464,9 +509,6 @@ class _Material(_MaterialABC):
                        f" residual was: {resid_norm}, convergence declared at: {tol}")
                 warnings.warn(msg)
                 break
-
-        calc_displacements = convert_dict(calc_displacements, 'd')
-
         return loads, calc_displacements
 
 
@@ -478,6 +520,7 @@ class Rigid(_Material):
     name: str
         The name of the material
     """
+
     E = None
     v = None
     G = None
@@ -491,6 +534,7 @@ class Rigid(_Material):
     def fft_influence_matrix(self, span: typing.Sequence[int], grid_spacing: typing.Sequence[float],
                              components: typing.Sequence[str]):
         return {comp: np.zeros(span) for comp in components}
+
 
     def displacement_from_surface_loads(self, loads, *args, **kwargs):
         return Displacements(*[np.zeros_like(l) for l in loads])
@@ -563,7 +607,7 @@ class Elastic(_Material):
             self._set_props(*item)
 
     def fft_influence_matrix(self, grid_spacing: {typing.Sequence[float], float}, span: typing.Sequence[int],
-                             component: typing.Union[typing.Sequence[str], str], other: _Material = None):
+                             components: typing.Union[typing.Sequence[str], str], other: _Material = None):
         """
         Influence matrix for an elastic material
 
@@ -573,7 +617,7 @@ class Elastic(_Material):
             The spacing between grid points in the x and y directions
         span: tuple
             The span required in the x and y directions in number of grid points
-        component: str or Sequence {'xx','xy','xz','yx','yy','yz','zx','zy','zz','all'}
+        components: str or Sequence {'xx','xy','xz','yx','yy','yz','zx','zy','zz','all'}
             The required components eg the 'xy' component represents the x
             deflection caused by loads in the y direction
         other: _Material
@@ -624,6 +668,7 @@ class Elastic(_Material):
         contact problems
 
         """
+
         if other is not None:
             if isinstance(other, Elastic) or isinstance(other, Rigid):
                 shear_modulus_2 = other.G
@@ -642,28 +687,28 @@ class Elastic(_Material):
         if len(grid_spacing) == 1:
             grid_spacing *= 2
 
-        if component == 'all':
-            component = ['xx', 'xy', 'xz', 'yx', 'yy', 'yz', 'zx', 'zy', 'zz']
+        if components == 'all':
+            components = ['xx', 'xy', 'xz', 'yx', 'yy', 'yz', 'zx', 'zy', 'zz']
 
-        component = {comp: None for comp in component}
+        components = {comp: None for comp in components}
 
         if self._im_spec_tuple == (shear_modulus, v, shear_modulus_2, v_2, grid_spacing, span):
-            for comp in component:
-                component[comp] = self._im_cache[comp]
+            for comp in components:
+                components[comp] = self._im_cache[comp]
         else:
             self._im_spec_tuple = (shear_modulus, v, shear_modulus_2, v_2, grid_spacing, span)
-            self._im_cache = dict()
+            self._im_cache = collections.defaultdict(type(None))
 
-        if not any([item is None for item in component.values()]):
-            return component
+        if not any([item is None for item in components.values()]):
+            return components
 
-        for comp in component:
-            if component[comp] is None:
-                component[comp] = self._elastic_im_getter(span, grid_spacing, shear_modulus, v,
-                                                          comp, shear_mod_2=shear_modulus_2, v_2=v_2)
-                self._im_cache[comp] = component[comp]
+        for comp in components:
+            if components[comp] is None:
+                components[comp] = self._elastic_im_getter(span, grid_spacing, shear_modulus, v,
+                                                           comp, shear_mod_2=shear_modulus_2, v_2=v_2)
+                self._im_cache[comp] = components[comp]
 
-        return component
+        return components
 
     @staticmethod
     def _elastic_im_getter(span: typing.Sequence[int], grid_spacing: typing.Sequence[float], shear_mod: float, v: float,
@@ -728,9 +773,12 @@ class Elastic(_Material):
         hx = grid_spacing[0]
         hy = grid_spacing[1]
 
-        second_surface = shear_mod_2 is not None and v_2 is not None
+        second_surface = (shear_mod_2 is not None) and (v_2 is not None)
+        if not second_surface:
+            v_2 = 1
+            shear_mod_2 = 1
 
-        if shear_mod_2 is not None ^ v_2 is not None:
+        if (shear_mod_2 is not None) != (v_2 is not None):
             raise ValueError('Either both or neither of the second surface parameters must be set')
 
         if comp == 'zz':

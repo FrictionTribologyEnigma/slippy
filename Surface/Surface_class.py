@@ -984,9 +984,9 @@ class _Surface(_SurfaceABC):
 
             if property_to_plot == 'profile':
                 labels = ['Surface profile', 'x', 'y', 'Height']
-                z = self.profile
                 x = self.grid_spacing * np.arange(self.shape[0])
                 y = self.grid_spacing * np.arange(self.shape[1])
+                z = self.profile
 
             elif property_to_plot == 'fft2d':
                 labels = ['Fourier transform of surface', 'u', 'v', '|F(x)|']
@@ -1030,7 +1030,6 @@ class _Surface(_SurfaceABC):
                 raise ValueError("Property not recognised")
 
             mesh_x, mesh_y = np.meshgrid(x, y)
-            print(mesh_x.shape)
 
             if plot_type == 'default' or plot_type == 'surface':
                 ax.plot_surface(mesh_x, mesh_y, np.transpose(z))
@@ -1551,7 +1550,7 @@ class _AnalyticalSurface(_Surface):
     """
     _total_shift: tuple = (0, 0)
     _total_rotation: float = 0
-    _is_analytic = True
+    is_analytic = True
 
     def __init__(self, generate: bool = False, rotation: Number = 0,
                  shift: typing.Union[str, tuple] = 'origin to centre',

@@ -1,13 +1,62 @@
-from .models import ContactModel
 import typing
 import numpy as np
-from slippy.abcs import _SurfaceABC
+from slippy.abcs import _ContactModelABC
 
-__all__ = ['get_gap_from_model']
+__all__ = ['get_gap_from_model', 'non_dimentional_height']
+
+
+def non_dimentional_height(height: float, youngs: float, v: float, load: float, gs_x: float, gs_y: float = None,
+                           inverse: bool = False, return_uz: bool = False):
+    """Gives the non dimentional height from a dimentional height
+
+    Parameters
+    ----------
+    height: float
+        The height to be dimentionalised
+    youngs: float
+        The youngs modulus of the material
+    v: float
+        The poission's ratio of the material
+    load: float
+        The total load on the contact
+    gs_x: float
+        The grid spacing of the descretiation grid in the x direction
+    gs_y: float, optional (None)
+        The grid spacing of the descretisation grid in the y direction, if None it is assumed that the grid is square
+    inverse: bool, optional (False)
+        If set to True the height will be re dimentionalised, else it will be non dimentionalised
+    return_uz: bool, optional (False)
+        If True the descriptive height uz will be returned
+
+    Returns
+    -------
+    non_dimentional_height: float
+        or the dimentioalised height if inverse is set to True
+
+    Notes
+    -----
+    The hegiht is non dimentionalised by dividing by the displacement caused by a the load on a single grid square:
+    H = h/u_z
+    u_z found according to equation 3.25 in the referance
+
+    References
+    ----------
+    """
+    a = gs_x
+    b = gs_x if gs_y is None else gs_y
+    c = (a**2+b**2)**0.5
+    big_a = 2*a*np.log((b+c)/(c-b)) + 2*b*np.log((a+c)/(c-a))
+    uz = big_a * load * (1-v**2) / np.pi / youngs / a / b
+    if return_uz:
+        return uz
+    if inverse:
+        return height*uz
+    else:
+        return height/uz
 
 
 # noinspection PyUnresolvedReferences
-def get_gap_from_model(model: ContactModel, interferance: float,
+def get_gap_from_model(model: _ContactModelABC, interferance: float,
                        off_set: typing.Sequence = (0, 0), mode: str = 'nearest',
                        periodic: bool = False):
     """
@@ -41,6 +90,8 @@ def get_gap_from_model(model: ContactModel, interferance: float,
     --------
     slippy.surface._Surface.interpolate
     """
+    if not isinstance(model, _ContactModelABC):
+        raise ValueError("Model must be a contact model object")
     # Type checking
     if len(off_set) != 2:
         raise ValueError("off_set should be a two element sequence")
@@ -74,18 +125,18 @@ def get_gap_from_model(model: ContactModel, interferance: float,
             assert sub_1.shape == contact_points_1.shape == contact_points_2.shape
         # interpolate using the required technique
         sub_2 = model.surface_2.interpolate(*contact_points_2, mode=mode)
-        point_wise_interferance = sub_1 - sub_2
+        point_wise_interferance = sub_2 - sub_1
         point_wise_interferance -= min(point_wise_interferance.flatten()) + interferance
 
     else:  # model.surface_2 is not descrete
-        if not model.surface_2.is_analytical:
+        if not model.surface_2.is_analytic:
             raise ValueError("The second surface is not descretised or an analytical surface the interferance "
                              "between the surfaces cannot be found")
         # find overlap extents (same as periodic)
         contact_points_1 = model.surface_1.get_points_from_extent()
         contact_points_2 = contact_points_1[0] - off_set[0], contact_points_1[1] - off_set[1]
         # call the height function on the second surface
-        point_wise_interferance = model.surface_1.profile - model.surface_2.height(*contact_points_2)
+        point_wise_interferance = model.surface_2.height(*contact_points_2) - model.surface_1.profile
         point_wise_interferance -= min(point_wise_interferance.flatten()) + interferance
 
     return point_wise_interferance, contact_points_1, contact_points_2

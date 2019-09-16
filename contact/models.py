@@ -47,11 +47,15 @@ class ContactModel(_ContactModelABC):
         self.surface_1 = surface_1
         self.surface_2 = surface_2
         self.name = name
-        self.lubricant_model = lubricant
-        self.friciton_model = friction
-        self.adhesion = adhesion
-        self.wear_model = wear_model
-        self.steps = OrderedDict({'Initial': InitialStep(self)})
+        if lubricant is not None:
+            self.lubricant_model = lubricant
+        if friction is not None:
+            self.friciton_model = friction
+        if adhesion is not None:
+            self.adhesion = adhesion
+        if wear_model is not None:
+            self.wear_model = wear_model
+        self.steps = OrderedDict({'Initial': InitialStep()})
         if log_file_name is None:
             log_file_name = name
         self.log_file_name = log_file_name + '.log'
@@ -197,17 +201,13 @@ class ContactModel(_ContactModelABC):
         """
         pass
 
-    def add_step(self, step_name: str, *, step_instance: _ModelStep = None,
-                 position: {int, str}=None):
+    def add_step(self, step_instance: _ModelStep = None, position: {int, str}=None):
         """ Adds a solution stepe to the current model
         
         Parameters
         ----------
         step_instance: _ModelStep
             An instance of a model step
-        step_name : str
-            A unique name given to the step, used to specify when outputs 
-            should be recorded
         position : {int, 'last'}, optional ('last')
             The position of the step in the existing order
         
@@ -233,9 +233,10 @@ class ContactModel(_ContactModelABC):
         if step_instance is None:
             new_step = step(self)
         else:
-            if step_instance.model is not self:
-                raise ValueError("The step instance should be made by passing this model to the constructor")
             new_step = step_instance
+
+        step_name = step_instance.name
+        step_instance.model = self
 
         if position is None:
             self.steps[step_name] = new_step
@@ -357,8 +358,11 @@ class ContactModel(_ContactModelABC):
 
                 self._model_check()
 
+                current_state = None
+
                 for this_step in self.steps:
-                    self.steps[this_step]._data_check()
+                    print(f"Checking step: {this_step}")
+                    current_state = self.steps[this_step]._data_check(current_state)
 
     def _model_check(self):
         """
@@ -373,12 +377,29 @@ class ContactModel(_ContactModelABC):
         pass
         # TODO
 
-    def solve(self, output_file_name: str = None, verbose: bool = False):
+    def solve(self, output_file_name: str = None, verbose: bool = False, skip_data_check: bool = False):
+        """
+        Solve all steps in the model
+
+        Parameters
+        ----------
+        output_file_name: str, optional (None)
+            The file name of the output file (not including the extention) if None the file name defaults to the same as
+            the model name set on instantiton
+        verbose: bool optional (False)
+            If True, logs are written to the console instead of the log file
+        skip_data_check: bool, optional (False)
+            If True the data check will be skipped, this is not recommended but may be necessary for some steps
+
+        Returns
+        -------
+
+        """
         if output_file_name is None:
             if self.output_file_name is None:
-                self.output_file_name = self.name + 'sdb'
+                self.output_file_name = self.name + '.sdb'
         else:
-            self.output_file_name = output_file_name + 'sdb'
+            self.output_file_name = output_file_name + '.sdb'
 
         current_state = None
         try:
@@ -389,16 +410,19 @@ class ContactModel(_ContactModelABC):
         with ExitStack() as stack:
             output_file = stack.enter_context(open(self.output_file_name, 'wb+'))
             if not verbose:
-                log_file = stack.enter_context(open(output_file_name, 'a+'))
+                log_file = stack.enter_context(open(self.log_file_name, 'a+'))
                 stack.enter_context(redirect_stdout(log_file))
 
-            self.data_check()
+            if not skip_data_check:
+                self.data_check()
 
             for this_step in self.steps:
-                this_step._solve(current_state, log_file, output_file)
+                print(f"Solving step {this_step}")
+                current_state = self.steps[this_step]._solve(current_state, output_file)
 
             now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             print(f"Analysis completed sucessfully at: {now}")
+        return current_state
 
     def __repr__(self):
         return (f'ContactModel(surface1 = {repr(self.surface_1)}, '

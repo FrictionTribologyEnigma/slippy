@@ -1,5 +1,7 @@
 from slippy.abcs import _ContactModelABC, _StepABC
 import abc
+import typing
+import pickle
 
 __all__ = ['step', '_ModelStep', 'InitialStep']
 
@@ -69,9 +71,8 @@ class _ModelStep(_StepABC):
     _model: _ContactModelABC = None
     _subclass_registry = []
 
-    def __init__(self, step_name: str, model: _ContactModelABC):
+    def __init__(self, step_name: str):
         self.name = step_name
-        self.model = model
         if self._options is None or self.name is None:
             raise ValueError("Step has not been instantiated correctly")
 
@@ -145,11 +146,26 @@ class _ModelStep(_StepABC):
         """
         raise NotImplementedError()
 
+    def save_outputs(self, current_state:typing.Union[dict, set], output_file=None, data_check=False):
+        # TODO should check the ouput requests to see if there are any needed in this step (memoise this result) then
+        #  save the requested ouputs if data_check is true just work like a data check (checking that the required
+        #  things are present in the set,
+        if data_check:
+            return
+        else:
+            pickle.dump(current_state, output_file)
+
+    def solve_sub_models(self, current_state: typing.Union[dict, set], data_check = False):
+        # TODO this should solve the models like flash temperature, wear etc. should just update the current state dict
+        return current_state
+
 
 class InitialStep(_ModelStep):
     """
     The initial step run at the start of each model
     """
+
+    _options = True
 
     @classmethod
     def new_step(cls, model):
@@ -157,12 +173,9 @@ class InitialStep(_ModelStep):
 
     # Should calculate the just touching postion of two surfaces, set inital guesses etc.
     separation: float = 0.0
-    requires = tuple()
-    gives = ('separation',)
-    gives_optional = tuple()
 
-    def __init__(self, model: _ContactModelABC, step_name: str = 'initial', separation: float = None):
-        super().__init__(step_name=step_name, model=model)
+    def __init__(self, step_name: str = 'initial', separation: float = None):
+        super().__init__(step_name=step_name)
         if separation is not None:
             self.separation = float(separation)
 
@@ -184,6 +197,7 @@ class InitialStep(_ModelStep):
             raise ValueError("Steps have been run out of order, the initial step should always be run first")
         current_state = dict()
         current_state['off_set'] = (0, 0)
+        return current_state
 
     def __repr__(self):
         return f'InitialStep(model = {str(self.model)}, name = {self.name})'

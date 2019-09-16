@@ -19,10 +19,9 @@ All should return a current state dict...?
 """
 
 from slippy.contact.steps import _ModelStep
-from slippy.abcs import _ContactModelABC
 from collections import namedtuple
 import scipy.optimize as optimize
-from slippy.contact._model_utils import get_gap_from_model
+from slippy.contact._model_utils import get_gap_from_model, non_dimentional_height
 import typing
 from slippy.contact import Displacements, Loads
 import numpy as np
@@ -31,9 +30,10 @@ __all__ = ['StaticNormalLoad', 'StaticNormalInterferance', 'ClosurePlot', 'PullO
            'SurfaceLoading']
 
 StaticStepOptions = namedtuple('StaticStepOptions', ['influence_matrix_span', 'simple',
-                                                     'maxit_load_loop', 'rtol_load_loop', 'maxit_disp_loop',
-                                                     'rtol_disp_loop', 'periodic', 'interpolation_mode'],
-                               defaults=(None, )*8)
+                                                     'maxit_load_loop', 'atol_load_loop', 'rtol_load_loop',
+                                                     'maxit_disp_loop', 'rtol_disp_loop', 'periodic',
+                                                     'interpolation_mode'],
+                               defaults=(None, )*9)
 
 
 class StaticNormalLoad(_ModelStep):
@@ -42,23 +42,65 @@ class StaticNormalLoad(_ModelStep):
 
     Parameters
     ----------
-    load_x, load_y, load_z: float
+    step_name: str
+        The name of the step
+    load_z: float
         Loads in each of the principal directions.
+    influence_matrix_span: tuple, optional (None)
+        The span of the influence matrix (if the materials are influence matrix based) if none, this defaults to the
+        same as the surface size
+    relative_off_set: tuple, optional (None)
+        The relative off set betwee nsurface 1 and surface 2 (relative to the offset at the start of the step) only one
+        off set can be specified
+    absolute_off_set: tuple, optional (None)
+        The absolute off set between surface 1 and surface 2 (off set between the origins of the surfaces)
+        only one offset can be specified
+    maxit_load_loop: int, optional (100)
+        The maximum number of iterations before the loading loop exits. For definitions of the optimisation loops see
+        the notes section
+    rtol_load_loop: float, optional (1e-6)
+        The relative tolerance on the height of the second surface, when this tolerance is reached the loop will
+        converge.
+    atol_load_loop: float, optional (None)
+        The absolute tolerance on the load loop
+    maxit_disp_loop: int, optional (100)
+        The maximum number of iterations on the dispplacement loop, for definitions of the optimisation loops see the
+        Notes
+    rtol_disp_loop: float, optional (1e-4)
+        The relative tolerance on the displacement loop
+    simple: bool, optional (True)
+        If true loads will only cause displacements in their own direction, see notes for details
+    interpolation_mode: str {'nearest', 'linear', 'quadratic'}, optional ('nearest')
+        The interpolation mode to be used on the second surface, only used if the second surface is not analytical
+    periodic: bool, optional (False)
+        If true the second surface is considered periodic for the interferance detection step, surfaces are always
+        considered periodic for the loading step (This is a fundamental assumption of the FFT BEM technique)
+
+    Notes
+    -----
+    For each iteration of the loading loop the height of the second surface is adjusted, the interferance between the
+    surfaces found and the loads on the surfaces needed to cause deformation equal to the interferance are found.
+
+    The displacement is solved for each iteration of the load loop, this is the step in the computation in which the
+    loads on the surface needed to cause a specified displacement are found.
     """
     _load: Loads = None
-    _off_set: tuple = None
+    _off_set: tuple = (0, 0)
     _abs_off_set: bool = False
 
-    def __init__(self, step_name: str, model: _ContactModelABC, load_x: float, load_y: float, load_z: float,
-                 influence_matrix_span: tuple, relative_off_set: tuple = None,
+    def __init__(self, step_name: str, load_z: float,
+                 influence_matrix_span: tuple = None, relative_off_set: tuple = None,
                  absolute_off_set: typing.Optional[tuple] = None, maxit_load_loop: int = 100,
-                 rtol_load_loop: float = 1e-4, maxit_disp_loop: int = 100, rtol_disp_loop: float = 1e-4,
-                 simple: bool = True, interpolation_mode: str = 'nearest', periodic: bool = False):
-        self._load = Loads(load_x, load_y, load_z)
+                 rtol_load_loop: float = None, atol_load_loop: float = None, maxit_disp_loop: int = 100,
+                 rtol_disp_loop: float = 1e-8, simple: bool = True, interpolation_mode: str = 'nearest',
+                 periodic: bool = False):
+        if rtol_load_loop is None and atol_load_loop is None:
+            rtol_load_loop = 1e-6
+        self._load = Loads(z=load_z, x=None, y=None)
         self._options = StaticStepOptions(influence_matrix_span=influence_matrix_span, maxit_disp_loop=maxit_disp_loop,
                                           maxit_load_loop=maxit_load_loop, rtol_disp_loop=rtol_disp_loop,
-                                          rtol_load_loop=rtol_load_loop, simple=simple, periodic=periodic,
-                                          interpolation_mode=interpolation_mode)
+                                          atol_load_loop=atol_load_loop, simple=simple, periodic=periodic,
+                                          interpolation_mode=interpolation_mode, rtol_load_loop=rtol_load_loop)
         if relative_off_set is None:
             if absolute_off_set is None:
                 self._off_set = (0, 0)
@@ -73,13 +115,14 @@ class StaticNormalLoad(_ModelStep):
             self._off_set = relative_off_set
             self._abs_off_set = False
 
-        super().__init__(step_name, model)
+        super().__init__(step_name)
 
     def _data_check(self, previous_state: set):
         # check that both surfaces are defined, both materials are defined, if there is a tangential load check that
         # there is a friction model defined, print all of this to console, update the current_state set, delete the
         # previous state?
-        current_state = previous_state
+        current_state = {'loads', 'surface_1_disp', 'surface_2_disp', 'total_disp', 'undeformed_gap', 'interferance'}
+
         return current_state
 
     def _solve(self, current_state: dict, output_file):
@@ -98,12 +141,27 @@ class StaticNormalLoad(_ModelStep):
                                                          mode=opt.interpolation_mode, periodic=opt.periodic)
 
         results = dict()
+        it = 0
+        try:
+            uz = non_dimentional_height(1, surf_1.material.E, surf_1.material.v, self._load.z, surf_1.grid_spacing,
+                                        return_uz=True)
+        except AttributeError:
+            uz = 1
+
+        print(f'uz = {uz}')
 
         def opt_func(height):
-            nonlocal results
+            nonlocal results, it
+            height *= uz
+            it += 1
             z = -1*np.clip(gap-height, None, 0)
+
             z[z == 0] = np.nan
-            displacements = Displacements(z=z)
+
+            contact_nodes = np.logical_not(np.isnan(z))
+
+            displacements = Displacements(z=z, x=None, y=None)
+
             loads, disp_tup = surf_1.material.loads_from_surface_displacement(displacements=displacements,
                                                                               grid_spacing=surf_1.grid_spacing,
                                                                               other=surf_2.material,
@@ -115,21 +173,52 @@ class StaticNormalLoad(_ModelStep):
             results['total_disp'] = disp_tup[0]
             results['surf_1_disp'] = disp_tup[1]
             results['surf_2_disp'] = disp_tup[2]
-            return abs(sum(loads.z.flatten())-self._load.z)/self._load.z
+            results['contact_nodes'] = contact_nodes
+            print(f'Iteration {it}:')
+            print(f'Height is: {height}')
+            print(f'Total interferance is: {np.sum(z[np.logical_not(np.isnan(z))].flatten())}')
+            print(f'Percentage of nodes in contact: {sum(contact_nodes.flatten())/contact_nodes.size}')
+            set_load = self._load.z
+            print(f'Target load is: {set_load}')
 
-        opt_result = optimize.minimize_scalar(opt_func, tol=opt.rtol_load_loop, options={'maxiter': opt.maxit_load_loop,
-                                                                                         'disp': True})
+            total_load = np.sum(loads.z.flatten())*self.model.surface_1.grid_spacing**2
+            print(f'Total load is: {total_load}')
+            return total_load-set_load
+
+        # need to set bounds and pick a sensible starting point
+        upper = 5*max(gap.flatten())/uz
+
+        print(f'upper bound set at: {upper}')
+        axtol = opt.atol_load_loop
+        print(f'Interferance tolerance set to {axtol}')
+
+        # TODO implement initial guesses
+
+        opt_result = optimize.root_scalar(opt_func, bracket=(0, upper), rtol=opt.rtol_load_loop,
+                                          xtol=opt.atol_load_loop, maxiter=opt.maxit_load_loop)
+
+        # opt_result = optimize.minimize_scalar(opt_func, bounds=(0, upper),
+        #                                      options={'maxiter': opt.maxit_load_loop, 'xatol': axtol},
+        #                                      method='bounded')  # tol = max(gap.flatten())*opt.rtol_load_loop/uz
+        current_state.update(results)
+        current_state['gap'] = gap
+        # check the solution is reasnoble (check not 100% contact) check that the achived load is similar to the actual load, check that the loop converged
+        # TODO
+
         # solve the tangential problem: either specified load or displacement
+        # TODO
 
         # find the loads on surface 1, 2
-        current_state['interferance'] = opt_result.x
+        current_state['interferance'] = opt_result.root*uz
 
         # check out put requests, check optional extra stuff that can be truned on?????
+        self.solve_sub_models(current_state)
+        self.save_outputs(current_state, output_file)
 
-        return results, current_state
+        return current_state
 
     def __repr__(self):
-        pass
+        return 'Not yet sorry'
 
     @classmethod
     def new_step(cls, model):
@@ -141,8 +230,8 @@ class StaticNormalInterferance(_ModelStep):
     Static interferance between two surfaces
     """
 
-    def __init__(self, step_name: str, model: _ContactModelABC):
-        super().__init__(step_name, model)
+    def __init__(self, step_name: str):
+        super().__init__(step_name)
 
     def _data_check(self, current_state):
         pass
@@ -163,8 +252,8 @@ class ClosurePlot(_ModelStep):
     Generate a closure plot for static contact between two surfaces
     """
 
-    def __init__(self, step_name: str, model: _ContactModelABC):
-        super().__init__(step_name, model)
+    def __init__(self, step_name: str):
+        super().__init__(step_name)
 
     def _data_check(self, current_state):
         pass
@@ -181,8 +270,8 @@ class ClosurePlot(_ModelStep):
 
 
 class PullOff(_ModelStep):
-    def __init__(self, step_name: str, model: _ContactModelABC):
-        super().__init__(step_name, model)
+    def __init__(self, step_name: str):
+        super().__init__(step_name)
 
     def _data_check(self, current_state):
         pass
@@ -204,8 +293,8 @@ class SurfaceLoading(_ModelStep):
     """
     _surfaces_required = 1
 
-    def __init__(self, step_name: str, model: _ContactModelABC):
-        super().__init__(step_name, model)
+    def __init__(self, step_name: str):
+        super().__init__(step_name)
 
     def _data_check(self, current_state):
         pass
@@ -227,8 +316,8 @@ class SurfaceDisplacement(_ModelStep):
     """
     _surfaces_required = 1
 
-    def __init__(self, step_name: str, model: _ContactModelABC):
-        super().__init__(step_name, model)
+    def __init__(self, step_name: str):
+        super().__init__(step_name)
 
     def _data_check(self, current_state):
         pass

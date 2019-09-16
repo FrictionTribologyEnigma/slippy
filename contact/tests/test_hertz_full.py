@@ -209,3 +209,4 @@ if __name__ == '__main__':
     test_hertz_full_line()
     test_hertz_full_elliptical()
     test_infinite_modulus()
+    # TODO test against hertz_solve

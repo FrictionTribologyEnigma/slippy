@@ -64,11 +64,11 @@ def test_elastic():
     steel.density = 7890
     sss = steel.speed_of_sound()
     assert 5800 < sss['p'] < 5900
-    im = steel.fft_influence_matrix(grid_spacing=round_surface.grid_spacing, span=[5, 5], component='zz')
+    im = steel.fft_influence_matrix(grid_spacing=round_surface.grid_spacing, span=[5, 5], components='zz')
     # make sure that the memorisation is using
-    im2 = steel.fft_influence_matrix(grid_spacing=round_surface.grid_spacing, span=[5, 5], component=['zz'])
+    im2 = steel.fft_influence_matrix(grid_spacing=round_surface.grid_spacing, span=[5, 5], components=['zz'])
     assert im is im2
-    im3 = steel.fft_influence_matrix(grid_spacing=round_surface.grid_spacing, span=[128, 128], component=['zz'])
+    im3 = steel.fft_influence_matrix(grid_spacing=round_surface.grid_spacing, span=[128, 128], components=['zz'])
     assert im3 is not im2
     # test surface loading against analytical solutions
     edge_vector = np.linspace(-1, 1, 127)
