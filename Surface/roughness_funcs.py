@@ -6,23 +6,28 @@ import scipy.optimize
 import scipy.special
 import typing
 import collections
+from numbers import Number
+from slippy.abcs import _SurfaceABC
 
 __all__ = ['roughness', 'subtract_polynomial', 'get_mat_vr',
            'get_height_of_mat_vr', 'get_summit_curvatures',
            'find_summits', 'low_pass_filter']
 
 
+# noinspection PyTypeChecker
 def _check_surface(surface, grid_spacing):
-    if hasattr(surface, '_profile'):
+    if isinstance(surface, _SurfaceABC):
         p = np.asarray(surface)
         if grid_spacing is None or grid_spacing == float('inf'):
             gs = surface.grid_spacing
             return p, gs
         else:
             return np.asarray(surface), grid_spacing
+    else:
+        return np.asarray(surface), float(grid_spacing)
 
 
-def roughness(profile_in: {np.ndarray, 'Surface'}, parameter_name: {str, typing.Sequence[str]},
+def roughness(profile_in: {np.ndarray, _SurfaceABC}, parameter_name: {str, typing.Sequence[str]},
               grid_spacing: typing.Optional[float] = None,
               mask: typing.Optional[typing.Union[np.ndarray, float]] = None,
               curved_surface: bool = False, no_flattening: bool = False,
@@ -90,7 +95,7 @@ def roughness(profile_in: {np.ndarray, 'Surface'}, parameter_name: {str, typing.
     list of parameter values.
     
     If a parameter based on summit descriptions is needed the key words:
-        filter_cut_off (default False)
+        filter_cut_off (default None)
         and 
         four_nearest (default False) 
     can be set to refine what counts as a summit, see find_summits
@@ -201,7 +206,9 @@ def roughness(profile_in: {np.ndarray, 'Surface'}, parameter_name: {str, typing.
         eta_masked = eta[mask]
 
     # recursive call to allow lists of parmeters to be retived at once
-    if isinstance(parameter_name, collections.Sequence):
+    if not isinstance(parameter_name, str):
+        if not isinstance(parameter_name, collections.Sequence):
+            raise ValueError("Parameter name must be a string or a sequence of strings")
         out = []
         for par_name in parameter_name:
             out.append(roughness(eta, par_name, grid_spacing=grid_spacing,
@@ -818,7 +825,7 @@ def subtract_polynomial(profile: np.ndarray, order: int = 1,
     z_full = profile
 
     if mask is not None:
-        if type(mask) is float:
+        if isinstance(mask, Number):
             if np.isnan(mask):
                 mask = ~np.isnan(profile)
             else:

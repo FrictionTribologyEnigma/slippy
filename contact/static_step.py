@@ -58,7 +58,7 @@ class StaticNormalLoad(_ModelStep):
     maxit_load_loop: int, optional (100)
         The maximum number of iterations before the loading loop exits. For definitions of the optimisation loops see
         the notes section
-    rtol_load_loop: float, optional (1e-6)
+    rtol_load_loop: float, optional (1e-3)
         The relative tolerance on the height of the second surface, when this tolerance is reached the loop will
         converge.
     atol_load_loop: float, optional (None)
@@ -66,7 +66,7 @@ class StaticNormalLoad(_ModelStep):
     maxit_disp_loop: int, optional (100)
         The maximum number of iterations on the dispplacement loop, for definitions of the optimisation loops see the
         Notes
-    rtol_disp_loop: float, optional (1e-4)
+    rtol_disp_loop: float, optional (1e-8)
         The relative tolerance on the displacement loop
     simple: bool, optional (True)
         If true loads will only cause displacements in their own direction, see notes for details
@@ -95,7 +95,7 @@ class StaticNormalLoad(_ModelStep):
                  rtol_disp_loop: float = 1e-8, simple: bool = True, interpolation_mode: str = 'nearest',
                  periodic: bool = False):
         if rtol_load_loop is None and atol_load_loop is None:
-            rtol_load_loop = 1e-6
+            rtol_load_loop = 1e-3
         self._load = Loads(z=load_z, x=None, y=None)
         self._options = StaticStepOptions(influence_matrix_span=influence_matrix_span, maxit_disp_loop=maxit_disp_loop,
                                           maxit_load_loop=maxit_load_loop, rtol_disp_loop=rtol_disp_loop,
@@ -161,14 +161,21 @@ class StaticNormalLoad(_ModelStep):
             contact_nodes = np.logical_not(np.isnan(z))
 
             displacements = Displacements(z=z, x=None, y=None)
+            while True:
+                loads, disp_tup = surf_1.material.loads_from_surface_displacement(displacements=displacements,
+                                                                                  grid_spacing=surf_1.grid_spacing,
+                                                                                  other=surf_2.material,
+                                                                                  span=opt.influence_matrix_span,
+                                                                                  tol=opt.rtol_disp_loop,
+                                                                                  max_it=opt.maxit_disp_loop,
+                                                                                  simple=True)
+                l_neg = loads.z < 0
+                if any(l_neg.flatten()):
+                    displacements.z[l_neg] = np.nan
+                    contact_nodes[l_neg] = False
+                else:
+                    break
 
-            loads, disp_tup = surf_1.material.loads_from_surface_displacement(displacements=displacements,
-                                                                              grid_spacing=surf_1.grid_spacing,
-                                                                              other=surf_2.material,
-                                                                              span=opt.influence_matrix_span,
-                                                                              tol=opt.rtol_disp_loop,
-                                                                              max_it=opt.maxit_disp_loop,
-                                                                              simple=True)
             results['loads'] = loads
             results['total_disp'] = disp_tup[0]
             results['surf_1_disp'] = disp_tup[1]

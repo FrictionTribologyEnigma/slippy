@@ -17,6 +17,8 @@ class _ContactModelABC(abc.ABC):
 
 
 class _SurfaceABC(abc.ABC):
+    grid_spacing: float
+
     pass
 
 

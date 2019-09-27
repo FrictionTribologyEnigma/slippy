@@ -132,7 +132,7 @@ class DiscFreqSurface(_AnalyticalSurface):
     surface_type = 'discreteFreq'
 
     def __init__(self, frequencies, amptitudes: tuple = (1,), phases_rads: tuple = (0,), rotation: Number = 0,
-                 shift: typing.Union[tuple, str] = 'origin to centre',
+                 shift: typing.Optional[tuple] = None,
                  generate: bool = False, grid_spacing: float = None,
                  extent: tuple = None, shape: tuple = None):
 
@@ -205,7 +205,9 @@ class ProbFreqSurface(_AnalyticalSurface):
     def rotate(self, radians: Number):
         raise NotImplementedError("Probabalistic frequency surface cannot be rotated")
 
-    def shift(self, shift: tuple):
+    def shift(self, shift: tuple = None):
+        if shift is None:
+            return
         raise NotImplementedError("Probabalistic frequency surface cannot be shifted")
 
     def _height(self, x_mesh, y_mesh):
@@ -294,8 +296,7 @@ class HurstFractalSurface(_AnalyticalSurface):
 
         coords = np.array([x_mesh.flatten(), y_mesh.flatten()])
 
-        z = np.zeros_like(x_mesh)
-
+        z = np.zeros_like(x_mesh.flatten())
         for idx in range(len(self.qkh)):
             z += np.real(self.mags[idx] * np.exp(-1j * np.dot(self.qkh[idx], coords) * 2 * np.pi))
 
@@ -305,6 +306,14 @@ class HurstFractalSurface(_AnalyticalSurface):
         string = self._repr_helper()
         input_param_string = ', '.join(self.input_params)
         return f'HurstFractalSurface({input_param_string}{string})'
+
+    def rotate(self, radians: Number):
+        raise NotImplementedError("Hurst fractal surface cannot be rotated")
+
+    def shift(self, shift: tuple = None):
+        if shift is None:
+            return
+        raise NotImplementedError("Hurst fractal surface cannot be shifted")
 
 
 def check_coords_are_simple(x_mesh, y_mesh):

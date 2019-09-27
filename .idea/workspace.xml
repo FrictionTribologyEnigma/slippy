@@ -1,0 +1,897 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ChangeListManager">
+    <list default="true" id="5a28a9ac-3b27-4339-bf3e-1bc7174e86c7" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/abcs/abcs.py" beforeDir="false" afterPath="$PROJECT_DIR$/abcs/abcs.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/contact/_material_utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/contact/_material_utils.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/contact/materials.py" beforeDir="false" afterPath="$PROJECT_DIR$/contact/materials.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/contact/static_step.py" beforeDir="false" afterPath="$PROJECT_DIR$/contact/static_step.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/contact/tests/test_elastic_bem.py" beforeDir="false" afterPath="$PROJECT_DIR$/contact/tests/test_elastic_bem.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/contact/tests/test_materials.py" beforeDir="false" afterPath="$PROJECT_DIR$/contact/tests/test_materials.py" afterDir="false" />
+    </list>
+    <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileEditorManager">
+    <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/contact/tests/test_hertz_full.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="555">
+              <caret line="198" selection-start-line="198" selection-end-line="198" />
+              <folding>
+                <element signature="e#0#18#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/surface/Surface_class.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="11724">
+              <caret line="1801" column="82" selection-start-line="1801" selection-start-column="82" selection-end-line="1801" selection-end-column="82" />
+              <folding>
+                <element signature="e#84#93#0" expanded="true" />
+                <element signature="e#12#30#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/surface/Mesh.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="824">
+              <caret line="76" column="17" lean-forward="true" selection-start-line="76" selection-start-column="17" selection-end-line="76" selection-end-column="17" />
+              <folding>
+                <element signature="e#0#18#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/surface/Geometric.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="524">
+              <caret line="103" column="4" selection-start-line="103" selection-start-column="4" selection-end-line="105" selection-end-column="70" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/surface/FFTBased.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="612">
+              <caret line="298" column="43" selection-start-line="298" selection-start-column="43" selection-end-line="298" selection-end-column="43" />
+              <folding>
+                <element signature="e#1143#1188#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/surface/roughness_funcs.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="442">
+              <caret line="210" column="86" selection-start-line="210" selection-start-column="86" selection-end-line="210" selection-end-column="86" />
+              <folding>
+                <element signature="e#0#18#0" expanded="true" />
+                <element signature="e#8#34#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/abcs/abcs.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="291">
+              <caret line="19" column="23" selection-start-line="19" selection-start-column="23" selection-end-line="19" selection-end-column="23" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/contact/steps.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="62">
+              <caret line="63" column="7" selection-start-line="63" selection-start-column="7" selection-end-line="63" selection-end-column="7" />
+              <folding>
+                <element signature="e#0#50#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/surface/Random.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="774">
+              <caret line="113" column="28" selection-start-line="113" selection-start-column="28" selection-end-line="113" selection-end-column="28" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/surface/ACF_class.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="-603">
+              <caret line="119" column="12" selection-start-line="119" selection-start-column="12" selection-end-line="119" selection-end-column="12" />
+              <folding>
+                <element signature="e#0#18#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+    </leaf>
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
+  <component name="FindInProjectRecents">
+    <findStrings>
+      <find>disthist</find>
+      <find>ModelStep</find>
+      <find>step</find>
+      <find>Seq</find>
+      <find>__add</find>
+      <find>Sequ</find>
+      <find>_Ini</find>
+      <find>__init_su</find>
+      <find>resample</find>
+      <find>get_gap_from_model</find>
+      <find>import *</find>
+      <find>fft</find>
+      <find>initi</find>
+      <find>solve_im_di</find>
+      <find>ana</find>
+      <find>from_surface</find>
+      <find>displace</find>
+      <find>displacement_</find>
+      <find>not None else None</find>
+      <find>print</find>
+      <find>shape</find>
+      <find>self._shape =</find>
+      <find>sub</find>
+      <find>filter_cut</find>
+      <find>show</find>
+      <find>show(</find>
+      <find>__re</find>
+      <find>_ori</find>
+      <find>_sub</find>
+      <find>__e</find>
+    </findStrings>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="IdeDocumentHistory">
+    <option name="CHANGED_PATHS">
+      <list>
+        <option value="$PROJECT_DIR$/surface/alicona.py" />
+        <option value="$PROJECT_DIR$/contact/outputs.py" />
+        <option value="$PROJECT_DIR$/lubrication/Unified.py" />
+        <option value="$PROJECT_DIR$/lubrication/__init__.py" />
+        <option value="$PROJECT_DIR$/contact/dummy_classes.py" />
+        <option value="$PROJECT_DIR$/lubrication/dummy_classes.py" />
+        <option value="$PROJECT_DIR$/API-ideal code.py" />
+        <option value="$PROJECT_DIR$/contact/elastic_bem.py" />
+        <option value="$PROJECT_DIR$/contact/rigid_elastic.py" />
+        <option value="$PROJECT_DIR$/contact/adhesion_models.py" />
+        <option value="$PROJECT_DIR$/contact/hertz.py" />
+        <option value="$PROJECT_DIR$/contact/tests/test_materials.py" />
+        <option value="$PROJECT_DIR$/abcs/_Material.py" />
+        <option value="$PROJECT_DIR$/abcs/_WearModel.py" />
+        <option value="$PROJECT_DIR$/abcs/_AnalyticalSurface.py" />
+        <option value="$PROJECT_DIR$/abcs/_AdhesionModel.py" />
+        <option value="$PROJECT_DIR$/abcs/_ModelStep.py" />
+        <option value="$PROJECT_DIR$/abcs/_FrictionModel.py" />
+        <option value="$PROJECT_DIR$/abcs/_LubricationModel.py" />
+        <option value="$PROJECT_DIR$/abcs/__init__.py" />
+        <option value="$PROJECT_DIR$/setup.py" />
+        <option value="$PROJECT_DIR$/abcs/_Surface.py" />
+        <option value="$PROJECT_DIR$/surface/_johnson_utils.py" />
+        <option value="$PROJECT_DIR$/models/rigid_elastic.py" />
+        <option value="$PROJECT_DIR$/models/models.py" />
+        <option value="$PROJECT_DIR$/examples/__init__.py" />
+        <option value="$PROJECT_DIR$/models/_model_utils.py" />
+        <option value="$PROJECT_DIR$/models/steps.py" />
+        <option value="$PROJECT_DIR$/models/static_step.py" />
+        <option value="$PROJECT_DIR$/models/__init__.py" />
+        <option value="$PROJECT_DIR$/contact/abcs/__init__.py" />
+        <option value="$PROJECT_DIR$/contact/abcs/abcs.py" />
+        <option value="$PROJECT_DIR$/contact/friciton_models.py" />
+        <option value="$PROJECT_DIR$/contact/__init__.py" />
+        <option value="$PROJECT_DIR$/surface/__init__.py" />
+        <option value="$PROJECT_DIR$/contact/steps.py" />
+        <option value="$PROJECT_DIR$/contact/models.py" />
+        <option value="$PROJECT_DIR$/contact/_model_utils.py" />
+        <option value="$PROJECT_DIR$/contact/tests/test_hertz_full.py" />
+        <option value="$PROJECT_DIR$/contact/tests/test_elastic_bem.py" />
+        <option value="$PROJECT_DIR$/contact/_material_utils.py" />
+        <option value="$PROJECT_DIR$/contact/materials.py" />
+        <option value="$PROJECT_DIR$/contact/static_step.py" />
+        <option value="$PROJECT_DIR$/surface/ACF_class.py" />
+        <option value="$PROJECT_DIR$/surface/Random.py" />
+        <option value="$PROJECT_DIR$/abcs/abcs.py" />
+        <option value="$PROJECT_DIR$/surface/roughness_funcs.py" />
+        <option value="$PROJECT_DIR$/surface/Geometric.py" />
+        <option value="$PROJECT_DIR$/surface/FFTBased.py" />
+        <option value="$PROJECT_DIR$/surface/Mesh.py" />
+        <option value="$PROJECT_DIR$/surface/Surface_class.py" />
+      </list>
+    </option>
+  </component>
+  <component name="ProjectConfigurationFiles">
+    <option name="files">
+      <list>
+        <option value="$PROJECT_DIR$/.idea/slippy.iml" />
+        <option value="$PROJECT_DIR$/.idea/misc.xml" />
+        <option value="$PROJECT_DIR$/.idea/modules.xml" />
+        <option value="$PROJECT_DIR$/.idea/vcs.xml" />
+        <option value="$PROJECT_DIR$/.idea/dictionaries/44779.xml" />
+        <option value="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" />
+      </list>
+    </option>
+  </component>
+  <component name="ProjectFrameBounds" extendedState="7">
+    <option name="x" value="-7" />
+    <option name="width" value="974" />
+    <option name="height" value="1047" />
+  </component>
+  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
+  <component name="ProjectView">
+    <navigator proportions="" version="1">
+      <foldersAlwaysOnTop value="true" />
+    </navigator>
+    <panes>
+      <pane id="ProjectPane">
+        <subPane>
+          <expand>
+            <path>
+              <item name="slippy" type="b2602c69:ProjectViewProjectNode" />
+              <item name="slippy" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="slippy" type="b2602c69:ProjectViewProjectNode" />
+              <item name="slippy" type="462c0819:PsiDirectoryNode" />
+              <item name="abcs" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="slippy" type="b2602c69:ProjectViewProjectNode" />
+              <item name="slippy" type="462c0819:PsiDirectoryNode" />
+              <item name="contact" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="slippy" type="b2602c69:ProjectViewProjectNode" />
+              <item name="slippy" type="462c0819:PsiDirectoryNode" />
+              <item name="contact" type="462c0819:PsiDirectoryNode" />
+              <item name="tests" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="slippy" type="b2602c69:ProjectViewProjectNode" />
+              <item name="slippy" type="462c0819:PsiDirectoryNode" />
+              <item name="examples" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="slippy" type="b2602c69:ProjectViewProjectNode" />
+              <item name="slippy" type="462c0819:PsiDirectoryNode" />
+              <item name="surface" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="slippy" type="b2602c69:ProjectViewProjectNode" />
+              <item name="External Libraries" type="cb654da1:ExternalLibrariesNode" />
+            </path>
+            <path>
+              <item name="slippy" type="b2602c69:ProjectViewProjectNode" />
+              <item name="External Libraries" type="cb654da1:ExternalLibrariesNode" />
+              <item name="&lt; Python 3.7 (slippy) &gt;" type="70bed36:NamedLibraryElementNode" />
+            </path>
+            <path>
+              <item name="slippy" type="b2602c69:ProjectViewProjectNode" />
+              <item name="External Libraries" type="cb654da1:ExternalLibrariesNode" />
+              <item name="&lt; Python 3.7 (slippy) &gt;" type="70bed36:NamedLibraryElementNode" />
+              <item name="code" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="slippy" type="b2602c69:ProjectViewProjectNode" />
+              <item name="External Libraries" type="cb654da1:ExternalLibrariesNode" />
+              <item name="&lt; Python 3.7 (slippy) &gt;" type="70bed36:NamedLibraryElementNode" />
+              <item name="code" type="462c0819:PsiDirectoryNode" />
+              <item name="slippy" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="slippy" type="b2602c69:ProjectViewProjectNode" />
+              <item name="External Libraries" type="cb654da1:ExternalLibrariesNode" />
+              <item name="&lt; Python 3.7 (slippy) &gt;" type="70bed36:NamedLibraryElementNode" />
+              <item name="code" type="462c0819:PsiDirectoryNode" />
+              <item name="slippy" type="462c0819:PsiDirectoryNode" />
+              <item name="contact" type="462c0819:PsiDirectoryNode" />
+            </path>
+          </expand>
+          <select />
+        </subPane>
+      </pane>
+      <pane id="Scope" />
+    </panes>
+  </component>
+  <component name="PropertiesComponent">
+    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyIntegratedToolsModulesConfigurable" />
+  </component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\44779\code\slippy" />
+      <recent name="C:\Users\44779\code\slippy\contact" />
+      <recent name="C:\Users\44779\code\slippy\models" />
+    </key>
+  </component>
+  <component name="RunDashboard">
+    <option name="ruleStates">
+      <list>
+        <RuleState>
+          <option name="name" value="ConfigurationTypeDashboardGroupingRule" />
+        </RuleState>
+        <RuleState>
+          <option name="name" value="StatusDashboardGroupingRule" />
+        </RuleState>
+      </list>
+    </option>
+  </component>
+  <component name="RunManager" selected="Python.test_elastic_bem">
+    <configuration name="__init__" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="slippy" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/examples" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/examples/__init__.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="true" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="hertz" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="slippy" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/../" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/contact/hertz.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="true" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="materials" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="slippy" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/contact" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/contact/materials.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="true" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="test_elastic_bem" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="slippy" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/contact/tests" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/contact/tests/test_elastic_bem.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="true" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="test_hertz_full" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="slippy" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/contact/tests" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/contact/tests/test_hertz_full.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="true" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <list>
+      <item itemvalue="Python.test_hertz_full" />
+      <item itemvalue="Python.hertz" />
+      <item itemvalue="Python.materials" />
+      <item itemvalue="Python.__init__" />
+      <item itemvalue="Python.test_elastic_bem" />
+    </list>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Python.test_elastic_bem" />
+        <item itemvalue="Python.test_elastic_bem" />
+        <item itemvalue="Python.test_elastic_bem" />
+        <item itemvalue="Python.test_elastic_bem" />
+        <item itemvalue="Python.test_elastic_bem" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SvnConfiguration">
+    <configuration />
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="5a28a9ac-3b27-4339-bf3e-1bc7174e86c7" name="Default Changelist" comment="" />
+      <created>1563792391156</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1563792391156</updated>
+    </task>
+    <task id="LOCAL-00001" summary="Hertz full and solvers added, some errors fixed in surface class">
+      <created>1564070271145</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1564070271145</updated>
+    </task>
+    <task id="LOCAL-00002" summary="static step added, contact now imports without errors">
+      <created>1564675280586</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1564675280586</updated>
+    </task>
+    <task id="LOCAL-00003" summary="Surface cleared up abstract base class added">
+      <created>1567101941390</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1567101941390</updated>
+    </task>
+    <task id="LOCAL-00004" summary="Random surface __repr__ method">
+      <created>1567102961138</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1567102961138</updated>
+    </task>
+    <task id="LOCAL-00005" summary="Static normal load steps should now work, abcs added to avoid circular imports">
+      <created>1567785584540</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1567785584540</updated>
+    </task>
+    <task id="LOCAL-00006" summary="load optimisiation loop inplemented as in paper, about to update away from this">
+      <created>1568647801076</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1568647801076</updated>
+    </task>
+    <option name="localTasksCounter" value="7" />
+    <servers />
+  </component>
+  <component name="ToolWindowManager">
+    <frame x="-8" y="-8" width="1936" height="1056" extended-state="7" />
+    <layout>
+      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.10800843" />
+      <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
+      <window_info id="Favorites" order="2" side_tool="true" />
+      <window_info anchor="bottom" id="Message" order="0" />
+      <window_info anchor="bottom" id="Find" order="1" weight="0.32936078" />
+      <window_info anchor="bottom" id="Run" order="2" weight="0.32936078" />
+      <window_info anchor="bottom" id="Debug" order="3" weight="0.4" />
+      <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
+      <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
+      <window_info anchor="bottom" id="TODO" order="6" />
+      <window_info anchor="bottom" id="Version Control" order="7" weight="0.24052005" />
+      <window_info anchor="bottom" id="Terminal" order="8" weight="0.32936078" />
+      <window_info anchor="bottom" id="Event Log" order="9" sideWeight="0.12592202" side_tool="true" weight="0.27193934" />
+      <window_info active="true" anchor="bottom" id="Python Console" order="10" sideWeight="0.874078" visible="true" weight="0.30985916" />
+      <window_info anchor="right" id="Commander" internal_type="SLIDING" order="0" type="SLIDING" weight="0.4" />
+      <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
+      <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
+    </layout>
+    <layout-to-restore>
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.10800843" />
+      <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
+      <window_info id="Favorites" order="2" side_tool="true" />
+      <window_info anchor="bottom" id="Message" order="0" />
+      <window_info anchor="bottom" id="Find" order="1" weight="0.32936078" />
+      <window_info anchor="bottom" id="Run" order="2" weight="0.32936078" />
+      <window_info anchor="bottom" id="Debug" order="3" weight="0.4" />
+      <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
+      <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
+      <window_info anchor="bottom" id="TODO" order="6" />
+      <window_info anchor="bottom" id="Version Control" order="7" weight="0.24052005" />
+      <window_info anchor="bottom" id="Terminal" order="8" weight="0.32936078" />
+      <window_info anchor="bottom" id="Event Log" order="9" sideWeight="0.12592202" side_tool="true" weight="0.27193934" />
+      <window_info anchor="bottom" id="Python Console" order="10" sideWeight="0.874078" visible="true" weight="0.30985916" />
+      <window_info anchor="right" id="Commander" internal_type="SLIDING" order="0" type="SLIDING" weight="0.4" />
+      <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
+      <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
+    </layout-to-restore>
+  </component>
+  <component name="UpdateCopyrightCheckinHandler">
+    <option name="UPDATE_COPYRIGHT" value="true" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <option name="CHECK_NEW_TODO" value="false" />
+    <MESSAGE value="Hertz full and solvers added, some errors fixed in surface class" />
+    <MESSAGE value="static step added, contact now imports without errors" />
+    <MESSAGE value="Surface cleared up abstract base class added" />
+    <MESSAGE value="Random surface __repr__ method" />
+    <MESSAGE value="Static normal load steps should now work, abcs added to avoid circular imports" />
+    <MESSAGE value="load optimisiation loop inplemented as in paper, about to update away from this" />
+    <option name="LAST_COMMIT_MESSAGE" value="load optimisiation loop inplemented as in paper, about to update away from this" />
+  </component>
+  <component name="editorHistoryManager">
+    <entry file="file://$PROJECT_DIR$/surface/alicona.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="213">
+          <caret line="75" column="72" lean-forward="true" selection-start-line="75" selection-start-column="72" selection-end-line="75" selection-end-column="72" />
+          <folding>
+            <element signature="e#0#18#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/contact/outputs.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="272">
+          <caret line="16" column="43" selection-start-line="16" selection-start-column="43" selection-end-line="16" selection-end-column="43" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/lubrication/Reynolds.py" />
+    <entry file="file://$PROJECT_DIR$/lubrication/Roelands.py" />
+    <entry file="file://$PROJECT_DIR$/lubrication/Unified.py" />
+    <entry file="file://$PROJECT_DIR$/lubrication/__init__.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="85">
+          <caret line="5" lean-forward="true" selection-start-line="5" selection-end-line="5" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/lubrication/dummy_classes.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="119">
+          <caret line="7" column="36" selection-start-line="7" selection-start-column="36" selection-end-line="7" selection-end-column="36" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/contact/dummy_classes.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="340">
+          <caret line="20" column="35" lean-forward="true" selection-start-line="20" selection-start-column="35" selection-end-line="20" selection-end-column="35" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$APPLICATION_CONFIG_DIR$/consoles/ide/ide-scripting.groovy">
+      <provider selected="true" editor-type-id="text-editor" />
+    </entry>
+    <entry file="file://$PROJECT_DIR$/requirements.txt">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="68">
+          <caret line="4" column="13" selection-start-line="4" selection-start-column="13" selection-end-line="4" selection-end-column="13" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/API-ideal code.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="136">
+          <caret line="8" selection-start-line="8" selection-end-line="8" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/contact/elastic_bem.py" />
+    <entry file="file://$PROJECT_DIR$/contact/adhesion_models.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="153">
+          <caret line="9" column="19" lean-forward="true" selection-start-line="9" selection-start-column="19" selection-end-line="9" selection-end-column="19" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/contact/tests/test_materials.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="420">
+          <caret line="118" column="14" lean-forward="true" selection-start-line="118" selection-start-column="14" selection-end-line="118" selection-end-column="14" />
+          <folding>
+            <element signature="e#0#26#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/abcs/_Material.py" />
+    <entry file="file://$PROJECT_DIR$/abcs/_WearModel.py" />
+    <entry file="file://$PROJECT_DIR$/abcs/_AnalyticalSurface.py" />
+    <entry file="file://$PROJECT_DIR$/abcs/_AdhesionModel.py" />
+    <entry file="file://$PROJECT_DIR$/abcs/_ModelStep.py" />
+    <entry file="file://$PROJECT_DIR$/abcs/_FrictionModel.py" />
+    <entry file="file://$PROJECT_DIR$/abcs/_LubricationModel.py" />
+    <entry file="file://$PROJECT_DIR$/abcs/_Surface.py" />
+    <entry file="file://$PROJECT_DIR$/surface/_johnson_utils.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="7616">
+          <caret line="451" column="12" selection-start-line="451" selection-start-column="12" selection-end-line="451" selection-end-column="12" />
+          <folding>
+            <element signature="e#114#132#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/setup.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="476">
+          <caret line="29" selection-start-line="29" selection-end-line="29" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/examples/__init__.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="340">
+          <caret line="20" column="84" selection-start-line="20" selection-start-column="84" selection-end-line="20" selection-end-column="84" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/models/_model_utils.py" />
+    <entry file="file://$PROJECT_DIR$/models/__init__.py" />
+    <entry file="file://$PROJECT_DIR$/contact/friciton_models.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="272">
+          <caret line="16" selection-start-line="16" selection-end-line="16" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/contact/rigid_elastic.py" />
+    <entry file="file://$PROJECT_DIR$/abcs/__init__.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="85">
+          <caret line="5" selection-start-line="5" selection-end-line="5" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$USER_HOME$/.PyCharmCE2019.1/system/python_stubs/-589498951/builtins.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="215">
+          <caret line="5280" column="8" selection-start-line="5280" selection-start-column="8" selection-end-line="5280" selection-end-column="8" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/surface/__init__.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="505">
+          <caret line="73" column="53" selection-start-line="73" selection-start-column="53" selection-end-line="73" selection-end-column="53" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/contact/__init__.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="697">
+          <caret line="41" column="30" selection-start-line="41" selection-start-column="30" selection-end-line="41" selection-end-column="30" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/contact/_model_utils.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="731">
+          <caret line="45" column="38" selection-start-line="45" selection-start-column="38" selection-end-line="45" selection-end-column="38" />
+          <folding>
+            <element signature="e#0#13#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/contact/models.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="7021">
+          <caret line="420" column="73" selection-start-line="420" selection-start-column="73" selection-end-line="420" selection-end-column="73" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/contact/hertz.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="612">
+          <caret line="479" column="41" selection-start-line="479" selection-start-column="41" selection-end-line="479" selection-end-column="41" />
+          <folding>
+            <element signature="e#126#144#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/contact/tests/test_hertz_solve.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="136">
+          <caret line="8" column="56" selection-start-line="8" selection-start-column="56" selection-end-line="8" selection-end-column="56" />
+          <folding>
+            <element signature="e#0#27#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/contact/tests/test_elastic_bem.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="130">
+          <caret line="14" column="77" selection-start-line="14" selection-start-column="77" selection-end-line="14" selection-end-column="77" />
+          <folding>
+            <element signature="e#0#18#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/contact/_material_utils.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="833">
+          <caret line="49" column="22" selection-start-line="49" selection-start-column="22" selection-end-line="49" selection-end-column="22" />
+          <folding>
+            <element signature="e#0#18#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/contact/materials.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-309">
+          <caret line="162" column="18" selection-start-line="162" selection-start-column="18" selection-end-line="162" selection-end-column="18" />
+          <folding>
+            <element signature="e#0#10#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/contact/static_step.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="306">
+          <caret line="91" column="54" selection-start-line="91" selection-start-column="54" selection-end-line="91" selection-end-column="54" />
+          <folding>
+            <element signature="e#520#563#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/contact/steps.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="62">
+          <caret line="63" column="7" selection-start-line="63" selection-start-column="7" selection-end-line="63" selection-end-column="7" />
+          <folding>
+            <element signature="e#0#50#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/surface/ACF_class.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-603">
+          <caret line="119" column="12" selection-start-line="119" selection-start-column="12" selection-end-line="119" selection-end-column="12" />
+          <folding>
+            <element signature="e#0#18#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/contact/tests/test_hertz_full.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="555">
+          <caret line="198" selection-start-line="198" selection-end-line="198" />
+          <folding>
+            <element signature="e#0#18#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/surface/Random.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="774">
+          <caret line="113" column="28" selection-start-line="113" selection-start-column="28" selection-end-line="113" selection-end-column="28" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/abcs/abcs.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="291">
+          <caret line="19" column="23" selection-start-line="19" selection-start-column="23" selection-end-line="19" selection-end-column="23" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/surface/roughness_funcs.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="442">
+          <caret line="210" column="86" selection-start-line="210" selection-start-column="86" selection-end-line="210" selection-end-column="86" />
+          <folding>
+            <element signature="e#0#18#0" expanded="true" />
+            <element signature="e#8#34#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/surface/FFTBased.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="612">
+          <caret line="298" column="43" selection-start-line="298" selection-start-column="43" selection-end-line="298" selection-end-column="43" />
+          <folding>
+            <element signature="e#1143#1188#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/surface/Geometric.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="524">
+          <caret line="103" column="4" selection-start-line="103" selection-start-column="4" selection-end-line="105" selection-end-column="70" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/surface/Mesh.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="824">
+          <caret line="76" column="17" lean-forward="true" selection-start-line="76" selection-start-column="17" selection-end-line="76" selection-end-column="17" />
+          <folding>
+            <element signature="e#0#18#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/surface/Surface_class.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="11724">
+          <caret line="1801" column="82" selection-start-line="1801" selection-start-column="82" selection-end-line="1801" selection-end-column="82" />
+          <folding>
+            <element signature="e#84#93#0" expanded="true" />
+            <element signature="e#12#30#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+  </component>
+</project>

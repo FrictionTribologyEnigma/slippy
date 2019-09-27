@@ -117,7 +117,7 @@ class ACF(object):
             self.method = lambda x, y: sigma ** 2 * np.exp(-2.3 * np.sqrt((x / beta_x) ** 2 + (y / beta_y) ** 2))
         elif source == 'polynomial':
             pass
-        raise NotImplementedError("polynomial functions are not implemented")
+            raise NotImplementedError("polynomial functions are not implemented")
 
     def _input_check_array(self, source, grid_spacing, origin='centre'):
         try:

@@ -1,11 +1,84 @@
 import numpy as np
 from collections import namedtuple
+import inspect
+from functools import wraps
 
-__all__ = ['ElasticProps', '_get_properties', 'Loads', 'Displacements', 'convert_array', 'convert_dict']
+__all__ = ['ElasticProps', '_get_properties', 'Loads', 'Displacements', 'convert_array', 'convert_dict',
+           'memoize_components']
 
 ElasticProps = namedtuple('ElasticProperties', 'K E v Lam M G', defaults=(None,)*6)
 Loads = namedtuple('Loads', 'x y z', defaults=(None,)*3)
 Displacements = namedtuple('Displacements', 'x y z', defaults=(None,)*3)
+
+
+def memoize_components(static_method=True):
+    """ A decorator factory for memoizing the components of an influence matrix or other method with components
+
+    Parameters
+    ----------
+    static_method: bool, optional (True)
+        True if the object to be decorated is an instance or class method
+
+    Notes
+    -----
+    This returns a decorator that can be used to memoize a callable which finds components. The callable MUST:
+
+    Have it's first argument be the component
+    components must be hashable
+
+    The cache is a dict with the same keys as previously passed components, when any of the other input arguments change
+    the cache is deleted
+
+    The wrapped callable will have the additional attributes:
+
+    cache : dict
+        All of the cached values, use cache.clear() to remove manually
+    spec : list
+        The other arguments passed to the callable (if any of these change the cache is cleared)
+    """
+    if not isinstance(static_method, bool):
+        raise ValueError('Memoise components is a decorator factory, it cannot be appled as a decorator directly.'
+                         ' static_method argument must be a bool')
+
+    def outer(fn):
+        # non local variables spec is a list to ensure it's mutable
+        spec = [None]
+        cache = dict()
+        sig = inspect.signature(fn)
+
+        if static_method:
+            @wraps(fn)
+            def inner(component, *args, **kwargs):
+                nonlocal cache, spec, sig
+                new_spec = sig.bind(None, *args, **kwargs)
+                new_spec.apply_defaults()
+                if not new_spec == spec[0]:
+                    cache.clear()
+                    del spec[0]
+                    spec.append(new_spec)
+                if component not in cache:
+                    cache[component] = fn(component, *args, **kwargs)
+                return cache[component]
+        else:
+            @wraps(fn)
+            def inner(self, component, *args, **kwargs):
+                nonlocal cache, spec, sig
+                new_spec = sig.bind(None, None, *args, **kwargs)
+                new_spec.apply_defaults()
+                if not new_spec == spec[0]:
+                    cache.clear()
+                    del spec[0]
+                    spec.append(new_spec)
+                if component not in cache:
+                    cache[component] = fn(self, component, *args, **kwargs)
+                return cache[component]
+
+        inner.cache = cache
+        inner.spec = spec
+
+        return inner
+
+    return outer
 
 
 def convert_dict(loads_or_displacements: dict, name: str):

@@ -13,6 +13,8 @@ import scipy.interpolate
 import scipy.signal
 import typing
 import abc
+import collections
+import csv
 from scipy.stats import probplot
 # noinspection PyUnresolvedReferences
 from mpl_toolkits.mplot3d import Axes3D
@@ -152,6 +154,7 @@ class _Surface(_SurfaceABC):
     _wear: typing.Optional[np.ndarray] = None
     _size: typing.Optional[int] = None
     _subclass_registry = []
+    _original_extent = None
 
     def __init__(self, grid_spacing: typing.Optional[float] = None, extent: typing.Optional[tuple] = None,
                  shape: typing.Optional[tuple] = None, is_descrete: bool = False):
@@ -220,26 +223,26 @@ class _Surface(_SurfaceABC):
         """
         The overall dimentions of the surface
         """
-        if type(value) is not tuple:
-            msg = "Extent must be a tuple, got {}".format(type(value))
+        if not isinstance(value, collections.Sequence):
+            msg = "Extent must be a Sequence, got {}".format(type(value))
             raise TypeError(msg)
         if len(value) > 2:
             raise ValueError("Too many elements in extent, must be a maximum of two dimentions")
 
         if self.profile is not None:
-            p_aspect = self.shape[0] / self.shape[1]
+            p_aspect = (self.shape[0]) / (self.shape[1])
             e_aspect = value[0] / value[1]
             if abs(e_aspect - p_aspect) > 0.0001:
                 msg = "Extent aspect ratio doesn't match profile aspect ratio"
                 raise ValueError(msg)
             else:
-                self._extent = value
-                self._grid_spacing = value[0] / self.shape[0]
+                self._extent = tuple(value)
+                self._grid_spacing = value[0] / (self.shape[0])
         else:
-            self._extent = value
+            self._extent = tuple(value)
             self.dimentions = len(value)
             if self.grid_spacing is not None:
-                self._shape = tuple([v / self.grid_spacing for v in value])
+                self._shape = tuple([int(v / self.grid_spacing) for v in value])
                 self._size = np.product(self._shape)
         return
 
@@ -248,7 +251,7 @@ class _Surface(_SurfaceABC):
         self._extent = None
         self._grid_spacing = None
         if self.profile is None:
-            del self.shape
+            self._shape = None
             self._size = None
 
     @property
@@ -261,32 +264,33 @@ class _Surface(_SurfaceABC):
 
     @shape.setter
     def shape(self, value):
-        if type(value) is not tuple:
-            raise ValueError(f"Shape shuld be a tuple, got: {type(value)}")
+        if not isinstance(value, collections.Sequence):
+            raise ValueError(f"Shape shuld be a Sequence type, got: {type(value)}")
 
-        if self.profile is None:
-            self._shape = tuple([int(x) for x in value])
-            self._size = np.product(self._shape)
-            if self.grid_spacing is not None:
-                self._extent = tuple([v * self.grid_spacing for v in value])
-            elif self.extent is not None:
-                e_aspect = self.extent[0] / self.extent[1]
-                p_aspect = value[0] / value[1]
-                if abs(e_aspect - p_aspect) < 0.0001:
-                    self._grid_spacing = (self.extent[0] /
-                                          self.shape[0])
-                else:
-                    warnings.warn("Global size does not match profile size,"
-                                  "global size has been deleted")
-                    self._extent = None
-        else:
+        if self._profile is not None:
             raise ValueError("Cannot set shape when profile is present")
+
+        self._shape = tuple([int(x) for x in value])
+        self._size = np.product(self._shape)
+        if self.grid_spacing is not None:
+            self._extent = tuple([v * self.grid_spacing for v in value])
+        elif self.extent is not None:
+            e_aspect = self.extent[0] / self.extent[1]
+            p_aspect = value[0] / value[1]
+            if abs(e_aspect - p_aspect) < 0.0001:
+                self._grid_spacing = (self.extent[0] / self.shape[0])
+            else:
+                warnings.warn("Global size does not match profile size,"
+                              "global size has been deleted")
+                self._extent = None
 
     @shape.deleter
     def shape(self):
         if self.profile is None:
             self._shape = None
             self._size = None
+            self._extent = None
+            self._grid_spacing = None
         else:
             msg = "Cannot delete shape with a surface profile set"
             raise ValueError(msg)
@@ -305,6 +309,9 @@ class _Surface(_SurfaceABC):
     def profile(self, value):
         """Sets the profile property
         """
+        if value is None:
+            return
+
         try:
             self._profile = np.asarray(value, dtype=float)
         except ValueError:
@@ -318,8 +325,7 @@ class _Surface(_SurfaceABC):
         self._wear = np.zeros_like(self._profile)
 
         if self.grid_spacing is not None:
-            self._extent = tuple([self.grid_spacing * p for p in
-                                  self.shape])
+            self._extent = tuple([self.grid_spacing * p for p in self.shape])
         elif self.extent is not None:
             if self.dimentions == 1:
                 self._grid_spacing = (self.extent[0] / self.shape[0])
@@ -328,8 +334,7 @@ class _Surface(_SurfaceABC):
                 p_aspect = self.shape[0] / self.shape[1]
 
                 if abs(e_aspect - p_aspect) < 0.0001:
-                    self._grid_spacing = (self.extent[0] /
-                                          self.shape[0])
+                    self._grid_spacing = (self.extent[0] / self.shape[0])
                 else:
                     warnings.warn("Global size does not match profile size,"
                                   " global size has been deleted")
@@ -356,7 +361,7 @@ class _Surface(_SurfaceABC):
         return self._grid_spacing
 
     @grid_spacing.setter
-    def grid_spacing(self, grid_spacing):
+    def grid_spacing(self, grid_spacing: float):
         """ Change the grid spacing of the surface
 
         Changes the grid spacing attribute while keeping all other dimentions
@@ -364,8 +369,12 @@ class _Surface(_SurfaceABC):
         stretches the surface to the new grid size keeping all points the same.
 
         """
-        if grid_spacing is not float:
+        if grid_spacing is None:
+            return
+
+        if not isinstance(grid_spacing, float):
             try:
+                # noinspection PyTypeChecker
                 grid_spacing = float(grid_spacing)
             except ValueError:
                 msg = ("Invalid type, grid spacing of type {} could not be "
@@ -380,12 +389,10 @@ class _Surface(_SurfaceABC):
 
         if self.profile is None:
             if self.extent is not None:
-                self._shape = tuple([sz / grid_spacing for sz in
-                                     self.extent])
+                self._shape = tuple([int(sz / grid_spacing) for sz in self.extent])
                 self._size = np.product(self._shape)
             elif self.shape is not None:
-                self._extent = tuple([grid_spacing * pt for pt in
-                                      self.shape])
+                self._extent = tuple([grid_spacing * pt for pt in self.shape])
         else:
             self._extent = tuple([s * grid_spacing for s in self.shape])
 
@@ -468,8 +475,10 @@ class _Surface(_SurfaceABC):
         except AttributeError:
             raise AttributeError('Surface must have a defined profile for fft'
                                  ' to be used')
-
-        return transform
+        if profile_in is None:
+            self.fft = transform
+        else:
+            return transform
 
     def get_acf(self, profile_in=None):
         """ Find the auto corelation function of the surface
@@ -584,7 +593,7 @@ class _Surface(_SurfaceABC):
         return coefs
 
     def roughness(self, parameter_name, mask=None, curved_surface=False,
-                  no_flattening=False, filter_cut_off=False,
+                  no_flattening=False, filter_cut_off=None,
                   four_nearest=False):
         """ Find areal roughness parameters
 
@@ -670,30 +679,26 @@ class _Surface(_SurfaceABC):
         else:
             self.profile = low_pass_filter(self, cut_off_freq)
 
-    def resample(self, new_grid_spacing, return_profile=False,
-                 remake_interpolator=False):
-        """ Resample the profile by interpolation
-
-        Changes the grid spacing of a surface by intrpolation of the original
-        surface profile
+    def resample(self, new_grid_spacing=None, return_profile=False, remake_interpolator=False):
+        """ Resample or crop the profile by interpolation
 
         Parameters
         ----------
 
-        new_grid_spacing : float
-            The new grid spacing to be interpolated to
-        return_profile : bool optional (False)
-            If true the interpolated profile is returned otherwise it is set as
-            the profile attribute of the instance
-        remake_interpolator : boo optional (False)
-            If true the interpolator will be remade before interpolation
-            see notes
+        new_grid_spacing : float, optional (None)
+            The grid spacing on the new surface, if the grid_spacing is not set on the current surface it is assumed to
+            be 1
+        return_profile : bool, optional (False)
+            If true the interpolated profile is returned otherwise it is set as the profile of the instance
+        remake_interpolator : bool, optional (False)
+            If true any memoized interpolator will be deleted and remade based on the current profile before
+            interpolation, see notes.
 
         Returns
         -------
 
-        inter_profile : array
-            If return_profile is true the interpolated profile is returned
+        new_profile : array
+            If return_profile is True the interpolated profile is returned
 
         See Also
         --------
@@ -732,109 +737,90 @@ class _Surface(_SurfaceABC):
         >>> my_surface.shape
         (101,101)
         """
+        gs_changed = False
+        if self.grid_spacing is None:
+            gs_changed = True
+            self.grid_spacing = 1
+
         if remake_interpolator or self._inter_func is None:
+            self._original_extent = self.extent
             x0 = np.arange(0, self.extent[0], self.grid_spacing)
             y0 = np.arange(0, self.extent[1], self.grid_spacing)
-            self._inter_func = scipy.interpolate.RectBivariateSpline(x0, y0,
-                                                                     self.profile)
-        x1 = np.arange(0, self.extent[0], new_grid_spacing)
-        y1 = np.arange(0, self.extent[1], new_grid_spacing)
-        inter_profile = self._inter_func(x1, y1)
+            self._inter_func = scipy.interpolate.RectBivariateSpline(x0, y0, self.profile)
+        x1 = np.arange(0, self._original_extent[0], new_grid_spacing)
+        y1 = np.arange(0, self._original_extent[1], new_grid_spacing)
+        new_profile = self._inter_func(x1, y1)
+
+        if gs_changed:
+            del self.grid_spacing
 
         if return_profile:
-            return inter_profile
+            return new_profile
         else:
-            self.profile = inter_profile
-            self.grid_spacing = new_grid_spacing
-
+            self.profile = new_profile
+            if not gs_changed:
+                self.grid_spacing = new_grid_spacing
+    
     def __add__(self, other):
-        if self.extent == other.extent and self.extent is not None:
-            if self.grid_spacing == other.grid_spacing:
-                out = Surface(profile=self.profile + other.profile,
-                              grid_spacing=self.grid_spacing)
-                return out
+        if not isinstance(other, _Surface):
+            return Surface(profile=self.profile+other, grid_spacing=self.grid_spacing)
+
+        if self.grid_spacing is not None and other.grid_spacing is not None and self.grid_spacing != other.grid_spacing:
+            if self.grid_spacing < other.grid_spacing:
+                prof_2 = other.resample(self.grid_spacing, return_profile=True)
+                prof_1 = self.profile
+                new_gs = self.grid_spacing
             else:
-                msg = "Surface sizes do not match: resampling"
-                warnings.warn(msg)
-                # resample surface with coarser grid then add again
-                if self.grid_spacing > other.grid_spacing:
-                    self.resample(other.grid_spacing, False)
-                else:
-                    other.resample(self.grid_spacing)
-
-                return self + other
-
-        elif self.shape == other.shape:
-            if self.grid_spacing is not None:
-                if other.grid_spacing is not None:
-                    if self.grid_spacing == other.grid_spacing:
-                        gs = self.grid_spacing
-                    else:
-                        msg = ('Surfaces have diferent sizes and grid spacing is'
-                               ' set for both for element wise adding delete the'
-                               ' grid spacing for one of the surfaces using: '
-                               'del surface.grid_spacing before adding')
-                        raise AttributeError(msg)
-                else:  # only self not other
-                    gs = self.grid_spacing
-            else:  # not self
-                gs = other.grid_spacing
-
-            out = Surface(profile=self.profile + other.profile,
-                          grid_spacing=gs)
-            return out
+                prof_1 = self.resample(other.grid_spacing, return_profile=True)
+                prof_2 = other.profile
+                new_gs = other.grid_spacing
         else:
-            raise ValueError('surfaces are not compatible sizes cannot add')
+            prof_1 = self.profile
+            prof_2 = other.profile
+            if self.grid_spacing is not None:
+                new_gs = self.grid_spacing
+            else:
+                new_gs = other.grid_spacing
+
+        new_shape = [min(p1s, p2s) for p1s, p2s in zip(prof_1.shape, prof_2.shape)]
+        new_profile = prof_1[0:new_shape[0], 0:new_shape[1]] + prof_2[0:new_shape[0], 0:new_shape[1]]
+        return Surface(profile=new_profile, grid_spacing=new_gs)
 
     def __sub__(self, other):
-        if self.extent == other._extent and self.extent:
-            if self.grid_spacing == other.grid_spacing:
-                out = Surface(profile=self.profile - other.profile,
-                              grid_spacing=self.grid_spacing)
-                return out
+        if not isinstance(other, _Surface):
+            return Surface(profile=self.profile + other, grid_spacing=self.grid_spacing)
+
+        if self.grid_spacing is not None and other.grid_spacing is not None and self.grid_spacing != other.grid_spacing:
+            if self.grid_spacing < other.grid_spacing:
+                prof_2 = other.resample(self.grid_spacing, return_profile=True)
+                prof_1 = self.profile
+                new_gs = self.grid_spacing
             else:
-                msg = "Surface sizes do not match: resampling"
-                warnings.warn(msg)
-                # resample surface with coarser grid then add again
-                if self.grid_spacing > other.grid_spacing:
-                    self.resample(other.grid_spacing, False)
-                else:
-                    other.resample(self.grid_spacing)
-
-                return self - other
-
-        elif self.shape == other.shape:
-            if self.grid_spacing:
-                if other.grid_spacing:
-                    if self.grid_spacing == other.grid_spacing:
-                        gs = self.grid_spacing
-                    else:
-                        msg = ('Surfaces have diferent sizes and grid spacing is'
-                               ' set for both for element wise adding unset the '
-                               'grid spacing for one of the surfaces using: '
-                               'set_grid_spacing(None) before subtracting')
-                        raise AttributeError(msg)
-                else:  # only self not other
-                    gs = self.grid_spacing
-            else:  # not self
-                gs = other.grid_spacing
-
-            out = Surface(profile=self.profile - other.profile,
-                          grid_spacing=gs)
-            return out
+                prof_1 = self.resample(other.grid_spacing, return_profile=True)
+                prof_2 = other.profile
+                new_gs = other.grid_spacing
         else:
-            raise ValueError('surfaces are not compatible sizes cannot'
-                             ' subtract')
+            prof_1 = self.profile
+            prof_2 = other.profile
+            if self.grid_spacing is not None:
+                new_gs = self.grid_spacing
+            else:
+                new_gs = other.grid_spacing
+
+        new_shape = [min(p1s, p2s) for p1s, p2s in zip(prof_1.shape, prof_2.shape)]
+        new_profile = prof_1[0:new_shape[0], 0:new_shape[1]] - prof_2[0:new_shape[0], 0:new_shape[1]]
+        return Surface(profile=new_profile, grid_spacing=new_gs)
 
     def __eq__(self, other):
-        if not isinstance(other, _Surface) or self.is_descrete!=other.is_descrete:
+        if not isinstance(other, _Surface) or self.is_descrete != other.is_descrete:
             return False
         if self.is_descrete:
-            return self.profile == other.profile and self.grid_spacing == other.grid_spacing
+            return np.array_equal(self.profile, other.profile) and self.grid_spacing == other.grid_spacing
         else:
             return repr(self) == repr(other)
 
-    def show(self, property_to_plot='profile', plot_type='default', ax=False, *, dist=None, stride=None):
+    def show(self, property_to_plot='profile', plot_type='default', ax=False, *, dist=None, stride=None,
+             **figure_kwargs):
         """ Polt surface properties
 
         Parameters
@@ -854,6 +840,7 @@ class _Surface(_SurfaceABC):
         stride : float optional (None)
             Only used if a wire frame plot is requested, the stride between
             wires
+        figure_kwargs : Keyword arguments sent to the figure function in matplotlib
 
         Returns
         -------
@@ -943,10 +930,9 @@ class _Surface(_SurfaceABC):
             else:
                 n_cols = 3
             n_rows = int(np.ceil(number_of_subplots / 3))
-            fig = plt.figure()
+            fig = plt.figure(**figure_kwargs)
             ax = []
             sub_plot_number = 100 * n_rows + 10 * n_cols + 1
-            print(sub_plot_number)
             for i in range(number_of_subplots):
                 if property_to_plot[i].lower() in types2d and not plot_type[i] == 'image':
                     ax.append(fig.add_subplot(sub_plot_number + i, projection='3d'))
@@ -972,7 +958,7 @@ class _Surface(_SurfaceABC):
             raise ValueError(msg)
 
         if not ax:
-            fig = plt.figure()
+            fig = plt.figure(**figure_kwargs)
 
         if property_to_plot in types2d:
             if not ax and not plot_type == 'image':
@@ -1016,6 +1002,7 @@ class _Surface(_SurfaceABC):
                 y = self.grid_spacing * np.arange(self.shape[1])
                 x = x - max(x) / 2
                 y = y - max(y) / 2
+
             elif property_to_plot == 'apsd':
                 labels = ['Angular power spectral density', 'x', 'y']
                 if self.fft is None:
@@ -1125,7 +1112,7 @@ class _Surface(_SurfaceABC):
         """
         raise NotImplementedError('Not implemented yet')
 
-    def get_points_from_extent(self):
+    def get_points_from_extent(self, extent=None, grid_spacing=None, shape=None):
         """
         Gets the grid points from the extent and the grid spacing
 
@@ -1134,11 +1121,21 @@ class _Surface(_SurfaceABC):
         mesh_x, mesh_y : np.ndarray
             arrays of the grid points (result from mesh grid)
         """
+        if extent is None and grid_spacing is None and shape is None:
+            if self.grid_spacing is None or self.extent is None:
+                raise AttributeError('Grid points cannot be found until the surface is fully defined, the grid spacing '
+                                     'and extent must be findable.')
+            x = np.arange(0, self.extent[0], self.grid_spacing)
+            y = np.arange(0, self.extent[1], self.grid_spacing)
 
-        x = np.arange(0, self.extent[0], self.grid_spacing)
-        y = np.arange(0, self.extent[1], self.grid_spacing)
+            mesh_x, mesh_y = np.meshgrid(x, y)
 
-        mesh_x, mesh_y = np.meshgrid(x, y)
+        else:
+            dum = Surface(grid_spacing=grid_spacing, shape=shape, extent=extent)
+            try:
+                mesh_x, mesh_y = dum.get_points_from_extent()
+            except AttributeError:
+                raise ValueError('Exactly two parameters must be suppplied')
 
         return mesh_x, mesh_y
 
@@ -1223,9 +1220,15 @@ class Surface(_Surface):
         file_name: str, optional (None)
             The full path including the file extention to a supported file type, supported types are .txt, .csv, .al3d,
             .mat
-        delimiter: str, optional (',')
+        csv_delimiter: str, optional (None)
             The delimeter used in the .csv or .txt file, only used if the file name is given and the file is a .txt or
             .csv file
+        csv_dialect: {csv.Dialect, str), optional ('sniff')
+            The dialect used to read the csv file, only used if a file is suppled and the file is a csv file, defaults
+            to 'sniff' meaning that the csv. sniffer will be used.
+        csv_sniffer_n_bytes: int, optional (2048)
+            The number of bytes used by the csv sniffer, only used if 'sniff' is given as the dialect and a csv file is
+            given as the file name
         mat_profile_name: str, optional ('profile')
             The name of the profile variable in the .mat file, only used if the file_name is given and the file is a
             .mat file
@@ -1287,15 +1290,18 @@ class Surface(_Surface):
 
     def __init__(self, profile: typing.Optional[np.ndarray] = None, grid_spacing: typing.Optional[float] = None,
                  shape: typing.Optional[tuple] = None, extent: typing.Optional[tuple] = None,
-                 file_name: typing.Optional[str] = None, delimiter: typing.Optional[str] = ',',
-                 mat_profile_name: typing.Optional[str] = None, mat_grid_spacing_name: typing.Optional[str] = None):
+                 file_name: typing.Optional[str] = None,
+                 mat_profile_name: typing.Optional[str] = None, mat_grid_spacing_name: typing.Optional[str] = None,
+                 csv_delimiter: str = None, csv_dialect: typing.Union[csv.Dialect, str] = 'sniff',
+                 csv_sniffer_n_bytes: int = 2048):
 
         if profile is not None or file_name is not None:
             if shape is not None:
-                raise ValueError("The shape cannot be set if the profiel is also set, please set either the grid_spacin"
+                raise ValueError("The shape cannot be set if the profile is also set, please set either the grid_spacin"
                                  "g or the extent only")
             if grid_spacing is not None and extent is not None:
                 raise ValueError("Either the grid_spacing or the extent should be set with a profile, not both")
+            self.profile = profile
 
         if file_name is not None:
             if profile is not None:
@@ -1306,10 +1312,9 @@ class Surface(_Surface):
             elif file_ext == '.al3d':
                 self.read_al3d(file_name)
             elif file_ext == '.txt' or file_ext == '.csv':
-                self.read_csv(file_name, delimiter)
+                self.read_csv(file_name, delimiter=csv_delimiter, dialect=csv_dialect, sniff_bytes=csv_sniffer_n_bytes)
             # read file replace profiel
 
-        self.profile = profile
         super().__init__(grid_spacing=grid_spacing, extent=extent, shape=shape, is_descrete=True)
 
     def read_al3d(self, file_name: str, return_data: bool = False):
@@ -1335,7 +1340,8 @@ class Surface(_Surface):
         if return_data:
             return data
 
-    def read_csv(self, file_name: str, delimiter: str = ',', return_profile: bool = False):
+    def read_csv(self, file_name: str, delimiter: str = None, return_profile: bool = False,
+                 dialect: typing.Union[csv.Dialect, str] = 'sniff', sniff_bytes: int = 2048):
         """
         Read a profile from a csv or txt file, header lines are automatically skipped
 
@@ -1343,15 +1349,24 @@ class Surface(_Surface):
         ----------
         file_name: str
             The full path to the .txt or .csv file including the file extention
-        delimiter: str, optional (',')
+        delimiter: str, optional (None)
             The delimiter used in by csv reader
         return_profile: bool, optional (False)
             If true the profile will be returned
+        dialect: {csv.Dialect, str}, optional ('sniff')
+            A csv dialect object or 'sniff' if the dialect is to be found by the csv sniffer
+        sniff_bytes: int, optional (2048)
+            The number of bytes read from the file for the csv.Sniffer, only used if the delimiter is 'sniff'
         """
-        import csv
 
         with open(file_name) as file:
-            reader = csv.reader(file, delimiter=delimiter)
+            if delimiter is not None:
+                reader = csv.reader(file, delimiter=delimiter)
+            else:
+                if dialect == 'sniff':
+                    dialect = csv.Sniffer().sniff(file.read(sniff_bytes))
+                    file.seek(0)
+                reader = csv.reader(file, dialect=dialect)
             profile = []
             for row in reader:
                 if row:
@@ -1531,15 +1546,16 @@ class Surface(_Surface):
     def __repr__(self):
         string = ''
         if self.profile is not None:
-            string += 'profile = ' + repr(self.profile)
+            string += 'profile = ' + repr(self.profile) + ', '
         elif self.shape is not None:
-            string += 'shape = ' + repr(self.shape)
+            string += 'shape = ' + repr(self.shape) + ', '
         if self.grid_spacing is not None:
-            string += ', grid_spacing = ' + repr(self.grid_spacing)
+            string += 'grid_spacing = ' + repr(self.grid_spacing) + ', '
         if self.material is not None:
-            string += ', material = ' + repr(self.material)
+            string += 'material = ' + repr(self.material) + ', '
         if self.mask is not None:
-            string += ', mask = ' + repr(self.mask)
+            string += 'mask = ' + repr(self.mask) + ', '
+        string = string[:-2]
 
         return 'Surface(' + string + ')'
 
@@ -1551,20 +1567,16 @@ class _AnalyticalSurface(_Surface):
     _total_shift: tuple = (0, 0)
     _total_rotation: float = 0
     is_analytic = True
+    _analytic_subclass_registry = []
 
-    def __init__(self, generate: bool = False, rotation: Number = 0,
-                 shift: typing.Union[str, tuple] = 'origin to centre',
+    def __init__(self, generate: bool = False, rotation: Number = None,
+                 shift: typing.Union[str, tuple] = None,
                  grid_spacing: float = None, extent: tuple = None, shape: tuple = None):
         super().__init__(grid_spacing=grid_spacing, extent=extent, shape=shape)
-        if rotation:
+        if rotation is not None:
             self.rotate(rotation)
-        if any(shift):
-            if shift == 'origin to centre':
-                try:
-                    shift = tuple(ex/-2 for ex in self.extent)
-                except TypeError:
-                    raise ValueError("The extent of the surface must be set to shift the origin to the centre")
-                self.shift(shift)
+
+        self.shift(shift)
 
         if generate:
             self.descretise()
@@ -1610,8 +1622,7 @@ class _AnalyticalSurface(_Surface):
 
         Notes
         -----
-        If a shift and rotation are specified, the shift is applied first, the rotation is then applied about the
-        original origin
+        If a shift and rotation are specified, the rotation is applied first about the origin, the shift is then applied
 
         Examples
         --------
@@ -1621,17 +1632,17 @@ class _AnalyticalSurface(_Surface):
         0
         """
 
-        x_mesh += self._total_shift[0]
-        y_mesh += self._total_shift[1]
-        x = x_mesh*np.sin(self._total_rotation) - y_mesh*np.cos(self._total_rotation)
-        y = y_mesh*np.sin(self._total_rotation) + x_mesh*np.cos(self._total_rotation)
+        x = x_mesh*np.cos(self._total_rotation) - y_mesh*np.sin(self._total_rotation)
+        y = y_mesh*np.cos(self._total_rotation) + x_mesh*np.sin(self._total_rotation)
+        x += self._total_shift[0]
+        y += self._total_shift[1]
 
         return self._height(x, y)
 
     def _repr_helper(self):
         string = ''
         if self._total_shift[0] or self._total_shift[1]:
-            string += ', centre = ' + repr(self._total_shift)
+            string += ', shift = ' + repr(self._total_shift)
         if self._total_rotation:
             string += ', rotation = ' + repr(self._total_rotation)
         if self.is_descrete:
@@ -1642,6 +1653,12 @@ class _AnalyticalSurface(_Surface):
             string += f', extent = {self.extent}'
         return string
 
+    @classmethod
+    def __init_subclass__(cls, is_abstract=False, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if not is_abstract:
+            _AnalyticalSurface._analytic_subclass_registry.append(cls)
+
     @abc.abstractmethod
     def __repr__(self):
         pass
@@ -1649,7 +1666,21 @@ class _AnalyticalSurface(_Surface):
     def rotate(self, radians: Number):
         self._total_rotation += radians
 
-    def shift(self, shift: tuple):
+    def shift(self, shift: tuple = None):
+        """ Translate the profile of the surface
+
+        Parameters
+        ----------
+        shift: tuple, optional (None)
+            The distance to move the surface profile in the x and y directions, defaults to moving the origin of the
+            profile to the centre
+        """
+
+        if shift is None:
+            if self.extent is None:
+                return
+            else:
+                shift = tuple(ex / -2 for ex in self.extent)
 
         if len(shift) != 2:
             raise ValueError("Shift tuple should be length 2")
@@ -1692,27 +1723,64 @@ class _AnalyticalSurface(_Surface):
 
         return self.__dict__ == other.__dict__
 
-    def show(self, property_to_plot='profile', plot_type='default', ax=False, *, dist=None, stride=None):
+    def show(self, property_to_plot='profile', plot_type='default', ax=False, *, dist=None, stride=None, n_pts=100,
+             **figure_kwargs):
         if self.is_descrete:
-            return super().show(property_to_plot=property_to_plot, plot_type=plot_type, ax=ax, dist=dist, stride=stride)
-        elif self.grid_spacing is not None and self.shape is not None:
+            return super().show(property_to_plot=property_to_plot, plot_type=plot_type, ax=ax, dist=dist, stride=stride,
+                                **figure_kwargs)
+
+        old_props = self.fft, self.psd, self.acf
+
+        if self.grid_spacing is not None and self.shape is not None:
+            set_gs = False
             profile = self.height(*self.get_points_from_extent())
-            self._profile = profile
-            try:
-                return super().show(property_to_plot=property_to_plot, plot_type=plot_type, ax=ax, dist=dist,
-                                    stride=stride)
-            finally:
-                self._profile = None
+        elif self.extent is not None:
+            set_gs = True
+            gs = min(self.extent)/n_pts
+            profile = self.height(*self.get_points_from_extent(extent=self.extent, grid_spacing=gs))
+            self._shape = tuple([int(sz / gs) for sz in self.extent])
+            self._grid_spacing = gs
         else:
             raise AttributeError('The extent and grid spacing of the surface should be set before the surface can be '
                                  'shown')
+        self._profile = profile
+        try:
+            return super().show(property_to_plot=property_to_plot, plot_type=plot_type, ax=ax, dist=dist,
+                                stride=stride, **figure_kwargs)
+        finally:
+            self._profile = None
+            self.fft, self.psd, self.acf = old_props
+            if set_gs:
+                self._grid_spacing = None
+                self._shape = None
 
 
 class SurfaceCombination(_AnalyticalSurface):
     surface_type = 'Analytical Combination'
 
     def __init__(self, surface_1: _AnalyticalSurface, surface_2: _AnalyticalSurface, mode: str = '+'):
-        super().__init__(grid_spacing=surface_1.grid_spacing, shape=surface_1.shape, generate=surface_1.is_descrete)
+        """A class for containing additions or subtractions of analytical surfaces
+
+        Parameters
+        ----------
+        surface_1: _AnalyticalSurface
+            The first surface
+        surface_2: _AnalyticalSurface
+            The second surface
+        mode: str {'+', '-'}
+            The combination mode
+
+        """
+        if surface_1.extent is not None and surface_2.extent is not None and surface_1.extent != surface_2.extent:
+            raise ValueError('Surfaces have different extents, cannot add')
+        if surface_1.grid_spacing is not None and surface_2.grid_spacing is not None \
+                and surface_1.grid_spacing != surface_2.grid_spacing:
+            raise ValueError('Surfaces have different extents, cannot add')
+        new_extent = surface_1.extent if surface_1.extent is not None else surface_2.extent
+        new_gs = surface_1.grid_spacing if surface_1.grid_spacing is not None else surface_2.grid_spacing
+
+        super().__init__(grid_spacing=new_gs, extent=new_extent, shift=(0, 0))
+
         self.mode = mode
         self.surfaces = (surface_1, surface_2)
         if self.mode == '+':
@@ -1722,7 +1790,7 @@ class SurfaceCombination(_AnalyticalSurface):
 
     def __repr__(self):
         return ('SurfaceCombination(surface_1=' + repr(self.surfaces[0]) + ', surface_2=' + repr(self.surfaces[1]) +
-                f', mode={self.mode}')
+                f', mode=\'{self.mode}\'')
 
     def _height(self, x_mesh, y_mesh):
         """This will be overwritten on init"""

@@ -60,8 +60,8 @@ class FlatSurface(_AnalyticalSurface):
     surface_type = 'flat'
     analytic = True
 
-    def __init__(self, slope: tuple = (0, 0), rotation: float = 0,
-                 shift: typing.Union[tuple, str] = 'origin to centre',
+    def __init__(self, slope: tuple = (0, 0), rotation: float = None,
+                 shift: typing.Optional[tuple] = None,
                  generate: bool = False, grid_spacing: float = None,
                  extent: tuple = None, shape: tuple = None):
         if type(slope) is tuple:
@@ -137,8 +137,8 @@ class RoundSurface(_AnalyticalSurface):
     """
     radius: tuple
 
-    def __init__(self, radius: tuple, rotation: float = 0,
-                 shift: typing.Union[tuple, str] = 'origin to centre',
+    def __init__(self, radius: tuple, rotation: float = None,
+                 shift: typing.Optional[tuple] = None,
                  generate: bool = False, grid_spacing: float = None,
                  extent: tuple = None, shape: tuple = None):
 
@@ -217,8 +217,8 @@ class PyramidSurface(_AnalyticalSurface):
     """
     surface_type = 'pyramid'
 
-    def __init__(self, lengths, rotation: float = 0,
-                 shift: typing.Union[tuple, str] = 'origin to centre',
+    def __init__(self, lengths, rotation: float = None,
+                 shift: typing.Optional[tuple] = None,
                  generate: bool = False, grid_spacing: float = None,
                  extent: tuple = None, shape: tuple = None):
         if isinstance(lengths, Number):

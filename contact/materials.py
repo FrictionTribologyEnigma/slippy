@@ -3,10 +3,10 @@ import collections
 import typing
 import warnings
 from itertools import product
-from slippy.abcs import _MaterialABC
+from slippy.abcs import _MaterialABC, _AdhesionModelABC
 import numpy as np
 from scipy.signal import fftconvolve
-from ._material_utils import _get_properties, Loads, Displacements
+from ._material_utils import _get_properties, Loads, Displacements, memoize_components
 
 __all__ = ["Elastic", "_Material", "rigid"]
 
@@ -17,8 +17,6 @@ class _Material(_MaterialABC):
     """
     material_type: str
     name: str
-    _im_cache = dict()
-    _im_spec_tuple = None
     _subclass_registry = []
 
     def __init__(self, name: str):
@@ -31,15 +29,16 @@ class _Material(_MaterialABC):
         super().__init_subclass__(**kwargs)
         if not is_abstract:
             _Material._subclass_registry.append(cls)
+
     # Each material must define an influence matrix method that given the grid spacing and the span returns the
     # influence matrix
 
     # should memoize the results so that the defleciton from loads method can be called directly
     @abc.abstractmethod
-    def fft_influence_matrix(self, span: typing.Sequence[int], grid_spacing: typing.Sequence[float],
-                             components: typing.Sequence[str]):
+    def influence_matrix(self, span: typing.Sequence[int], grid_spacing: typing.Sequence[float],
+                         components: typing.Sequence[str]):
         """
-        Find the fast fourier transformed influence matrix components for the material
+        Find the influence matrix components for the material
 
         Parameters
         ----------
@@ -151,7 +150,7 @@ class _Material(_MaterialABC):
 
         # get the influence matrix components from the class methods
 
-        components = self.fft_influence_matrix(span=span, grid_spacing=grid_spacing, components=comp_names)
+        components = self.influence_matrix(span=span, grid_spacing=grid_spacing, components=comp_names)
         displacements = self._solve_im_loading(loads, components)
         return displacements
 
@@ -304,7 +303,7 @@ class _Material(_MaterialABC):
 
         # get componets of the influence matrix
         if other is None:
-            components = self.fft_influence_matrix(grid_spacing=grid_spacing, span=span, components=comp_names)
+            components = self.influence_matrix(grid_spacing=grid_spacing, span=span, components=comp_names)
             initial_guess = self.guess_loads_from_displacement(displacements, grid_spacing, components)
             loads, full_deflections = self._solve_im_displacement(displacements=displacements, components=components,
                                                                   max_it=max_it, tol=tol, initial_guess=initial_guess)
@@ -312,8 +311,8 @@ class _Material(_MaterialABC):
 
         # other is not None
         try:
-            components_other = other.fft_influence_matrix(grid_spacing=grid_spacing, span=span, components=comp_names)
-            components_self = self.fft_influence_matrix(grid_spacing=grid_spacing, span=span, components=comp_names)
+            components_other = other.influence_matrix(grid_spacing=grid_spacing, span=span, components=comp_names)
+            components_self = self.influence_matrix(grid_spacing=grid_spacing, span=span, components=comp_names)
 
             combined_components = dict()
 
@@ -335,15 +334,15 @@ class _Material(_MaterialABC):
             return loads, (full_deflections, deflections_1, deflections_2)
 
         except NotImplementedError:
-            raise NotImplementedError("Not possible to solve the current material pair")
+            raise NotImplementedError("Not currently possible to solve the current material pair")
 
         # if you got here then this, the other surface or both have no influence matrix method, so we have to iterate
         # on the sum of the displacements using the displacement_from_surface_loads method directly
         # TODO
 
     @staticmethod
-    def guess_loads_from_displacement(displacements: Displacements, grid_spacing:typing.Sequence, components: dict) -> \
-            Loads:
+    def guess_loads_from_displacement(displacements: Displacements, grid_spacing: typing.Sequence,
+                                      components: dict) -> Loads:
         """
         Defines the starting point for the default loads from displacement method
 
@@ -371,7 +370,7 @@ class _Material(_MaterialABC):
             if displacements.__getattribute__(direction) is None:
                 continue
             max_im = max(components[direction * 2].flatten())
-            load = displacements.__getattribute__(direction)*max_im
+            load = displacements.__getattribute__(direction) * max_im
             load = np.nan_to_num(load)
             loads[direction] = load
 
@@ -400,7 +399,7 @@ class _Material(_MaterialABC):
 
     def _solve_im_displacement(self, displacements: Displacements, components: dict, max_it: int,
                                tol: float, initial_guess: Loads) -> typing.Tuple[Loads, Displacements]:
-        """ The meat of the elastic deflection algorithm
+        """ Given displacements find the loads needed to cause then for an influecnce matrix based material
 
         Split away from the main function to allow for faster compuation avoiding
         calculating the influence matrix for each itteration
@@ -511,6 +510,98 @@ class _Material(_MaterialABC):
                 break
         return loads, calc_displacements
 
+    def jacobian_influence_matrix(self, components: typing.Sequence[str], surface_shape: tuple, periodic: bool,
+                                  *im_args, contact_nodes=None, **im_kwargs):
+        """ Find the jacobian of the displacement wrt the loading of each node (for influence matrix based materials)
+
+        Parameters
+        ----------
+        components: Sequence[str]
+        surface_shape
+        contact_nodes
+
+        Returns
+        -------
+
+        """
+        # for each component (check to see if it has been memoised)
+        comps = {comp: self._jac_im_getter(comp, surface_shape, periodic, *im_args, **im_kwargs) for comp in components}
+
+        # reduce the combined jacobian to the contact nodes
+        # return a callable that gives this
+
+    @memoize_components(False)
+    def _jac_im_getter(self, component: str, surface_shape: tuple, periodic: bool, *im_args, **im_kwargs):
+        """Get a single component of the jacobian matrix
+
+        Parameters
+        ----------
+        component: str
+            The desired component (should only be a single component eg 'xx')
+        surface_shape: tuple
+            The shape of the surface array, a 2 element tuple of ints
+        periodic: bool
+            If true the jacobian for a periodic surface is returned
+        im_args, im_kwargs
+            args and kwargs to be passed to the influence matrix method
+
+        Returns
+        -------
+        jac_comp: np.array
+            The requested component of the jacobian matrix
+
+        """
+
+        inf_comp = self.influence_matrix(component, *im_args, **im_kwargs)[component]
+        influence_martix_span = inf_comp.shape
+        if periodic:
+            # check that the surface shape is odd in both dimentions
+            if not all([el % 2 for el in surface_shape]):
+                raise ValueError("Surface shape must be odd in both dimentions for periodic surfaces")
+            # trim the influence matrix if necessary
+            dif = [int((ims - ss) / 2) for ims, ss in zip(influence_martix_span, surface_shape)]
+            if dif[0] > 0:
+                inf_comp = inf_comp[dif[0]:-1 * dif[0], :]
+            if dif[1] > 0:
+                inf_comp = inf_comp[:, dif[1]:-1 * dif[1]]
+            trimmed_ims = inf_comp.shape
+            # pad to the same shape as the surface (this is why it has to be odd size)
+            inf_mat = np.pad(inf_comp, ((0, surface_shape[0] - trimmed_ims[0]),
+                                        (0, surface_shape[1] - trimmed_ims[1])), mode='constant')
+            inf_mat = np.roll(inf_mat, (-1 * int(trimmed_ims[0] / 2), -1 * int(trimmed_ims[1] / 2)),
+                              axis=[0, 1]).flatten()
+            jac_comp = []
+            roll_num = 0
+            # roll the influence matrix to fill in rows of the jacobian
+            for n in range(surface_shape[0]):
+                for m in range(surface_shape[1]):
+                    jac_comp.append(np.roll(inf_mat, roll_num))
+                    roll_num += 1
+            jac_comp = np.asarray(jac_comp)
+
+        else:  # not periodic
+            pad_0 = int(surface_shape[0] - np.floor(influence_martix_span[0] / 2))
+            pad_1 = int(surface_shape[1] - np.floor(influence_martix_span[1] / 2))
+            if pad_0 < 0:
+                inf_comp = inf_comp[-1 * pad_0:pad_0, :]
+                pad_0 = 0
+            if pad_1 < 0:
+                inf_comp = inf_comp[:, -1 * pad_1:pad_1]
+                pad_1 = 0
+            inf_mat = np.pad(inf_comp, ((pad_0, pad_0), (pad_1, pad_1)), mode='constant')
+            jac_comp = []
+            idx_0 = 0
+            for n in range(surface_shape[0]):
+                idx_1 = 0
+                for m in range(surface_shape[1]):
+                    jac_comp.append(inf_mat[surface_shape[0] - idx_0:2 * surface_shape[0] - idx_0,
+                                    surface_shape[1] - idx_1:2 * surface_shape[1] - idx_1].copy().flatten())
+                    idx_1 += 1
+                idx_0 += 1
+            jac_comp = np.asarray(jac_comp)
+
+        return jac_comp
+
 
 class Rigid(_Material):
     """ A rigid material
@@ -531,10 +622,9 @@ class Rigid(_Material):
     def __init__(self, name: str):
         super().__init__(name)
 
-    def fft_influence_matrix(self, span: typing.Sequence[int], grid_spacing: typing.Sequence[float],
-                             components: typing.Sequence[str]):
+    def influence_matrix(self, span: typing.Sequence[int], grid_spacing: typing.Sequence[float],
+                         components: typing.Sequence[str]):
         return {comp: np.zeros(span) for comp in components}
-
 
     def displacement_from_surface_loads(self, loads, *args, **kwargs):
         return Displacements(*[np.zeros_like(l) for l in loads])
@@ -606,8 +696,8 @@ class Elastic(_Material):
         for item in properties.items():
             self._set_props(*item)
 
-    def fft_influence_matrix(self, grid_spacing: {typing.Sequence[float], float}, span: typing.Sequence[int],
-                             components: typing.Union[typing.Sequence[str], str], other: _Material = None):
+    def influence_matrix(self, grid_spacing: {typing.Sequence[float], float}, span: typing.Sequence[int],
+                         components: typing.Union[typing.Sequence[str], str], other: _Material = None):
         """
         Influence matrix for an elastic material
 
@@ -690,34 +780,23 @@ class Elastic(_Material):
         if components == 'all':
             components = ['xx', 'xy', 'xz', 'yx', 'yy', 'yz', 'zx', 'zy', 'zz']
 
-        components = {comp: None for comp in components}
-
-        if self._im_spec_tuple == (shear_modulus, v, shear_modulus_2, v_2, grid_spacing, span):
-            for comp in components:
-                components[comp] = self._im_cache[comp]
-        else:
-            self._im_spec_tuple = (shear_modulus, v, shear_modulus_2, v_2, grid_spacing, span)
-            self._im_cache = collections.defaultdict(type(None))
-
-        if not any([item is None for item in components.values()]):
-            return components
-
-        for comp in components:
-            if components[comp] is None:
-                components[comp] = self._elastic_im_getter(span, grid_spacing, shear_modulus, v,
-                                                           comp, shear_mod_2=shear_modulus_2, v_2=v_2)
-                self._im_cache[comp] = components[comp]
+        components = {comp: self._elastic_im_getter(comp, span, grid_spacing, shear_modulus, v,
+                                                    shear_mod_2=shear_modulus_2, v_2=v_2) for comp in components}
 
         return components
 
     @staticmethod
-    def _elastic_im_getter(span: typing.Sequence[int], grid_spacing: typing.Sequence[float], shear_mod: float, v: float,
-                           comp: str, shear_mod_2: typing.Optional[float] = None,
+    @memoize_components(True)
+    def _elastic_im_getter(comp: str, span: typing.Sequence[int], grid_spacing: typing.Sequence[float],
+                           shear_mod: float, v: float,
+                           shear_mod_2: typing.Optional[float] = None,
                            v_2: typing.Optional[float] = None) -> np.array:
         """Find influence matrix components for an elastic contact problem
 
         Parameters
         ----------
+        comp : str {'xx','xy','xz','yx','yy','yz','zx','zy','zz'}
+            The component to be returned
         span: Sequence[int]
             The span of the influence matrix in the x and y directions
         grid_spacing: Sequence[float]
@@ -726,8 +805,6 @@ class Elastic(_Material):
             The shear modulus of the surface materuial
         v : float
             The Poission's ratio of the surface material
-        comp : str {'xx','xy','xz','yx','yy','yz','zx','zy','zz'}
-            The component to be returned
         shear_mod_2: float (optional) None
             The shear modulus of the second surface for a combined stiffness matrix
         v_2: float (optional) None
@@ -753,11 +830,15 @@ class Elastic(_Material):
         contact problems
 
         """
+        if any([not s % 2 for s in span]):
+            warnings.warn('Even number of values requested in influence matrix, shape has been updated to one more than'
+                          'requested along even dimentions')
+
         try:
             # lets just see how this changes
-            # i-i' and j-j'
-            idmi = (np.arange(span[0] + ~span[0] % 2) - int(span[0] / 2))
-            jdmj = (np.arange(span[1] + ~span[1] % 2) - int(span[1] / 2))
+            # i'-i and j'-j
+            idmi = (np.arange(span[1] + ~span[1] % 2) - int(span[1] / 2))
+            jdmj = (np.arange(span[0] + ~span[0] % 2) - int(span[0] / 2))
             mesh_idmi, mesh_jdmj = np.meshgrid(idmi, jdmj)
 
         except TypeError:

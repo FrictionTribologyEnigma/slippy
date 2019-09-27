@@ -75,7 +75,7 @@ class RandomSurface(_Surface):
 
         valid_methods = ['linear_transform', 'fir_filter']
 
-        if target_acf:
+        if target_acf is not None:
             self.target_acf = target_acf
             if method in valid_methods:
                 method = self.__getattribute__(method)
@@ -273,7 +273,7 @@ class RandomSurface(_Surface):
             resid_old = resid
             it_num += 1
 
-            if not it_num < max_it and relaxation_factor > min_relax and resid_old > accuracy:
+            if not (it_num < max_it and relaxation_factor > min_relax and resid_old > accuracy):
                 break
 
         # print resuilts
@@ -395,7 +395,7 @@ class RandomSurface(_Surface):
 
         return
 
-    def fir_filter(self, target_acf: ACF, filter_span: typing.Sequence = None):
+    def fir_filter(self, target_acf: ACF = None, filter_span: typing.Sequence = None):
         """
         Create a 2D FIR filter to produce a surface with the given ACF
             
@@ -434,6 +434,12 @@ class RandomSurface(_Surface):
         
         #TODO
         """
+        if target_acf is None:
+            target_acf = self.target_acf
+
+        if target_acf is None:
+            raise ValueError('No ACF set')
+
         self._method_keywords = {**locals()}
         del (self._method_keywords['target_acf'])
         del (self._method_keywords['self'])
@@ -461,8 +467,7 @@ class RandomSurface(_Surface):
         # Generate array of ACF
         l = self.grid_spacing * np.arange(filter_span[0])
         k = self.grid_spacing * np.arange(filter_span[1])
-        [k_mesh, l_mesh] = np.meshgrid(k, l)
-        acf_array = self.target_acf(k_mesh, l_mesh)
+        acf_array = self.target_acf(k, l)
 
         # Find FIR filter coeficents
         self._filter_coeficents = np.sqrt(np.fft.fft2(acf_array))
@@ -543,6 +548,7 @@ class RandomSurface(_Surface):
             self.profile = profile
             self.is_descrete = True
         return
+
 
 # TODO get rid of kwargs here
 def surface_like(target_surface: Surface, extent: typing.Union[str, tuple] = 'original',
