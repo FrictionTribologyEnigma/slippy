@@ -42,7 +42,7 @@ def roughness(profile_in: {np.ndarray, _SurfaceABC}, parameter_name: {str, typin
     ----------
     profile_in : array like or Surface
         The surface profile or surface object to be used
-    parameter_name : str or list of str
+    parameter_name : str or Sequence[str]
         The name of the surface roughness parameter to be returned see notes 
         for descriptions of each
     grid_spacing : float optional (None)
@@ -69,10 +69,10 @@ def roughness(profile_in: {np.ndarray, _SurfaceABC}, parameter_name: {str, typin
         counted as a summit, otherwise a point must be higher than it's 8
         nearest neigbours to be a summit. Only used if summit descriptions
         are required, passed to find_summits.
-    
+
     Returns
     -------
-    out : float or list of floats
+    out : float or list[float]
         The requested parameters
         
     See Also
@@ -86,57 +86,55 @@ def roughness(profile_in: {np.ndarray, _SurfaceABC}, parameter_name: {str, typin
     Notes
     -----
     
-    Before calculation the least squares plane is subtracted if a periodic
-    surface is used this can be prevented by setting the no_flattening key 
-    word to true. If a curved surface is used a bi quadratic polynomial is 
-    fitted and removed before analysis as descirbed in the above text. 
+    Before calculation the least squares plane is subtracted if a periodic surface is used this can be prevented by
+    setting the no_flattening key word to true. If a curved surface is used a bi quadratic polynomial is fitted and
+    removed before analysis as descirbed in the above text.
     
-    If a list of valid parameter names is given this method will return a 
-    list of parameter values.
+    If a list of valid parameter names is given this method will return a list of parameter values.
     
-    If a parameter based on summit descriptions is needed the key words:
-        filter_cut_off (default None)
-        and 
-        four_nearest (default False) 
-    can be set to refine what counts as a summit, see find_summits
-    for more information. This is only used to find summits, calculations 
-    are run on 'raw' surface.
+    If a parameter based on summit descriptions is needed the following key words can be set to refine what counts as a
+    summit, see find_summits for more information. This is only used to find summits, calculations of curvature are run
+    on the unfiltered profile:
+
+    - filter_cut_off (default None)
+    - and
+    - four_nearest (default False)
     
     Descriptions of each of the surface roughness parameters are given below:
     
     Amptitude parameters:
     
-    - Sq   - RMS deviation of surface height *
-    - Sz   - Ten point height (based on definition of sumits) *-
-    - Ssk  - Skew of the surface (3rd moment) *
-    - Sku  - Kurtosis of the surface (4th moment) *
-    - Sv   - Lowest valley in the sample *
+    - Sq   - RMS deviation of surface height \*
+    - Sz   - Ten point height (based on definition of sumits) \*\-
+    - Ssk  - Skew of the surface (3rd moment) \*
+    - Sku  - Kurtosis of the surface (4th moment) \*
+    - Sv   - Lowest valley in the sample \*
     
     Spartial parameters:
     
     - Sds  - Summit density*-, see note above on definition of summit
     - Str  - Texture aspect ratio defined using the aacf 
     - Std  - Texture direction
-    - Sal  - Fastest decay auto corelation length +
+    - Sal  - Fastest decay auto corelation length \+
     
     hybrid parameters:
     
-    - Sdelq- RMS slope +
-    - Ssc  - Mean summit curvature, see note above on definition of summit *+ 
-    - Sdr  - Developed interfacial area ratio +
+    - Sdelq- RMS slope \+
+    - Ssc  - Mean summit curvature, see note above on definition of summit \*\+
+    - Sdr  - Developed interfacial area ratio \+
     
     funcional parameters:
     
-    - Sbi  - Bearing index *
-    - Sci  - Core fluid retention index *
-    - Svi  - Valley fluid retention index *
+    - Sbi  - Bearing index \*
+    - Sci  - Core fluid retention index \*
+    - Svi  - Valley fluid retention index \*
     
     non 'core' parameters (implemented):
     
-    - Sa   - Mean amptitude of surface *
-    - Stp  - Surface bearing ratio *
-    - Smr  - Material volume ratio of the surface *
-    - Svr  - Void volume ratio of the surface, as for previous *
+    - Sa   - Mean amptitude of surface \*
+    - Stp  - Surface bearing ratio \*
+    - Smr  - Material volume ratio of the surface \*
+    - Svr  - Void volume ratio of the surface, as for previous \*
     
     non 'core' parameters (not implemented):
     
@@ -624,7 +622,7 @@ def get_summit_curvatures(profile: np.ndarray, summits: typing.Optional[np.ndarr
     return curves
 
 
-def find_summits(profile, grid_spacing=False, mask=None,
+def find_summits(profile, grid_spacing: float = None, mask: typing.Union[np.ndarray, float] = None,
                  four_nearest=False, filter_cut_off=None):
     """ Finds highpoints after low pass filtering
     
@@ -632,10 +630,10 @@ def find_summits(profile, grid_spacing=False, mask=None,
     ----------
     profile : N by M array-like
         The surface profile for analysis
-    grid_spacing : float optional (False)
+    grid_spacing : float, optional (None)
         The distanc between points on the grid of the surface profile. required
         only if the filter_cut_off is set
-    mask : array-like (bool)N by M or float optional (None)
+    mask : array-like (bool) N by M or float optional (None)
         If an array, the array is used as a mask for the profile, must be the 
         same shape as the profile, if a float is given, values which match are
         excluded from the calculation 
@@ -701,12 +699,12 @@ def find_summits(profile, grid_spacing=False, mask=None,
     return summits
 
 
-def low_pass_filter(profile, cut_off_freq, grid_spacing=None):
+def low_pass_filter(profile: typing.Union[_SurfaceABC, np.ndarray], cut_off_freq: float, grid_spacing: float = None):
     """2d low pass FIR filter with specified cut off frequency
     
     Parameters
     ----------
-    profile : N by M array-like or Surface object
+    profile : N by M array-like or Surface
         The Surface object or profile to be filtered
     cut_off_freq : Float
         The cut off frequency of the filter in the same units as the 

@@ -8,14 +8,11 @@ Surface generation and manipulation (:mod:`slippy.surface`)
 This package contains functions and classes for reading surfaces from file,
 manipulating, generating and analysing surfaces.
 
-The Surface class
-=================
+The Surface class for experimental surfaces
+===========================================
 
-Each of the generation classes are subclasses of the main surface class this
-class contains all the functionality for analysing and displaying surfaces.
-
-This class can be used with experimentally measured surfaces and contains 
-functionality for reading common file types including .csv, .txt and .al3d
+The Surface class contains methods for reading surfaces from files including .mat, .txt, .csv and .al3d files. It also
+contains methods for analysing surface rougness and other parameters.
 
 .. autosummary::
    :toctree: generated
@@ -23,11 +20,11 @@ functionality for reading common file types including .csv, .txt and .al3d
    Surface
 
 
-Generation classes
-==================
+Analytical Surfaces
+===================
 
-Several generation classes exist to help generate a wide variety of analytical
-or random surfaces.
+Surfaces which can be described by a mathematical function, these can be combined, rotated or shifted with no loss in
+resolution.
 
 .. autosummary::
    :toctree: generated
@@ -37,28 +34,40 @@ or random surfaces.
    PyramidSurface      -- Square based pyramid surfaces
    RandomSurface       -- Surfaces based on transformations of random sequences
    DiscFreqSurface     -- Surfaces containing specific frequency components
-   ProbFreqSurface     -- Surfaces containing stochastic frequency components
    HurstFractalSurface -- A Hurst Fractal Surface
 
-Functions
-=========
+Random Surfaces
+===============
+
+Surfaces based on transformations of random surfaces or probabilistic discriptions of the FFT.
 
 .. autosummary::
    :toctree: generated
 
-   assurface             -- Make a surface object
-   read_surface          -- Read a surface object from file
-   alicona_read          -- Read alicona data files
-   read_tst_file         -- Read a bruker umt tst file
-   roughness             -- Find 2d roughness parameters
-   subtract_polynomial   -- fit and subtract a n degree polynomial
-   get_mat_vr            -- get the material or void volume ratio for a height
-   get_height_of_mat_vr  -- get the height of particular material or void ratio
-   get_summit_curvatures -- find curvatures of points on the surface
-   find_summits          -- find peaks on the surface
-   low_pass_filter       -- low pass FIR filter the surface
-   surface_like          -- Generate a random surface 'like' another surface
-   
+   RandomSurface     -- Surfaces from transformations of random sequences
+   ProbFreqSurface   -- Surfaces based on a probablistic description of the FFT
+   surface_like      -- random surfaces with similar properties to the input surface
+
+Functions
+=========
+
+Functional interfaces for common tasks, these are all aliased by class methods, apart from surface_like.
+
+.. autosummary::
+   :toctree: generated
+
+   assurface              -- Make a surface object
+   read_surface           -- Read a surface object from file
+   alicona_read           -- Read alicona data files
+   read_tst_file          -- Read a bruker umt tst file
+   roughness              -- Find 2d roughness parameters
+   surface_like           -- Generate a random surface 'like' another surface
+   find_summits           -- Get summit loactions
+   get_height_of_mat_vr   -- Find the height of a specified material or void volume ratio
+   get_mat_vr             -- Find the material or void volume ratio at a particular height
+   get_summit_curvatures  -- Fine the summit curvatures
+   low_pass_filter        -- Low pass filter a surface or surface profile
+   subtract_polynomial    -- Fit and subtract an n degree polynomial from a surface profile
 """
 
 

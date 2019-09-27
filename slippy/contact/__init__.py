@@ -7,6 +7,16 @@ Contact mechanics models (:mod:`slippy.contact`)
 
 This module contains functions and classes for contact mechanics.
 
+Functions and classes for generating multistep contact models
+=============================================================
+
+.. autosummary::
+   :toctree: generated
+
+   ContactModel   --A multistep contact model
+   Step           --
+   Elastic
+
 Analytical solutions to common problems
 =======================================
 
@@ -16,19 +26,6 @@ Analytical solutions to common problems
    hertz_full
    solve_hertz_line
    solve_hertz_point
-
-Functions and classes for generating multistep contact models
-=============================================================
-
-Functions for elastic BEM soultions assuming the small angle assumption is
-valid
-
-.. autosummary::
-   :toctree: generated
-
-   ContactModel
-   Step
-   Material
 
 XXXXXXXX put some examples here!
 ================================

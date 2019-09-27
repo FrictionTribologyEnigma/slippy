@@ -11,12 +11,11 @@ general utils for surface
 __all__ = ['alicona_read']
 
 
-def alicona_read(full_path):
-    """
+def alicona_read(full_path: str):
+    r"""
     Reads .al3d and associated files made by alicona measurment machines
     
-    Will look for texture and icon images automatically, reads tags and depth 
-    data at a minimum from the al3d file. 
+    Will look for texture and icon images automatically, reads tags and depth data at a minimum from the al3d file.
     
     Parameters
     ----------
@@ -27,19 +26,17 @@ def alicona_read(full_path):
     -------
     data : dict
         Actual keys depend on the data found:
-        'DepthData' : Array of depth data with nan in place of invalid values
-        'TextureData' : Array of texture data or image of the surface
-        'Header' : Dict of tags read from the header
-        'Icon' : Array of icon image data
+        - 'DepthData' : Array of depth data with nan in place of invalid values
+        - 'TextureData' : Array of texture data or image of the surface
+        - 'Header' : Dict of tags read from the header
+        - 'Icon' : Array of icon image data
     
     Notes
     -----
-    If the file name in full_path ends with (#) or # where # is an integer 
-    this function will look first for texture (#) or texture # etc. otherwise
-    just texture will be found
+    If the file name in full_path ends with (#) or # where # is an integer this function will look first for texture (#)
+    or texture # etc. otherwise just texture will be found
     
-    This is a port of the matlab function from the Alicona file format reader 
-    (al3D) tool box
+    This is a port of the matlab function from the Alicona file format reader (al3D) tool box
     
     Copyright (c) 2016, Martin
     All rights reserved.
@@ -47,23 +44,18 @@ def alicona_read(full_path):
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions are met:
         
-    * Redistributions of source code must retain the above copyright notice, 
+    \* Redistributions of source code must retain the above copyright notice,
     this list of conditions and the following disclaimer.
 
-    * Redistributions in binary form must reproduce the above copyright notice,
-    this list of conditions and the following disclaimer in the documentation
-    and/or other materials provided with the distribution
-    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-    AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-    IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE 
-    ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE 
-    LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR 
-    CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF 
-    SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS 
-    INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN 
-    CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) 
-    ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE 
-    POSSIBILITY OF SUCH DAMAGE.
+    \* Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the
+    following disclaimer in the documentation and/or other materials provided with the distribution
+    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
+    INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+    ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+    INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+    GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+    LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+    OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     
     """
 

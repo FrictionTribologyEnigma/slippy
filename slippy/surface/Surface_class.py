@@ -126,10 +126,9 @@ class _Surface(_SurfaceABC):
 
     # The surface class for descrete surfaces (typically experiemntal)
     is_descrete: bool = False
-    """ A bool flag, true if there is a profile present """
+    """ A bool flag, True if there is a profile present """
     acf: typing.Optional[ACF] = None
     """ The autocorelation function of the surface profile """
-    aacf = None
     psd: typing.Optional[np.ndarray] = None
     """ The power spectral density of the surface """
     fft: typing.Optional[np.ndarray] = None
@@ -183,10 +182,8 @@ class _Surface(_SurfaceABC):
 
     @property
     def mask(self):
-        """A mask used to exclude some values from analysis
-
-        Either a boolean array of size self.size or a float of the value to
-        be excluded
+        """A mask used to exclude some values from analysis, a single float or an array of bool the same size as profile
+        Either a boolean array of size self.size or a float of the value to be excluded
         """
         return self._mask
 
@@ -213,16 +210,12 @@ class _Surface(_SurfaceABC):
 
     @property
     def extent(self):
-        """ The overall dimentions of the surface in the same units as grid
-        spacing
+        """ The overall dimentions of the surface in the same units as grid spacing
         """
         return self._extent
 
     @extent.setter
     def extent(self, value):
-        """
-        The overall dimentions of the surface
-        """
         if not isinstance(value, collections.Sequence):
             msg = "Extent must be a Sequence, got {}".format(type(value))
             raise TypeError(msg)
@@ -256,9 +249,7 @@ class _Surface(_SurfaceABC):
 
     @property
     def shape(self):
-        """
-        The shape of the surface profile array, the number of points in each
-        direction
+        """The shape of the surface profile array, the number of points in each direction
         """
         return self._shape
 
@@ -297,8 +288,7 @@ class _Surface(_SurfaceABC):
 
     @property
     def profile(self):
-        """
-        The height data for the surface profile
+        """The height data for the surface profile
         """
         if self.invert_surface:
             return -1 * self._profile
@@ -358,17 +348,12 @@ class _Surface(_SurfaceABC):
 
     @property
     def grid_spacing(self):
+        """The distance between grid points in the x and y directions
+        """
         return self._grid_spacing
 
     @grid_spacing.setter
     def grid_spacing(self, grid_spacing: float):
-        """ Change the grid spacing of the surface
-
-        Changes the grid spacing attribute while keeping all other dimentions
-        up to date. Does not re interpolate on a different size grid,
-        stretches the surface to the new grid size keeping all points the same.
-
-        """
         if grid_spacing is None:
             return
 
@@ -1798,8 +1783,8 @@ class SurfaceCombination(_AnalyticalSurface):
 
 
 if __name__ == '__main__':
-    A = Surface(file_name='C:\\Users\\44779\\code\\SlipPY\\data\\image1_no head'
-                          'er_units in nm.txt', delimiter=' ', grid_spacing=0.001)
+    A = Surface(file_name='C:\\Users\\44779\\code\\SlipPY\\data\\image1_no header_units in nm.txt', csv_delimiter=' ',
+                grid_spacing=0.001)
     # testing show()
     # types2d=['profile', 'fft2d', 'psd', 'acf', 'apsd']
     # types1d=['histogram','fft1d', 'qq', 'disthist']
