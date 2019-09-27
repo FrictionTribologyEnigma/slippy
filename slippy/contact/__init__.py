@@ -37,7 +37,6 @@ XXXXXXXX put some examples here!
 """
 
 from .hertz import *
-from .dummy_classes import *
 from .materials import *
 from .friciton_models import *
 from .adhesion_models import *
