@@ -43,7 +43,6 @@ slippy.surface.Surface
 
    .. autosummary::
    
-      ~Surface.aacf
       ~Surface.acf
       ~Surface.dimentions
       ~Surface.extent

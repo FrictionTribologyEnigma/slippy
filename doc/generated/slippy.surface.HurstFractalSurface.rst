@@ -42,7 +42,6 @@ slippy.surface.HurstFractalSurface
 
    .. autosummary::
    
-      ~HurstFractalSurface.aacf
       ~HurstFractalSurface.acf
       ~HurstFractalSurface.dimentions
       ~HurstFractalSurface.extent

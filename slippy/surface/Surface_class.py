@@ -138,8 +138,7 @@ class _Surface(_SurfaceABC):
     dimentions: typing.Optional[int] = 2
     """ The number of spartial dimentions that """
     is_analytic: bool = False
-    """ A bool, true if the surface can be described by an equaiton and a 
-    Z=height(X,Y) method is provided"""
+    """ A bool, true if the surface can be described by an equaiton and a  Z=height(X,Y) method is provided"""
     invert_surface: bool = False
 
     _material: typing.Optional[_MaterialABC] = None
@@ -188,7 +187,7 @@ class _Surface(_SurfaceABC):
         return self._mask
 
     @mask.setter
-    def mask(self, value):
+    def mask(self, value: typing.Union[float, np.ndarray]):
         if value is None:
             self._mask = None
 
@@ -215,7 +214,7 @@ class _Surface(_SurfaceABC):
         return self._extent
 
     @extent.setter
-    def extent(self, value):
+    def extent(self, value: typing.Sequence[float]):
         if not isinstance(value, collections.Sequence):
             msg = "Extent must be a Sequence, got {}".format(type(value))
             raise TypeError(msg)
@@ -254,7 +253,7 @@ class _Surface(_SurfaceABC):
         return self._shape
 
     @shape.setter
-    def shape(self, value):
+    def shape(self, value: typing.Sequence[int]):
         if not isinstance(value, collections.Sequence):
             raise ValueError(f"Shape shuld be a Sequence type, got: {type(value)}")
 
@@ -296,7 +295,7 @@ class _Surface(_SurfaceABC):
             return self._profile
 
     @profile.setter
-    def profile(self, value):
+    def profile(self, value: np.ndarray):
         """Sets the profile property
         """
         if value is None:
@@ -816,16 +815,14 @@ class _Surface(_SurfaceABC):
             The type of plot to be produced, see notes for supported types
         ax : matplotlib axes or False optional (False)
             If supploed the plot will be added to the axis
-
-        Keyword Parameters
-        ------------------
-        dist : a scipy probability distribution optional (None)
+        dist : a scipy probability distribution, optional (None)
             Only used if probplot is requested, the probability distribution
             to plot against
-        stride : float optional (None)
+        stride : float, optional (None)
             Only used if a wire frame plot is requested, the stride between
             wires
-        figure_kwargs : Keyword arguments sent to the figure function in matplotlib
+        figure_kwargs : dict, optional (None)
+            Keyword arguments sent to the figure function in matplotlib
 
         Returns
         -------
@@ -1220,37 +1217,6 @@ class Surface(_Surface):
         mat_grid_spacing_name: str, optional (None)
             The name of the grid_spacing variable in the .mat file, only used if the file_name is given and the file is
             a .mat file. If unset the grid_spacing property is not read from the file.
-
-        Attributes
-        ----------
-        profile : array
-            The height infromation of the surface
-
-        shape : tuple
-            The numbeer of points in each direction of the profile
-
-        grid_spacing: float
-            The distance between adjacent points in the profile
-
-        extent : list
-            The size of the profile in the same units as the grid spacing is set in
-
-        Methods
-        -------
-        show
-        subtract_polynomial
-        roughness
-        get_mat_vr
-        get_height_of_mat_vr
-        find_summits
-        get_summit_curvatures
-        low_pass_filter
-        read_from_file
-        fill_holes
-        resample
-        get_fft
-        get_acf
-        get_psd
 
         See Also
         --------

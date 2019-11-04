@@ -31,30 +31,29 @@ def solve_hertz_line(*, r_rel: float = None,
     """
     Finds remaining hertz parameter for a line contact
 
-    Keyword Parameters
-    ------------------
-    r_rel: float
+    Parameters
+    ----------
+    r_rel: float, optional
         The relative radii of the contact defined as 1/(1/r1+1/r2) where r1,2
         are the radii of the bodies, assuming that the axes are parallel (line
         contact). For a cylinder on the flat r_rel is the radius of the
         cylinder.
-    e1,e2 : float
+    e1,e2 : float, optional
         The Young's moduli of the bodies, if neither is set they will be
         assumed to be equal
-    v1,v2 : float
+    v1,v2 : float, optional
         The Poisson's ratios for the bodies, if neither is set the are assumed
         to be equal
-    load : float
+    load : float, optional
         The load per unit length for the contact
-
-    max_pressure : float
+    max_pressure : float, optional
         The maximum pressure in the contact region
-    max_shear_stress : float
+    max_shear_stress : float, optional
         The maximum shear stress in the first body, swap the materials to
         change the body
-    contact_width : float
+    contact_width : float, optional
         The contact half width
-    max_von_mises : float
+    max_von_mises : float, optional
         The maximum von mises stress in the first body, swap the materials to
         change body
 
@@ -213,33 +212,34 @@ def solve_hertz_point(*, r_rel=None,
                       max_von_mises=None,
                       total_displacement=None,
                       max_tensile_stress=None):
-    """
-    Finds the remaining hertz parameter for a spherical contact
+    """Finds the remaining hertz parameter for a spherical contact
 
-    Keyword Parameters
-    ------------------
+    Parameters
+    ----------
 
-    r_rel: float
+    r_rel: float, optional
         The relative radii of the contact defined as 1/(1/r1+1/r2) where r1,2 are the radii of the bodies.
         For a ball on the flat r_rel is the radius of the ball.
-    e1,e2 : float
+    e1,e2 : float, optional
         The Young's moduli of the bodies, if neither is set they will be assumed to be equal
-    v1,v2 : float
+    v1,v2 : float, optional
         The Poisson's ratios for the bodies, if neither is set the are assumed to be equal
-    load : float
+    load : float, optional
         The load per unit length for the contact
 
-    max_pressure : float
+    max_pressure : float, optional
         The maximum pressure in the contact region
-    max_shear_stress : float
+    max_shear_stress : float, optional
         The maximum shear stress in the first body, swap the materials to
         change the body
-    contact_radius : float
+    contact_radius : float, optional
         The radius of the contact patch
-    max_von_mises : float
+    max_von_mises : float, optional
         The maximum von mises stress in the first body, swap the materials to change body
-    total_displacement : float
+    total_displacement : float, optional
         The displacement of the bodies towards each other
+    max_tensile_stress : float, optional
+        The maximum tensile stress in the first body, swap the materials to cahnge the body
 
     Returns
     -------

@@ -24,7 +24,6 @@ The exact API of all functions and classes, as given by the docstrings. This doc
    :maxdepth: 1
 
    surface
-   contact
 
 Examples
 --------

@@ -25,6 +25,7 @@ from slippy.contact._model_utils import get_gap_from_model, non_dimentional_heig
 import typing
 from slippy.contact import Displacements, Loads
 import numpy as np
+import pickle
 
 __all__ = ['StaticNormalLoad', 'StaticNormalInterferance', 'ClosurePlot', 'PullOff', 'SurfaceDisplacement',
            'SurfaceLoading']
@@ -190,6 +191,20 @@ class StaticNormalLoad(_ModelStep):
 
             total_load = np.sum(loads.z.flatten())*self.model.surface_1.grid_spacing**2
             print(f'Total load is: {total_load}')
+
+            ###################### this section is for the machine learing project only
+            if not hasattr(np, 'ITNUM'):
+                np.ITNUM = 0
+
+            pickle.dump({b'gap': gap, b'height': height, b'total_load': total_load,
+                         b'set_disp': displacements.z, b'all_loads': loads.z,
+                         b'props': {b'E1': surf_1.material.E, b'v1': surf_1.material.v,
+                                    b'E2': surf_1.material.E, b'v2': surf_1.material.v}}, open(f"{np.ITNUM}.pkl", "wb"))
+
+            np.ITNUM += 1
+
+            ##################### end machine learning project secion
+
             return total_load-set_load
 
         # need to set bounds and pick a sensible starting point

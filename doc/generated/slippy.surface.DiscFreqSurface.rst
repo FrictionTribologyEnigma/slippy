@@ -42,7 +42,6 @@ slippy.surface.DiscFreqSurface
 
    .. autosummary::
    
-      ~DiscFreqSurface.aacf
       ~DiscFreqSurface.acf
       ~DiscFreqSurface.dimentions
       ~DiscFreqSurface.extent

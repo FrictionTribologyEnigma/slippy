@@ -36,6 +36,20 @@ class FlatSurface(_AnalyticalSurface):
     ----------
     slope : tuple, optional (0,0)
         The gradient of the surface in the x and y directions
+    rotation: float, optional (None)
+        If set the surface will be rotated by this number of radians
+    shift: tuple, optional (None)
+        If set the surface will be shifted by this distance in the and y directions, tuple should be length 2, if not
+        set the default is to shift by half the extent, meaning that the origin becomes the centre.
+    generate: bool, optional (False)
+        If True the surface profile is descretised on instatiation.
+    grid_spacing: float, optional (None)
+        The distance between grid points on the surface profile
+    extent: tuple, optional (None)
+        The overall size of the surface
+    shape: tuple, optional (None)
+        The numebr of grid points in each direction on the surface
+
     
     Attributes
     ----------
@@ -114,6 +128,20 @@ class RoundSurface(_AnalyticalSurface):
     radius : tuple
         The radius of the surface in the X Y and Z directions, or in all 
         directions if a float is given
+    rotation: float, optional (None)
+        If set the surface will be rotated by this number of radians
+    shift: tuple, optional (None)
+        If set the surface will be shifted by this distance in the and y directions, tuple should be length 2, if not
+        set the default is to shift by half the extent, meaning that the origin becomes the centre.
+    generate: bool, optional (False)
+        If True the surface profile is descretised on instatiation.
+    grid_spacing: float, optional (None)
+        The distance between grid points on the surface profile
+    extent: tuple, optional (None)
+        The overall size of the surface
+    shape: tuple, optional (None)
+        The numebr of grid points in each direction on the surface
+
     
     Attributes
     ----------
@@ -191,16 +219,24 @@ class RoundSurface(_AnalyticalSurface):
 class PyramidSurface(_AnalyticalSurface):
     """ Pyramid surface with any slopes
     
-    Keyword parameters
-    ------------------
-    lengths : list or float
-        The characteristic lengths of the pyramid in each direction, if a 
-        scalar is given the results is a square based pyramid with 45 degre 
-        sides
-    
-    Methods
-    -------
-    height
+    Parameters
+    ----------
+    lengths : {Sequence, float}
+        The characteristic lengths of the pyramid in each direction, if a scalar is given the results is a square based
+        pyramid with 45 degre sides
+    rotation: float, optional (None)
+        If set the surface will be rotated by this number of radians
+    shift: tuple, optional (None)
+        If set the surface will be shifted by this distance in the and y directions, tuple should be length 2, if not
+        set the default is to shift by half the extent, meaning that the origin becomes the centre.
+    generate: bool, optional (False)
+        If True the surface profile is descretised on instatiation.
+    grid_spacing: float, optional (None)
+        The distance between grid points on the surface profile
+    extent: tuple, optional (None)
+        The overall size of the surface
+    shape: tuple, optional (None)
+        The numebr of grid points in each direction on the surface
     
     See Also
     --------

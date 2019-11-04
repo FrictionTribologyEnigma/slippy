@@ -42,7 +42,6 @@ slippy.surface.RoundSurface
 
    .. autosummary::
    
-      ~RoundSurface.aacf
       ~RoundSurface.acf
       ~RoundSurface.dimentions
       ~RoundSurface.extent

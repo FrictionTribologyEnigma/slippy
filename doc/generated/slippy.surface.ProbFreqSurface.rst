@@ -42,7 +42,6 @@ slippy.surface.ProbFreqSurface
 
    .. autosummary::
    
-      ~ProbFreqSurface.aacf
       ~ProbFreqSurface.acf
       ~ProbFreqSurface.dimentions
       ~ProbFreqSurface.extent

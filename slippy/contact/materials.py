@@ -257,7 +257,7 @@ class _Material(_MaterialABC):
         Examples
         --------
 
-        Reference
+        References
         ---------
 
         Complete boundry element formulation for normal and tangential contact

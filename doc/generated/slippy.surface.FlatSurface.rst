@@ -42,7 +42,6 @@ slippy.surface.FlatSurface
 
    .. autosummary::
    
-      ~FlatSurface.aacf
       ~FlatSurface.acf
       ~FlatSurface.analytic
       ~FlatSurface.dimentions

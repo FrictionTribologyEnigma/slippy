@@ -44,7 +44,6 @@ slippy.surface.RandomSurface
 
    .. autosummary::
    
-      ~RandomSurface.aacf
       ~RandomSurface.acf
       ~RandomSurface.dimentions
       ~RandomSurface.dist

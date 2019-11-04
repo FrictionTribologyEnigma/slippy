@@ -133,9 +133,8 @@ class RandomSurface(_Surface):
         target_acf : ACF object or description
             The target ACF, the linear transfrom matrix will produce surfaces
             with this ACF.
-        filter_size_n_m : 2 element list of int
-            The dimentions of the filter coeficent matrix to be genrated 
-            the defaultis [35, 35]
+        filter_size_n_m : 2 element sequence of int
+            The dimentions of the filter coeficent matrix to be genrated the defaultis (35, 35)
         max_it : int default is 100
             The maximum number of iterations used
         accuracy : float default is 1e-5
@@ -165,7 +164,7 @@ class RandomSurface(_Surface):
         -----
         
         This problem has a unique solution for each grid spacing. This should 
-        be set before running this method, else it is assumed to be 1
+        be set before running this method, else it is assumed to be 1.
         
         The itteration procedure used if newtonian is selected is not strictly 
         newtonian. As it is much more time consuming to invert the jacobian 
@@ -174,7 +173,7 @@ class RandomSurface(_Surface):
         'distance moved' is halved. This halving is repeted until the 
         itteration results in an improvement. The minimum disctance that will 
         be tried can be set by setting the min_relax key word. This defaults to 
-        10e-6. This is a deviation from the method described by [1]_
+        10e-6. This is a deviation from the method described by [1]
         
         References
         ----------
@@ -315,23 +314,25 @@ class RandomSurface(_Surface):
         Notes
         -----
         
-        The skew of the input sequence :math:'Sk_\eta' can be related to the 
-        skew of the final surface :math:'Sk_z' by the following:
+        The skew of the input sequence:
+        ..math:: Sk_\eta
+        can be related to the skew of the final surface:
+        ..math:: Sk_z
+        by the following:
         
-        ..math:
+        ..math::
             Sk_z=Sk_\eta \frac{\sum_{i=0}^{q} \alpha_{i}^{3}}{(\sum_{i=0}^{q}\alpha_i^2)^\frac{3}{2}}\\
         
         The kurtosis of the input sequence can be related to the final surface 
-        by [1]_:
+        by [1]:
         
         ..math:
-            K_z= \frac{K_\eta \sum_{i=0}^q \alpha_i^2 + 6
-            \sum_{i=0}^{q-1}\sum_{j=i+1}^q \alpha_i^2 \alpha_j^2}{(\sum_{i=0}^q \alpha_i^2)^2}\\
+            K_z= \frac{K_\eta \sum_{i=0}^q \alpha_i^2 + 6 \sum_{i=0}^{q-1}\sum_{j=i+1}^q \alpha_i^2 \alpha_j^2}{(\sum_{i=0}^q \alpha_i^2)^2}\\
         
         References
         ----------
         
-        ..[1] Liao, D., Shao, W., Tang, J., & Li, J. 
+        [1] Liao, D., Shao, W., Tang, J., & Li, J.
         An improved rough surface modeling method based on linear 
         transformation technique. Tribology International, 119(August 2017), 
         786–794. '<https://doi.org/10.1016/j.triboint.2017.12.008>'_
@@ -558,7 +559,7 @@ def surface_like(target_surface: Surface, extent: typing.Union[str, tuple] = 'or
     Generates a surface similar to the input surface
     
     Generates a surface with the same ACF, skew and kurtosis as the input
-    surface assuming the surface is normally distributed
+    surface assuming the surface is johnson distributed
     
     Parameters
     ----------
@@ -584,10 +585,6 @@ def surface_like(target_surface: Surface, extent: typing.Union[str, tuple] = 'or
     surf_out : Surface
         A surface object with the same properties as the original surface
         of the scale and size requested with keyword arguments
-        
-    Raises
-    -----
-    
     
     Warns
     -----
@@ -597,7 +594,6 @@ def surface_like(target_surface: Surface, extent: typing.Union[str, tuple] = 'or
     
     Other Parameters
     ----------------
-    key word arguments
     
     periodic : bool default False
         If true the returned surface will have a periodic profile
@@ -626,6 +622,7 @@ def surface_like(target_surface: Surface, extent: typing.Union[str, tuple] = 'or
     be much faster to call the descretise function of the returned surface. 
     multiple surfaces of the same grid spacing but different grid sizes can be 
     generated this way.
+
     """
     # TODO sort out this function
     if 'filter_method' in kwargs:

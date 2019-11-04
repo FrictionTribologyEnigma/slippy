@@ -42,7 +42,6 @@ slippy.surface.PyramidSurface
 
    .. autosummary::
    
-      ~PyramidSurface.aacf
       ~PyramidSurface.acf
       ~PyramidSurface.dimentions
       ~PyramidSurface.extent
