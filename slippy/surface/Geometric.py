@@ -27,6 +27,7 @@ import warnings
 import numpy as np
 from numbers import Number
 import typing
+import collections.abc
 
 
 class FlatSurface(_AnalyticalSurface):
@@ -34,7 +35,7 @@ class FlatSurface(_AnalyticalSurface):
     
     Parameters
     ----------
-    slope : tuple, optional (0,0)
+    slope : {tuple, float}, optional (0,0)
         The gradient of the surface in the x and y directions
     rotation: float, optional (None)
         If set the surface will be rotated by this number of radians
@@ -74,13 +75,15 @@ class FlatSurface(_AnalyticalSurface):
     surface_type = 'flat'
     analytic = True
 
-    def __init__(self, slope: tuple = (0, 0), rotation: float = None,
+    def __init__(self, slope: typing.Union[tuple, float] = (0, 0), rotation: float = None,
                  shift: typing.Optional[tuple] = None,
                  generate: bool = False, grid_spacing: float = None,
                  extent: tuple = None, shape: tuple = None):
-        if type(slope) is tuple:
+        if isinstance(slope, collections.abc.Sequence):
             self._slope = slope
-        elif type(slope) is int or type(slope) is float:
+        elif isinstance(slope, Number):
+            # noinspection PyTypeChecker
+            slope = float(slope)
             self._slope = [slope, 0]
             if self.dimentions == 2:
                 warnings.warn("Assumed 0 slope in Y direction for"
