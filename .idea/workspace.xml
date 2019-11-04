@@ -1,33 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="5a28a9ac-3b27-4339-bf3e-1bc7174e86c7" name="Default Changelist" comment="load optimisiation loop inplemented as in paper, about to update away from this">
+    <list default="true" id="5a28a9ac-3b27-4339-bf3e-1bc7174e86c7" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/doc/conf.py" beforeDir="false" afterPath="$PROJECT_DIR$/doc/conf.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/doc/contact.rst" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/doc/generated/slippy.contact.ContactModel.rst" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/doc/generated/slippy.contact.hertz_full.rst" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/doc/generated/slippy.contact.solve_hertz_line.rst" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/doc/generated/slippy.contact.solve_hertz_point.rst" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/doc/generated/slippy.surface.DiscFreqSurface.rst" beforeDir="false" afterPath="$PROJECT_DIR$/doc/generated/slippy.surface.DiscFreqSurface.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/doc/generated/slippy.surface.FlatSurface.rst" beforeDir="false" afterPath="$PROJECT_DIR$/doc/generated/slippy.surface.FlatSurface.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/doc/generated/slippy.surface.HurstFractalSurface.rst" beforeDir="false" afterPath="$PROJECT_DIR$/doc/generated/slippy.surface.HurstFractalSurface.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/doc/generated/slippy.surface.ProbFreqSurface.rst" beforeDir="false" afterPath="$PROJECT_DIR$/doc/generated/slippy.surface.ProbFreqSurface.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/doc/generated/slippy.surface.PyramidSurface.rst" beforeDir="false" afterPath="$PROJECT_DIR$/doc/generated/slippy.surface.PyramidSurface.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/doc/generated/slippy.surface.RandomSurface.rst" beforeDir="false" afterPath="$PROJECT_DIR$/doc/generated/slippy.surface.RandomSurface.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/doc/generated/slippy.surface.RoundSurface.rst" beforeDir="false" afterPath="$PROJECT_DIR$/doc/generated/slippy.surface.RoundSurface.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/doc/generated/slippy.surface.Surface.rst" beforeDir="false" afterPath="$PROJECT_DIR$/doc/generated/slippy.surface.Surface.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/doc/index.rst" beforeDir="false" afterPath="$PROJECT_DIR$/doc/index.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/doc/surface.rst" beforeDir="false" afterPath="$PROJECT_DIR$/doc/surface.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/examples/Recreating the hertz solution numerically (normal contact).ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/examples/Recreating the hertz solution numerically (normal contact).ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/slippy/contact/hertz.py" beforeDir="false" afterPath="$PROJECT_DIR$/slippy/contact/hertz.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/slippy/contact/materials.py" beforeDir="false" afterPath="$PROJECT_DIR$/slippy/contact/materials.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/slippy/contact/static_step.py" beforeDir="false" afterPath="$PROJECT_DIR$/slippy/contact/static_step.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/slippy/surface/Geometric.py" beforeDir="false" afterPath="$PROJECT_DIR$/slippy/surface/Geometric.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/slippy/surface/Random.py" beforeDir="false" afterPath="$PROJECT_DIR$/slippy/surface/Random.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/slippy/surface/Surface_class.py" beforeDir="false" afterPath="$PROJECT_DIR$/slippy/surface/Surface_class.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/slippy/surface/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/slippy/surface/__init__.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -37,11 +14,14 @@
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file pinned="false" current-in-tab="false">
+      <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/slippy/surface/Geometric.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="544">
-              <caret line="36" column="33" selection-start-line="36" selection-start-column="33" selection-end-line="36" selection-end-column="33" />
+            <state relative-caret-position="371">
+              <caret line="258" column="61" selection-start-line="258" selection-start-column="61" selection-end-line="258" selection-end-column="61" />
+              <folding>
+                <element signature="e#1028#1073#0" expanded="true" />
+              </folding>
             </state>
           </provider>
         </entry>
@@ -87,11 +67,11 @@
           </provider>
         </entry>
       </file>
-      <file pinned="false" current-in-tab="true">
+      <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/slippy/contact/static_step.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="507">
-              <caret line="203" column="25" lean-forward="true" selection-start-line="203" selection-start-column="25" selection-end-line="203" selection-end-column="25" />
+            <state relative-caret-position="354">
+              <caret line="194" column="87" lean-forward="true" selection-start-line="194" selection-start-column="87" selection-end-line="194" selection-end-column="87" />
               <folding>
                 <element signature="e#520#563#0" expanded="true" />
               </folding>
@@ -126,8 +106,8 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/slippy/surface/FFTBased.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="4182">
-              <caret line="249" column="48" selection-start-line="249" selection-start-column="48" selection-end-line="249" selection-end-column="48" />
+            <state relative-caret-position="425">
+              <caret line="108" column="14" lean-forward="true" selection-start-line="108" selection-start-column="14" selection-end-line="108" selection-end-column="14" />
             </state>
           </provider>
         </entry>
@@ -135,8 +115,8 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/slippy/surface/Random.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="5457">
-              <caret line="329" column="53" selection-start-line="329" selection-start-column="53" selection-end-line="329" selection-end-column="53" />
+            <state relative-caret-position="367">
+              <caret line="303" column="12" lean-forward="true" selection-start-line="303" selection-start-column="12" selection-end-line="303" selection-end-column="12" />
             </state>
           </provider>
         </entry>
@@ -234,17 +214,17 @@
         <option value="$PROJECT_DIR$/slippy/contact/__init__.py" />
         <option value="$PROJECT_DIR$/slippy/contact/materials.py" />
         <option value="$PROJECT_DIR$/slippy/contact/hertz.py" />
-        <option value="$PROJECT_DIR$/slippy/surface/Geometric.py" />
         <option value="$PROJECT_DIR$/slippy/surface/Surface_class.py" />
-        <option value="$PROJECT_DIR$/slippy/surface/Random.py" />
         <option value="$PROJECT_DIR$/../nickia/nick_IA.py" />
         <option value="$PROJECT_DIR$/slippy/surface/delete this.py" />
         <option value="$PROJECT_DIR$/slippy/surface/__init__.py" />
         <option value="$PROJECT_DIR$/slippy/contact/static_step.py" />
+        <option value="$PROJECT_DIR$/slippy/surface/Random.py" />
+        <option value="$PROJECT_DIR$/slippy/surface/Geometric.py" />
       </list>
     </option>
   </component>
-  <component name="ProjectFrameBounds" extendedState="6">
+  <component name="ProjectFrameBounds">
     <option name="x" value="-8" />
     <option name="y" value="-8" />
     <option name="width" value="976" />
@@ -502,14 +482,28 @@
       <option name="project" value="LOCAL" />
       <updated>1568647801076</updated>
     </task>
-    <option name="localTasksCounter" value="7" />
+    <task id="LOCAL-00007" summary="Documentation bugs and section added to save inputs and outputs of &#10;elastic contact solution for generating a data set of surfaces and &#10;deformations/ loading">
+      <created>1572871660828</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1572871660828</updated>
+    </task>
+    <task id="LOCAL-00008" summary="fixed typing for flat surface, now check for sequence types not just tuples">
+      <created>1572886361542</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1572886361542</updated>
+    </task>
+    <option name="localTasksCounter" value="9" />
     <servers />
   </component>
   <component name="ToolWindowManager">
-    <frame x="-8" y="-8" width="1936" height="1056" extended-state="6" />
+    <frame x="-8" y="-8" width="976" height="1056" extended-state="0" />
     <editor active="true" />
     <layout>
-      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.13277134" />
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.26865673" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
       <window_info id="Favorites" order="2" side_tool="true" />
       <window_info anchor="bottom" id="Message" order="0" />
@@ -522,7 +516,7 @@
       <window_info anchor="bottom" id="Version Control" order="7" weight="0.24052005" />
       <window_info anchor="bottom" id="Terminal" order="8" weight="0.32936078" />
       <window_info anchor="bottom" id="Event Log" order="9" sideWeight="0.12592202" side_tool="true" weight="0.27193934" />
-      <window_info active="true" anchor="bottom" id="Python Console" order="10" sideWeight="0.874078" visible="true" weight="0.3066089" />
+      <window_info anchor="bottom" id="Python Console" order="10" sideWeight="0.874078" visible="true" weight="0.3066089" />
       <window_info anchor="right" id="Commander" internal_type="SLIDING" order="0" type="SLIDING" weight="0.4" />
       <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
       <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
@@ -558,7 +552,9 @@
     <MESSAGE value="Random surface __repr__ method" />
     <MESSAGE value="Static normal load steps should now work, abcs added to avoid circular imports" />
     <MESSAGE value="load optimisiation loop inplemented as in paper, about to update away from this" />
-    <option name="LAST_COMMIT_MESSAGE" value="load optimisiation loop inplemented as in paper, about to update away from this" />
+    <MESSAGE value="Documentation bugs and section added to save inputs and outputs of &#10;elastic contact solution for generating a data set of surfaces and &#10;deformations/ loading" />
+    <MESSAGE value="fixed typing for flat surface, now check for sequence types not just tuples" />
+    <option name="LAST_COMMIT_MESSAGE" value="fixed typing for flat surface, now check for sequence types not just tuples" />
   </component>
   <component name="editorHistoryManager">
     <entry file="file://$PROJECT_DIR$/abcs/_ModelStep.py" />
@@ -646,13 +642,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/slippy/surface/Geometric.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="544">
-          <caret line="36" column="33" selection-start-line="36" selection-start-column="33" selection-end-line="36" selection-end-column="33" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/slippy/contact/hertz.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="3553">
@@ -690,20 +679,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/slippy/surface/FFTBased.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="4182">
-          <caret line="249" column="48" selection-start-line="249" selection-start-column="48" selection-end-line="249" selection-end-column="48" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/slippy/surface/Random.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="5457">
-          <caret line="329" column="53" selection-start-line="329" selection-start-column="53" selection-end-line="329" selection-end-column="53" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/slippy/surface/delete this.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="51">
@@ -729,10 +704,34 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/slippy/contact/static_step.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="507">
-          <caret line="203" column="25" lean-forward="true" selection-start-line="203" selection-start-column="25" selection-end-line="203" selection-end-column="25" />
+        <state relative-caret-position="354">
+          <caret line="194" column="87" lean-forward="true" selection-start-line="194" selection-start-column="87" selection-end-line="194" selection-end-column="87" />
           <folding>
             <element signature="e#520#563#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/slippy/surface/Random.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="367">
+          <caret line="303" column="12" lean-forward="true" selection-start-line="303" selection-start-column="12" selection-end-line="303" selection-end-column="12" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/slippy/surface/FFTBased.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="425">
+          <caret line="108" column="14" lean-forward="true" selection-start-line="108" selection-start-column="14" selection-end-line="108" selection-end-column="14" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/slippy/surface/Geometric.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="371">
+          <caret line="258" column="61" selection-start-line="258" selection-start-column="61" selection-end-line="258" selection-end-column="61" />
+          <folding>
+            <element signature="e#1028#1073#0" expanded="true" />
           </folding>
         </state>
       </provider>

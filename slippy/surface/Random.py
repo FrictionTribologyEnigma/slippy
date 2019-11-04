@@ -62,8 +62,8 @@ class RandomSurface(_Surface):
     _method_keywords = None
 
     def __init__(self, target_acf: ACF = None, method: str = 'linear_transform', generate: bool = False,
-                 grid_spacing: typing.Optional[float] = None, extent: typing.Optional[tuple] = None,
-                 shape: typing.Optional[tuple] = None, moments: typing.Sequence = None,
+                 grid_spacing: typing.Optional[float] = None, extent: typing.Optional[typing.Sequence] = None,
+                 shape: typing.Optional[typing.Sequence] = None, moments: typing.Sequence = None,
                  quantiles: typing.Sequence = None, **method_keywords):
         """
         aims: should be able to generate in single line, needs to include the mode that the matrix will be

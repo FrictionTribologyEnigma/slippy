@@ -128,7 +128,7 @@ class RoundSurface(_AnalyticalSurface):
     
     Parameters
     ----------
-    radius : tuple
+    radius : Sequence
         The radius of the surface in the X Y and Z directions, or in all 
         directions if a float is given
     rotation: float, optional (None)
@@ -168,14 +168,14 @@ class RoundSurface(_AnalyticalSurface):
     """
     radius: tuple
 
-    def __init__(self, radius: tuple, rotation: float = None,
+    def __init__(self, radius: typing.Sequence, rotation: float = None,
                  shift: typing.Optional[tuple] = None,
                  generate: bool = False, grid_spacing: float = None,
                  extent: tuple = None, shape: tuple = None):
 
         if isinstance(radius, Number):
             radius = (radius,)*3
-        if type(radius) is tuple and len(radius) == 3:
+        if isinstance(radius, collections.abc.Sequence) and len(radius) == 3:
             self._radius = radius
         else:
             msg = ('Radius must be either scalar or list of radii equal in '
@@ -256,7 +256,7 @@ class PyramidSurface(_AnalyticalSurface):
     """
     surface_type = 'pyramid'
 
-    def __init__(self, lengths, rotation: float = None,
+    def __init__(self, lengths: typing.Union[typing.Sequence], rotation: float = None,
                  shift: typing.Optional[tuple] = None,
                  generate: bool = False, grid_spacing: float = None,
                  extent: tuple = None, shape: tuple = None):
