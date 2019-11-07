@@ -1,15 +1,12 @@
-from abc import ABC, abstractmethod
+from abc import abstractmethod
+from slippy.abcs import _AdhesionModelABC
 
 __all__ = ['_AdhesionModel', 'adhesion_model']
 
 
-class _AdhesionModel(ABC):
+class _AdhesionModel(_AdhesionModelABC):
     def __init__(self):
         pass
-
-    @abstractmethod
-    def adhesion_force(self):
-        raise NotImplementedError("This method must be over written")
 
 
 def adhesion_model():

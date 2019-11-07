@@ -23,18 +23,26 @@ from collections import namedtuple
 import scipy.optimize as optimize
 from slippy.contact._model_utils import get_gap_from_model, non_dimentional_height
 import typing
-from slippy.contact import Displacements, Loads
+from slippy.contact import Loads
 import numpy as np
 import pickle
+from ._step_utils import solve_normal_interferance, get_next_file_num
 
 __all__ = ['StaticNormalLoad', 'StaticNormalInterferance', 'ClosurePlot', 'PullOff', 'SurfaceDisplacement',
            'SurfaceLoading']
 
-StaticStepOptions = namedtuple('StaticStepOptions', ['influence_matrix_span', 'simple',
-                                                     'maxit_load_loop', 'atol_load_loop', 'rtol_load_loop',
-                                                     'maxit_disp_loop', 'rtol_disp_loop', 'periodic',
-                                                     'interpolation_mode'],
-                               defaults=(None, )*9)
+data_path = r'D:\slippy_data'
+
+StaticNormalLoadOptions = namedtuple('StaticNormalLoadOptions',
+                                     ['maxit_load_loop', 'atol_load_loop',
+                                      'rtol_load_loop', 'periodic', 'interpolation_mode', 'max_it_find_contact_nodes',
+                                      'material_options'],
+                                     defaults=(None, )*8)
+
+StaticNormalInterferanceOptions = namedtuple('StaticNormalInterferanceOptions',
+                                             ['periodic', 'interpolation_mode',
+                                              'max_it_find_contact_nodes', 'material_options'],
+                                             defaults=(None, )*5)
 
 
 class StaticNormalLoad(_ModelStep):
@@ -47,16 +55,13 @@ class StaticNormalLoad(_ModelStep):
         The name of the step
     load_z: float
         Loads in each of the principal directions.
-    influence_matrix_span: tuple, optional (None)
-        The span of the influence matrix (if the materials are influence matrix based) if none, this defaults to the
-        same as the surface size
     relative_off_set: tuple, optional (None)
         The relative off set betwee nsurface 1 and surface 2 (relative to the offset at the start of the step) only one
         off set can be specified
     absolute_off_set: tuple, optional (None)
         The absolute off set between surface 1 and surface 2 (off set between the origins of the surfaces)
         only one offset can be specified
-    maxit_load_loop: int, optional (100)
+    max_it_load_loop: int, optional (100)
         The maximum number of iterations before the loading loop exits. For definitions of the optimisation loops see
         the notes section
     rtol_load_loop: float, optional (1e-3)
@@ -64,18 +69,18 @@ class StaticNormalLoad(_ModelStep):
         converge.
     atol_load_loop: float, optional (None)
         The absolute tolerance on the load loop
-    maxit_disp_loop: int, optional (100)
-        The maximum number of iterations on the dispplacement loop, for definitions of the optimisation loops see the
-        Notes
-    rtol_disp_loop: float, optional (1e-8)
-        The relative tolerance on the displacement loop
-    simple: bool, optional (True)
-        If true loads will only cause displacements in their own direction, see notes for details
     interpolation_mode: str {'nearest', 'linear', 'quadratic'}, optional ('nearest')
         The interpolation mode to be used on the second surface, only used if the second surface is not analytical
     periodic: bool, optional (False)
-        If true the second surface is considered periodic for the interferance detection step, surfaces are always
+        If True the second surface is considered periodic for the interferance detection step, surfaces are always
         considered periodic for the loading step (This is a fundamental assumption of the FFT BEM technique)
+    adhesion: bool, optional (True)
+        If True the parent model's adhesion model is used when solving the step. Setting to false solves the step
+        as if there is no adhesion present. This is necessary to initialise adhesive contacts
+    max_it_find_contact_nodes: int, optional (100)
+        The maximum number of iterations used while finding the contact nodes
+    material_options: dict
+        Dict of options to be passed to the loads_from_surface_displacement method of the first surface in the model
 
     Notes
     -----
@@ -89,19 +94,23 @@ class StaticNormalLoad(_ModelStep):
     _off_set: tuple = (0, 0)
     _abs_off_set: bool = False
 
-    def __init__(self, step_name: str, load_z: float,
-                 influence_matrix_span: tuple = None, relative_off_set: tuple = None,
-                 absolute_off_set: typing.Optional[tuple] = None, maxit_load_loop: int = 100,
-                 rtol_load_loop: float = None, atol_load_loop: float = None, maxit_disp_loop: int = 100,
-                 rtol_disp_loop: float = 1e-8, simple: bool = True, interpolation_mode: str = 'nearest',
-                 periodic: bool = False):
+    def __init__(self, step_name: str, load_z: float, relative_off_set: tuple = None,
+                 absolute_off_set: typing.Optional[tuple] = None, max_it_load_loop: int = 100,
+                 rtol_load_loop: float = None, atol_load_loop: float = None, interpolation_mode: str = 'nearest',
+                 periodic: bool = False, adhesion: bool = True, max_it_find_contact_nodes: int = 100,
+                 material_options: dict = None):
+
+        material_options = {} or material_options
         if rtol_load_loop is None and atol_load_loop is None:
             rtol_load_loop = 1e-3
         self._load = Loads(z=load_z, x=None, y=None)
-        self._options = StaticStepOptions(influence_matrix_span=influence_matrix_span, maxit_disp_loop=maxit_disp_loop,
-                                          maxit_load_loop=maxit_load_loop, rtol_disp_loop=rtol_disp_loop,
-                                          atol_load_loop=atol_load_loop, simple=simple, periodic=periodic,
-                                          interpolation_mode=interpolation_mode, rtol_load_loop=rtol_load_loop)
+        self._options = StaticNormalLoadOptions(maxit_load_loop=max_it_load_loop, atol_load_loop=atol_load_loop,
+                                                periodic=periodic, interpolation_mode=interpolation_mode,
+                                                rtol_load_loop=rtol_load_loop, material_options=material_options,
+                                                max_it_find_contact_nodes=max_it_find_contact_nodes)
+
+        self._adhesion = adhesion
+
         if relative_off_set is None:
             if absolute_off_set is None:
                 self._off_set = (0, 0)
@@ -129,8 +138,6 @@ class StaticNormalLoad(_ModelStep):
     def _solve(self, current_state: dict, output_file):
         # just encase the displacement finder in a scipy optimise block should be a continuous function, no special
         # treatment required
-        surf_1 = self.model.surface_1
-        surf_2 = self.model.surface_2
         opt = self._options
 
         if self._abs_off_set:
@@ -138,44 +145,39 @@ class StaticNormalLoad(_ModelStep):
         else:
             off_set = tuple(current + change for current, change in zip(current_state['off_set'], self._off_set))
 
+        # noinspection PyTypeChecker
         gap, surf_1_pts, surf_2_pts = get_gap_from_model(self.model, interferance=0, off_set=off_set,
                                                          mode=opt.interpolation_mode, periodic=opt.periodic)
 
+        adhesion_model = self.model._adhesion if self._adhesion else None
+
         results = dict()
         it = 0
+
+        surf_1 = self.model.surface_1
         try:
             uz = non_dimentional_height(1, surf_1.material.E, surf_1.material.v, self._load.z, surf_1.grid_spacing,
                                         return_uz=True)
         except AttributeError:
             uz = 1
 
+        initial_contact_nodes = current_state['contact_nodes'] if 'contact_nodes' in current_state else None
+
         print(f'uz = {uz}')
 
         def opt_func(height):
             nonlocal results, it
+
+            # make height non dimentional
             height *= uz
             it += 1
-            z = -1*np.clip(gap-height, None, 0)
 
-            z[z == 0] = np.nan
-
-            contact_nodes = np.logical_not(np.isnan(z))
-
-            displacements = Displacements(z=z, x=None, y=None)
-            while True:
-                loads, disp_tup = surf_1.material.loads_from_surface_displacement(displacements=displacements,
-                                                                                  grid_spacing=surf_1.grid_spacing,
-                                                                                  other=surf_2.material,
-                                                                                  span=opt.influence_matrix_span,
-                                                                                  tol=opt.rtol_disp_loop,
-                                                                                  max_it=opt.maxit_disp_loop,
-                                                                                  simple=True)
-                l_neg = loads.z < 0
-                if any(l_neg.flatten()):
-                    displacements.z[l_neg] = np.nan
-                    contact_nodes[l_neg] = False
-                else:
-                    break
+            # noinspection PyTypeChecker
+            loads, *disp_tup, contact_nodes = solve_normal_interferance(height, gap=gap, model=self.model,
+                                                                        adhesive_force=adhesion_model,
+                                                                        contact_nodes=initial_contact_nodes,
+                                                                        max_iter=opt.max_it_find_contact_nodes,
+                                                                        material_options=opt.material_options)
 
             results['loads'] = loads
             results['total_disp'] = disp_tup[0]
@@ -183,27 +185,13 @@ class StaticNormalLoad(_ModelStep):
             results['surf_2_disp'] = disp_tup[2]
             results['contact_nodes'] = contact_nodes
             print(f'Iteration {it}:')
-            print(f'Height is: {height}')
-            print(f'Total interferance is: {np.sum(z[np.logical_not(np.isnan(z))].flatten())}')
+            print(f'Interferance is: {height}')
             print(f'Percentage of nodes in contact: {sum(contact_nodes.flatten())/contact_nodes.size}')
             set_load = self._load.z
             print(f'Target load is: {set_load}')
 
             total_load = np.sum(loads.z.flatten())*self.model.surface_1.grid_spacing**2
             print(f'Total load is: {total_load}')
-
-            ###################### this section is for the machine learing project only
-            if not hasattr(np, 'ITNUM'):
-                np.ITNUM = 0
-
-            pickle.dump({b'gap': gap, b'height': height, b'total_load': total_load,
-                         b'set_disp': displacements.z, b'all_loads': loads.z,
-                         b'props': {b'E1': surf_1.material.E, b'v1': surf_1.material.v,
-                                    b'E2': surf_1.material.E, b'v2': surf_1.material.v}}, open(f"{np.ITNUM}.pkl", "wb"))
-
-            np.ITNUM += 1
-
-            ##################### end machine learning project secion
 
             return total_load-set_load
 
@@ -227,8 +215,6 @@ class StaticNormalLoad(_ModelStep):
         # check the solution is reasnoble (check not 100% contact) check that the achived load is similar to the actual load, check that the loop converged
         # TODO
 
-        # solve the tangential problem: either specified load or displacement
-        # TODO
 
         # find the loads on surface 1, 2
         current_state['interferance'] = opt_result.root*uz
@@ -249,20 +235,131 @@ class StaticNormalLoad(_ModelStep):
 
 class StaticNormalInterferance(_ModelStep):
     """
-    Static interferance between two surfaces
-    """
+    Static interferance between two surfaces, found from point of first touching
 
-    def __init__(self, step_name: str):
+    Parameters
+    ----------
+    step_name: str
+        The name of the step, can be any string, used to define output request
+    absolute_interferance: float, optional (None)
+        The absolute interferance between the surfaces from the point of first contact, only one type of interferance
+        can be set
+    relative_interferance: float, optional (None)
+        The realtive interferance between the surfaces from the current position, only one type of interferance can be
+        set
+    relative_off_set: tuple, optional (None)
+        The relative off set betwee nsurface 1 and surface 2 (relative to the offset at the start of the step) only one
+        off set can be specified
+    absolute_off_set: tuple, optional (None)
+        The absolute off set between surface 1 and surface 2 (off set between the origins of the surfaces)
+        only one offset can be specified
+    interpolation_mode: str {'nearest', 'linear', 'quadratic'}, optional ('nearest')
+        The interpolation mode to be used on the second surface, only used if the second surface is not analytical
+    periodic: bool, optional (False)
+        If True the second surface is considered periodic for the interferance detection step, surfaces are always
+        considered periodic for the loading step (This is a fundamental assumption of the FFT BEM technique)
+    adhesion: bool, optional (True)
+        If True the parent model's adhesion model is used when solving the step. Setting to false solves the step
+        as if there is no adhesion present. This is necessary to initialise adhesive contacts
+    max_it_find_contact_nodes: int, optional (100)
+        The maximum number of iterations used while finding the contact nodes
+    material_options: dict
+        Dict of options to be passed to the loads_from_surface_displacement method of the first surface in the model
+
+    """
+    relative_interferance: bool = False
+    'Bool true if the interferance is relative'
+    interferance: float = 0.0
+    'The specified interferance'
+    _adhesion: bool = True
+    'If false the step is solved with no adhesion'
+
+    def __init__(self, step_name: str, absolute_interferance: float = None, relative_interferance: float = None,
+                 relative_off_set: tuple = None, absolute_off_set: typing.Optional[tuple] = None,
+                 interpolation_mode: str = 'nearest', periodic: bool = False, adhesion: bool = True,
+                 max_it_find_contact_nodes: int = 100, material_options: dict = None):
+
+        if absolute_interferance is not None and relative_interferance is not None:
+            raise ValueError('Only one type of interferance can be set, both the absolute and the relative interferacne'
+                             ' have been set.')
+        elif absolute_interferance is None and relative_interferance is None:
+            raise ValueError('Either the relative interferance or the absolute interferance must be set')
+
+        # noinspection PyTypeChecker
+        self.interferance = absolute_interferance or relative_interferance
+        self.relative_interferance = absolute_interferance is None
+
+        material_options = dict() or material_options
+
+        self._adhesion = adhesion
+
+        self._options = StaticNormalInterferanceOptions(periodic=periodic, interpolation_mode=interpolation_mode,
+                                                        max_it_find_contact_nodes=max_it_find_contact_nodes,
+                                                        material_options=material_options)
+
+        if relative_off_set is None:
+            if absolute_off_set is None:
+                self._off_set = (0, 0)
+                self._abs_off_set = False
+            else:
+                self._off_set = absolute_off_set
+                self._abs_off_set = True
+        else:
+            if absolute_off_set is not None:
+                raise ValueError("Only one mode of off set can be specified, both the absolute and relative off set "
+                                 "were given")
+            self._off_set = relative_off_set
+            self._abs_off_set = False
+
         super().__init__(step_name)
 
     def _data_check(self, current_state):
         pass
 
     def _solve(self, current_state, output_file):
-        pass
+        height = current_state['interferance'] * self.relative_interferance + self.interferance
+        gap, surf_1_pts, surf_2_pts = get_gap_from_model(self.model, interferance=0, off_set=self._off_set,
+                                                         mode=self._options.interpolation_mode,
+                                                         periodic=self._options.periodic)
+        adhesion_model = self.model._adhesion if self._adhesion else None
+        initial_contact_nodes = current_state['contact_nodes'] if 'contact_nodes' in current_state else None
+
+        loads, *disp_tup, contact_nodes = solve_normal_interferance(height, gap=gap, model=self.model,
+                                                                    adhesive_force=adhesion_model,
+                                                                    contact_nodes=initial_contact_nodes,
+                                                                    max_iter=self._options.max_it_find_contact_nodes,
+                                                                    material_options=self._options.material_options)
+
+        current_state['loads'] = loads
+        current_state['total_disp'] = disp_tup[0]
+        current_state['surf_1_disp'] = disp_tup[1]
+        current_state['surf_2_disp'] = disp_tup[2]
+        current_state['contact_nodes'] = contact_nodes
+        current_state['gap'] = gap
+        # check the solution is reasnoble (check not 100% contact) check that the achived load is similar to the actual load, check that the loop converged
+        # TODO
+
+        # find the loads on surface 1, 2
+        current_state['interferance'] = height
+
+        if not hasattr(np, 'ITNUM'):
+            np.ITNUM = get_next_file_num(data_path)
+
+        total_load = np.sum(loads.z.flatten()) * self.model.surface_1.grid_spacing ** 2
+        pickle.dump({b'gap': gap, b'height': height, b'total_load': total_load, b'interferance': height,
+                     b's1_disp': disp_tup[1].z, b's2_disp': disp_tup[2].z,  b'all_loads': loads.z,
+                     b'props': {b'E1': self.model.surface_1.material.E, b'v1': self.model.surface_1.material.v,
+                                b'E2': self.model.surface_2.material.E, b'v2': self.model.surface_2.material.v}},
+                    open(f"{data_path}\\{np.ITNUM}.pkl", "wb"))
+
+        np.ITNUM += 1
+
+        # check out put requests, check optional extra stuff that can be truned on?????
+        self.solve_sub_models(current_state)
+        self.save_outputs(current_state, output_file)
 
     def __repr__(self):
-        pass
+        return 'Not yet'
 
     @classmethod
     def new_step(cls, model):

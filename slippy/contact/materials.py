@@ -3,10 +3,11 @@ import collections
 import typing
 import warnings
 from itertools import product
-from slippy.abcs import _MaterialABC, _AdhesionModelABC
+from slippy.abcs import _MaterialABC
 import numpy as np
 from scipy.signal import fftconvolve
 from ._material_utils import _get_properties, Loads, Displacements, memoize_components
+
 
 __all__ = ["Elastic", "_Material", "rigid"]
 
