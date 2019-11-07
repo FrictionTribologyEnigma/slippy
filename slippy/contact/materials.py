@@ -209,10 +209,10 @@ class _Material(_MaterialABC):
     def loads_from_surface_displacement(self,
                                         displacements: typing.Union[dict, Displacements,
                                                                     typing.Sequence[typing.Optional[np.ndarray]]],
-                                        grid_spacing: {typing.Sequence[float], float},
+                                        grid_spacing: float,
                                         other: typing.Optional['_Material'] = None,
                                         span: typing.Sequence[int] = None,
-                                        tol: float = 1e-4,
+                                        tol: float = 1e-8,
                                         simple: bool = True,
                                         max_it: int = 100):
         """
@@ -224,7 +224,7 @@ class _Material(_MaterialABC):
         displacements : dict, Displacements, Sequence[np.ndarray]
             dict of arrays of deflections with keys 'x' 'y' or 'z' allowed, or Displacements named tuple, or sequence of
             length 3 of numpy arrays or None. The surface displacements at each grid point to be solved for.
-        span : tuple
+        span : int
             The span of the influence matrix in grid points defaults to same as the surface size
         grid_spacing : float
             The grid spacing only needed if surface is an array
