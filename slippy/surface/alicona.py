@@ -62,10 +62,10 @@ def alicona_read(full_path: str):
     path, file_name = os.path.split(full_path)
     name, ext = file_name.split('.')
     try:
-        number_tag = re.findall(r'\(\d*\)\Z', 'dem(100).al3d')[-1][1:-1]
+        number_tag = re.findall(r'\(\d*\)\Z', name)[-1][1:-1]
     except IndexError:
         try:
-            number_tag = re.findall(r'\s\d*\Z', 'my file 73487')[-1][1:]
+            number_tag = re.findall(r'\s\d*\Z', name)[-1][1:]
         except IndexError:
             number_tag = ''
 
@@ -195,9 +195,9 @@ def alicona_read(full_path: str):
 
 
 if __name__ == '__main__':
-    file_name = "D:\\Downloads\\Alicona_data\\Surface Profile Data\\dem.al3d"
+    file_name_t = "D:\\Downloads\\Alicona_data\\Surface Profile Data\\dem.al3d"
     from matplotlib.pyplot import imshow
 
-    data = alicona_read(file_name)
+    data_t = alicona_read(file_name_t)
 
     imshow(data['DepthData'])

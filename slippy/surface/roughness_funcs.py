@@ -24,6 +24,8 @@ def _check_surface(surface, grid_spacing):
         else:
             return np.asarray(surface), grid_spacing
     else:
+        if grid_spacing is None:
+            return np.asarray(surface), None
         return np.asarray(surface), float(grid_spacing)
 
 
