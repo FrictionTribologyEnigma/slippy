@@ -37,12 +37,12 @@ StaticNormalLoadOptions = namedtuple('StaticNormalLoadOptions',
                                      ['maxit_load_loop', 'atol_load_loop',
                                       'rtol_load_loop', 'periodic', 'interpolation_mode', 'max_it_find_contact_nodes',
                                       'material_options'],
-                                     defaults=(None, )*8)
+                                     defaults=(None, )*7)
 
 StaticNormalInterferanceOptions = namedtuple('StaticNormalInterferanceOptions',
                                              ['periodic', 'interpolation_mode',
                                               'max_it_find_contact_nodes', 'material_options'],
-                                             defaults=(None, )*5)
+                                             defaults=(None, )*4)
 
 
 class StaticNormalLoad(_ModelStep):

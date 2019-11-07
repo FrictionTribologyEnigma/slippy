@@ -86,7 +86,7 @@ def solve_normal_interferance(interferance: float, gap: np.ndarray, model: _Cont
 
         if isinstance(adhesive_force, Number):
             nodes_to_remove = loads.z < adhesive_force
-            nodes_to_add = deformed_gap < 0
+            nodes_to_add = np.logical_and(deformed_gap < 0, np.logical_not(contact_nodes))
         else:
             nodes_to_remove, nodes_to_add = adhesive_force(loads, deformed_gap, contact_nodes, model)
 
