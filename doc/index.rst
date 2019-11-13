@@ -18,7 +18,7 @@ The following page describes how to install slippy, it assumes that the user doe
 API reference
 -------------
 
-The exact API of all functions and classes, as given by the docstrings. This documents exactly how to use each function and class in slippy. If you are having trouble with a particular function this is where to look.
+The exact API of all functions and classes, as given by the docstrings. This documents exactly how to use each function and class in slippy. If you are having trouble with a particular function this is where to look. If you don't know how to get started with a project try the examples.
 
 .. toctree::
    :maxdepth: 1
@@ -28,7 +28,7 @@ The exact API of all functions and classes, as given by the docstrings. This doc
 Examples
 --------
 
-Examples showing how to solve common triboology problems or use specific classes. If you are having trouble with a concept this is where to look. 
+Examples showing how to solve common triboology problems and how to extend slippy to suit your own needs. If you are having trouble with a concept this is where to look.
 
 .. toctree::
    :maxdepth: 1
