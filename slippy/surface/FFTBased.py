@@ -43,7 +43,7 @@ class DiscFreqSurface(_AnalyticalSurface):
         The frequencies present in the surface
     amptitudes: Sequence[float], optional ((1, ))
         The amptitude of each frequency, must be same length as frequencies
-    phases_rads: typing.Sequence[float] = (0,)
+    phases: typing.Sequence[float] = (0,)
         The phases of each of the frequencies, must be the same length as frequencies
     rotation: Number = 0
         If set the surface is rotated by the set amount, in radians
@@ -98,7 +98,7 @@ class DiscFreqSurface(_AnalyticalSurface):
     surface_type = 'discreteFreq'
 
     def __init__(self, frequencies: typing.Sequence[float], amptitudes: typing.Sequence[float] = (1,),
-                 phases_rads: typing.Sequence[float] = (0,), rotation: Number = 0,
+                 phases: typing.Sequence[float] = (0,), rotation: Number = 0,
                  shift: typing.Optional[tuple] = None,
                  generate: bool = False, grid_spacing: float = None,
                  extent: tuple = None, shape: tuple = None):
@@ -116,14 +116,14 @@ class DiscFreqSurface(_AnalyticalSurface):
             else:
                 self.amptitudes = amptitudes
         else:
-            if not len(frequencies) == len(amptitudes) == len(phases_rads):
+            if not len(frequencies) == len(amptitudes) == len(phases):
                 raise ValueError('Frequencies, amptitudes and phases must be'
                                  ' equal length lists or np.arrays')
             else:
                 cplx_amps = []
                 for idx in range(len(amptitudes)):
                     cplx_amps.append(amptitudes[idx] *
-                                     np.exp(1j * phases_rads[idx]))
+                                     np.exp(1j * phases[idx]))
                 self.amptitudes = cplx_amps
 
         super().__init__(generate=generate, rotation=rotation, shift=shift,

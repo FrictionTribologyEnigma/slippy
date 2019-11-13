@@ -343,7 +343,7 @@ class StaticNormalInterferance(_ModelStep):
         current_state['interferance'] = height
 
         if not hasattr(np, 'ITNUM'):
-            np.ITNUM = get_next_file_num(data_path)
+            np.ITNUM = get_next_file_num(data_path) #
 
         total_load = np.sum(loads.z.flatten()) * self.model.surface_1.grid_spacing ** 2
         pickle.dump({b'gap': gap, b'height': height, b'total_load': total_load, b'interferance': height,
