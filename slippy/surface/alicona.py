@@ -200,4 +200,4 @@ if __name__ == '__main__':
 
     data_t = alicona_read(file_name_t)
 
-    imshow(data['DepthData'])
+    imshow(data_t['DepthData'])
