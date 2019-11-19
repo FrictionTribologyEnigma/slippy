@@ -270,6 +270,7 @@ class _Material(_MaterialABC):
                     displacements = Displacements(**{key: np.array(value, dtype=float) for key, value in
                                                      displacements.items() if value is not None})
                 except TypeError:
+                    # noinspection PyTypeChecker
                     raise ValueError(
                         f'Unexpected key in displacements dict, valid keys are "x", "y", "z", found keys are: '
                         f'{", ".join(displacements.keys())}')
