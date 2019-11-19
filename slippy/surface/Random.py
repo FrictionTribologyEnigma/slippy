@@ -367,6 +367,8 @@ class RandomSurface(_Surface):
 
         seq_kurt = (kurtosis * sal2 ** 2 - 6 * quad_term) / sal2
 
+        print(seq_skew, seq_kurt)
+
         self.dist = _fit_johnson_by_moments(0, 1, seq_skew, seq_kurt, True)
 
     def set_quantiles(self, quantiles: typing.Sequence):
