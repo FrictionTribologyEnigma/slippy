@@ -197,6 +197,7 @@ class InitialStep(_ModelStep):
             raise ValueError("Steps have been run out of order, the initial step should always be run first")
         current_state = dict()
         current_state['off_set'] = (0, 0)
+        current_state['interferance'] = 0
         return current_state
 
     def __repr__(self):

@@ -1,7 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="5a28a9ac-3b27-4339-bf3e-1bc7174e86c7" name="Default Changelist" comment="" />
+    <list default="true" id="5a28a9ac-3b27-4339-bf3e-1bc7174e86c7" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/Analytical surfaces.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/examples/Analytical surfaces.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/Making a closure plot for a pair of surfaces.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/examples/Making a closure plot for a pair of surfaces.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/Recreating the hertz solution numerically (normal contact).ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/examples/Recreating the hertz solution numerically (normal contact).ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/model-1.sdb" beforeDir="false" afterPath="$PROJECT_DIR$/examples/model-1.sdb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/slippy/contact/_step_utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/slippy/contact/_step_utils.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/slippy/contact/materials.py" beforeDir="false" afterPath="$PROJECT_DIR$/slippy/contact/materials.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/slippy/contact/static_step.py" beforeDir="false" afterPath="$PROJECT_DIR$/slippy/contact/static_step.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/slippy/contact/steps.py" beforeDir="false" afterPath="$PROJECT_DIR$/slippy/contact/steps.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/slippy/contact/tests/test_elastic_bem.py" beforeDir="false" afterPath="$PROJECT_DIR$/slippy/contact/tests/test_elastic_bem.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/slippy/surface/Surface_class.py" beforeDir="false" afterPath="$PROJECT_DIR$/slippy/surface/Surface_class.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/slippy/surface/johnsondists.py" beforeDir="false" afterPath="$PROJECT_DIR$/slippy/surface/johnsondists.py" afterDir="false" />
+    </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -11,22 +26,10 @@
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
       <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/slippy/surface/Geometric.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="93">
-              <caret line="251" column="4" selection-start-line="251" selection-start-column="4" selection-end-line="251" selection-end-column="4" />
-              <folding>
-                <element signature="e#1028#1073#0" expanded="true" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/slippy/contact/static_step.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="119">
-              <caret line="81" column="26" lean-forward="true" selection-start-line="81" selection-start-column="26" selection-end-line="81" selection-end-column="26" />
+            <state relative-caret-position="255">
+              <caret line="326" column="56" selection-start-line="326" selection-start-column="56" selection-end-line="326" selection-end-column="56" />
               <folding>
                 <element signature="e#520#563#0" expanded="true" />
               </folding>
@@ -35,21 +38,35 @@
         </entry>
       </file>
       <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/slippy/contact/_model_utils.py">
+        <entry file="file://$PROJECT_DIR$/slippy/contact/tests/test_elastic_bem.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="-3">
-              <caret line="40" selection-start-line="40" selection-end-line="40" />
+            <state relative-caret-position="357">
+              <caret line="60" column="69" selection-start-line="60" selection-start-column="69" selection-end-line="60" selection-end-column="69" />
+              <folding>
+                <element signature="e#0#26#0" expanded="true" />
+              </folding>
             </state>
           </provider>
         </entry>
       </file>
       <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/slippy/contact/models.py">
+        <entry file="file://$PROJECT_DIR$/slippy/contact/tests/test_hertz_full.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="306">
-              <caret line="38" column="29" selection-start-line="38" selection-start-column="29" selection-end-line="38" selection-end-column="29" />
+            <state>
               <folding>
-                <element signature="e#12#30#0" expanded="true" />
+                <element signature="e#0#18#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/slippy/contact/steps.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="592">
+              <caret line="201" selection-start-line="201" selection-end-line="201" />
+              <folding>
+                <element signature="e#0#50#0" expanded="true" />
               </folding>
             </state>
           </provider>
@@ -58,8 +75,8 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/slippy/contact/_step_utils.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="301">
-              <caret line="78" column="49" selection-start-line="78" selection-start-column="49" selection-end-line="78" selection-end-column="49" />
+            <state relative-caret-position="272">
+              <caret line="101" column="42" selection-start-line="101" selection-start-column="42" selection-end-line="101" selection-end-column="42" />
               <folding>
                 <element signature="e#35#53#0" expanded="true" />
               </folding>
@@ -68,10 +85,43 @@
         </entry>
       </file>
       <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/slippy/abcs/abcs.py">
+        <entry file="file://$PROJECT_DIR$/slippy/surface/Random.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="291">
-              <caret line="18" column="8" selection-start-line="18" selection-start-column="8" selection-end-line="18" selection-end-column="8" />
+            <state relative-caret-position="170">
+              <caret line="236" lean-forward="true" selection-start-line="236" selection-end-line="236" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/slippy/surface/ACF_class.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="476">
+              <caret line="104" column="35" lean-forward="true" selection-start-line="104" selection-start-column="35" selection-end-line="104" selection-end-column="35" />
+              <folding>
+                <element signature="e#0#18#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/slippy/contact/materials.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="1190">
+              <caret line="506" column="30" selection-start-line="506" selection-start-column="30" selection-end-line="506" selection-end-column="30" />
+              <folding>
+                <element signature="e#0#10#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/slippy/surface/Surface_class.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="2453">
+              <caret line="1753" column="42" lean-forward="true" selection-start-line="1753" selection-start-column="42" selection-end-line="1753" selection-end-column="42" />
             </state>
           </provider>
         </entry>
@@ -81,39 +131,6 @@
           <provider selected="true" editor-type-id="text-editor">
             <state relative-caret-position="323">
               <caret line="105" column="38" selection-start-line="105" selection-start-column="38" selection-end-line="105" selection-end-column="38" />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/slippy/surface/Random.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="289">
-              <caret line="475" column="18" selection-start-line="475" selection-start-column="8" selection-end-line="475" selection-end-column="18" />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/slippy/contact/lubricant.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="102">
-              <caret line="6" column="46" selection-start-line="6" selection-start-column="46" selection-end-line="6" selection-end-column="46" />
-              <folding>
-                <element signature="e#106#110#0" expanded="true" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/slippy/contact/lubrication_steps.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="187">
-              <caret line="11" column="35" selection-start-line="11" selection-start-column="35" selection-end-line="11" selection-end-column="35" />
-              <folding>
-                <element signature="e#0#29#0" expanded="true" />
-              </folding>
             </state>
           </provider>
         </entry>
@@ -129,10 +146,6 @@
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
-      <find>_Ini</find>
-      <find>__init_su</find>
-      <find>resample</find>
-      <find>get_gap_from_model</find>
       <find>import *</find>
       <find>fft</find>
       <find>initi</find>
@@ -159,18 +172,19 @@
       <find>set_moments</find>
       <find>linear_tr</find>
       <find>surface_like</find>
+      <find>set_moment</find>
+      <find>ITNUM</find>
+      <find>loads_f</find>
+      <find>jac</find>
     </findStrings>
   </component>
   <component name="Git.Settings">
+    <option name="UPDATE_TYPE" value="MERGE" />
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
   <component name="IdeDocumentHistory">
     <option name="CHANGED_PATHS">
       <list>
-        <option value="$PROJECT_DIR$/abcs/_LubricationModel.py" />
-        <option value="$PROJECT_DIR$/abcs/__init__.py" />
-        <option value="$PROJECT_DIR$/setup.py" />
-        <option value="$PROJECT_DIR$/abcs/_Surface.py" />
         <option value="$PROJECT_DIR$/surface/_johnson_utils.py" />
         <option value="$PROJECT_DIR$/models/rigid_elastic.py" />
         <option value="$PROJECT_DIR$/models/models.py" />
@@ -204,20 +218,24 @@
         <option value="$PROJECT_DIR$/slippy/surface/alicona.py" />
         <option value="$PROJECT_DIR$/slippy/contact/__init__.py" />
         <option value="$PROJECT_DIR$/slippy/contact/hertz.py" />
-        <option value="$PROJECT_DIR$/slippy/surface/Surface_class.py" />
         <option value="$PROJECT_DIR$/../nickia/nick_IA.py" />
         <option value="$PROJECT_DIR$/slippy/surface/delete this.py" />
         <option value="$PROJECT_DIR$/slippy/surface/__init__.py" />
-        <option value="$PROJECT_DIR$/slippy/surface/Random.py" />
         <option value="$PROJECT_DIR$/slippy/surface/Geometric.py" />
         <option value="$PROJECT_DIR$/slippy/contact/adhesion_models.py" />
         <option value="$PROJECT_DIR$/slippy/abcs/abcs.py" />
-        <option value="$PROJECT_DIR$/slippy/contact/_step_utils.py" />
-        <option value="$PROJECT_DIR$/slippy/contact/materials.py" />
-        <option value="$PROJECT_DIR$/slippy/contact/static_step.py" />
         <option value="$PROJECT_DIR$/slippy/surface/FFTBased.py" />
         <option value="$PROJECT_DIR$/slippy/contact/lubricant.py" />
         <option value="$PROJECT_DIR$/slippy/contact/lubrication_steps.py" />
+        <option value="$PROJECT_DIR$/slippy/surface/johnsondists.py" />
+        <option value="$PROJECT_DIR$/slippy/surface/Random.py" />
+        <option value="$PROJECT_DIR$/slippy/contact/steps.py" />
+        <option value="$PROJECT_DIR$/slippy/contact/tests/test_elastic_bem.py" />
+        <option value="$PROJECT_DIR$/slippy/surface/Surface_class.py" />
+        <option value="$PROJECT_DIR$/slippy/contact/static_step.py" />
+        <option value="$PROJECT_DIR$/slippy/contact/materials.py" />
+        <option value="$PROJECT_DIR$/slippy/contact/_step_utils.py" />
+        <option value="$PROJECT_DIR$/slippy/surface/ACF_class.py" />
       </list>
     </option>
   </component>
@@ -262,6 +280,13 @@
               <item name="slippy" type="b2602c69:ProjectViewProjectNode" />
               <item name="slippy" type="462c0819:PsiDirectoryNode" />
               <item name="slippy" type="462c0819:PsiDirectoryNode" />
+              <item name="contact" type="462c0819:PsiDirectoryNode" />
+              <item name="tests" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="slippy" type="b2602c69:ProjectViewProjectNode" />
+              <item name="slippy" type="462c0819:PsiDirectoryNode" />
+              <item name="slippy" type="462c0819:PsiDirectoryNode" />
               <item name="surface" type="462c0819:PsiDirectoryNode" />
             </path>
           </expand>
@@ -301,15 +326,6 @@
         </RuleState>
       </list>
     </option>
-  </component>
-  <component name="RunManager">
-    <recent_temporary>
-      <list>
-        <item itemvalue="Python.test_elastic_bem" />
-        <item itemvalue="Python.test_elastic_bem" />
-        <item itemvalue="Python.test_elastic_bem" />
-      </list>
-    </recent_temporary>
   </component>
   <component name="SvnConfiguration">
     <configuration />
@@ -406,7 +422,35 @@
       <option name="project" value="LOCAL" />
       <updated>1573648405810</updated>
     </task>
-    <option name="localTasksCounter" value="13" />
+    <task id="LOCAL-00013" summary="Lubricant class and lubricaiton steps added">
+      <created>1573648653365</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1573648653365</updated>
+    </task>
+    <task id="LOCAL-00014" summary="Examples updated, static interferance step added">
+      <created>1574162621893</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1574162621893</updated>
+    </task>
+    <task id="LOCAL-00015" summary="ACF definition updated for exponential acfs">
+      <created>1574176034417</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1574176034417</updated>
+    </task>
+    <task id="LOCAL-00016" summary="Documentation, example added for specified normal interferance">
+      <created>1574176112110</created>
+      <option name="number" value="00016" />
+      <option name="presentableId" value="LOCAL-00016" />
+      <option name="project" value="LOCAL" />
+      <updated>1574176112113</updated>
+    </task>
+    <option name="localTasksCounter" value="17" />
     <servers />
   </component>
   <component name="ToolWindowManager">
@@ -422,10 +466,10 @@
       <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
       <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
       <window_info anchor="bottom" id="TODO" order="6" />
-      <window_info active="true" anchor="bottom" id="Version Control" order="7" visible="true" weight="0.24052005" />
+      <window_info anchor="bottom" id="Version Control" order="7" weight="0.24052005" />
       <window_info anchor="bottom" id="Terminal" order="8" weight="0.32936078" />
-      <window_info anchor="bottom" id="Event Log" order="9" sideWeight="0.12592202" side_tool="true" weight="0.27193934" />
-      <window_info anchor="bottom" id="Python Console" order="10" sideWeight="0.874078" weight="0.3066089" />
+      <window_info active="true" anchor="bottom" id="Event Log" order="9" sideWeight="0.43150684" side_tool="true" visible="true" weight="0.3066089" />
+      <window_info anchor="bottom" id="Python Console" order="10" sideWeight="0.5684931" visible="true" weight="0.3066089" />
       <window_info anchor="right" id="Commander" internal_type="SLIDING" order="0" type="SLIDING" weight="0.4" />
       <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
       <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
@@ -467,21 +511,12 @@
     <MESSAGE value="Static steps now work with all surface types through material_args &#10;keyword" />
     <MESSAGE value="Debugging of material generalisation" />
     <MESSAGE value="Lubricant class and lubricaiton steps added" />
-    <option name="LAST_COMMIT_MESSAGE" value="Lubricant class and lubricaiton steps added" />
+    <MESSAGE value="Examples updated, static interferance step added" />
+    <MESSAGE value="ACF definition updated for exponential acfs" />
+    <MESSAGE value="Documentation, example added for specified normal interferance" />
+    <option name="LAST_COMMIT_MESSAGE" value="Documentation, example added for specified normal interferance" />
   </component>
   <component name="editorHistoryManager">
-    <entry file="file://$PROJECT_DIR$/models/_model_utils.py" />
-    <entry file="file://$PROJECT_DIR$/models/__init__.py" />
-    <entry file="file://$PROJECT_DIR$/contact/friciton_models.py" />
-    <entry file="file://$PROJECT_DIR$/contact/rigid_elastic.py" />
-    <entry file="file://$PROJECT_DIR$/abcs/__init__.py" />
-    <entry file="file://$USER_HOME$/.PyCharmCE2019.1/system/python_stubs/-589498951/builtins.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="215">
-          <caret line="5280" column="8" selection-start-line="5280" selection-start-column="8" selection-end-line="5280" selection-end-column="8" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/surface/__init__.py" />
     <entry file="file://$PROJECT_DIR$/contact/__init__.py" />
     <entry file="file://$PROJECT_DIR$/contact/_model_utils.py" />
@@ -535,13 +570,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/slippy/surface/Surface_class.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="4675">
-          <caret line="297" column="39" selection-start-line="297" selection-start-column="39" selection-end-line="297" selection-end-column="39" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/slippy/contact/hertz.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="3553">
@@ -559,28 +587,13 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/slippy/surface/delete this.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="51">
-          <caret line="3" column="5" selection-start-line="3" selection-start-column="5" selection-end-line="3" selection-end-column="5" />
-        </state>
-      </provider>
-    </entry>
+    <entry file="file://$PROJECT_DIR$/slippy/surface/delete this.py" />
     <entry file="file://$PROJECT_DIR$/slippy/surface/alicona.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="558">
           <caret line="41" column="24" selection-start-line="41" selection-start-column="24" selection-end-line="41" selection-end-column="24" />
           <folding>
             <element signature="e#0#18#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/slippy/contact/steps.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state>
-          <folding>
-            <element signature="e#0#50#0" expanded="true" />
           </folding>
         </state>
       </provider>
@@ -612,40 +625,57 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/slippy/contact/_step_utils.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="301">
-          <caret line="78" column="49" selection-start-line="78" selection-start-column="49" selection-end-line="78" selection-end-column="49" />
-          <folding>
-            <element signature="e#35#53#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/slippy/abcs/abcs.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="291">
-          <caret line="18" column="8" selection-start-line="18" selection-start-column="8" selection-end-line="18" selection-end-column="8" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/slippy/contact/materials.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1419">
-          <caret line="334" column="74" lean-forward="true" selection-start-line="334" selection-start-column="74" selection-end-line="334" selection-end-column="74" />
-          <folding>
-            <element signature="e#0#10#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
+    <entry file="file://$PROJECT_DIR$/doc/development.rst">
+      <provider selected="true" editor-type-id="restructured-text-editor" />
     </entry>
     <entry file="file://$PROJECT_DIR$/slippy/surface/Geometric.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="93">
+        <state relative-caret-position="4182">
           <caret line="251" column="4" selection-start-line="251" selection-start-column="4" selection-end-line="251" selection-end-column="4" />
           <folding>
             <element signature="e#1028#1073#0" expanded="true" />
           </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/slippy/contact/_model_utils.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="646">
+          <caret line="40" selection-start-line="40" selection-end-line="40" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/slippy/contact/lubricant.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="85">
+          <caret line="6" column="46" selection-start-line="6" selection-start-column="46" selection-end-line="6" selection-end-column="46" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/slippy/contact/lubrication_steps.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="170">
+          <caret line="11" column="35" selection-start-line="11" selection-start-column="35" selection-end-line="11" selection-end-column="35" />
+          <folding>
+            <element signature="e#0#29#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/slippy/surface/johnsondists.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="510">
+          <caret line="30" column="13" lean-forward="true" selection-start-line="30" selection-start-column="13" selection-end-line="30" selection-end-column="13" />
+          <folding>
+            <element signature="e#0#18#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/slippy/surface/_johnson_utils.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1374">
+          <caret line="127" column="23" selection-start-line="127" selection-start-column="23" selection-end-line="127" selection-end-column="23" />
         </state>
       </provider>
     </entry>
@@ -656,46 +686,92 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/slippy/surface/Random.py">
+    <entry file="file://$PROJECT_DIR$/slippy/contact/tests/test_hertz_full.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="289">
-          <caret line="475" column="18" selection-start-line="475" selection-start-column="8" selection-end-line="475" selection-end-column="18" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/slippy/contact/_model_utils.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-3">
-          <caret line="40" selection-start-line="40" selection-end-line="40" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/slippy/contact/lubricant.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="102">
-          <caret line="6" column="46" selection-start-line="6" selection-start-column="46" selection-end-line="6" selection-end-column="46" />
+        <state>
           <folding>
-            <element signature="e#106#110#0" expanded="true" />
+            <element signature="e#0#18#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/slippy/contact/lubrication_steps.py">
+    <entry file="file://$PROJECT_DIR$/slippy/contact/tests/test_elastic_bem.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="187">
-          <caret line="11" column="35" selection-start-line="11" selection-start-column="35" selection-end-line="11" selection-end-column="35" />
+        <state relative-caret-position="357">
+          <caret line="60" column="69" selection-start-line="60" selection-start-column="69" selection-end-line="60" selection-end-column="69" />
           <folding>
-            <element signature="e#0#29#0" expanded="true" />
+            <element signature="e#0#26#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/slippy/contact/static_step.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="119">
-          <caret line="81" column="26" lean-forward="true" selection-start-line="81" selection-start-column="26" selection-end-line="81" selection-end-column="26" />
+        <state relative-caret-position="255">
+          <caret line="326" column="56" selection-start-line="326" selection-start-column="56" selection-end-line="326" selection-end-column="56" />
           <folding>
             <element signature="e#520#563#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/slippy/abcs/abcs.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="205">
+          <caret line="18" column="8" selection-start-line="18" selection-start-column="8" selection-end-line="18" selection-end-column="8" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/slippy/contact/steps.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="592">
+          <caret line="201" selection-start-line="201" selection-end-line="201" />
+          <folding>
+            <element signature="e#0#50#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/slippy/contact/materials.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1190">
+          <caret line="506" column="30" selection-start-line="506" selection-start-column="30" selection-end-line="506" selection-end-column="30" />
+          <folding>
+            <element signature="e#0#10#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/slippy/contact/_step_utils.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="272">
+          <caret line="101" column="42" selection-start-line="101" selection-start-column="42" selection-end-line="101" selection-end-column="42" />
+          <folding>
+            <element signature="e#35#53#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/slippy/surface/Surface_class.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="2453">
+          <caret line="1753" column="42" lean-forward="true" selection-start-line="1753" selection-start-column="42" selection-end-line="1753" selection-end-column="42" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/slippy/surface/Random.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="170">
+          <caret line="236" lean-forward="true" selection-start-line="236" selection-end-line="236" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/slippy/surface/ACF_class.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="476">
+          <caret line="104" column="35" lean-forward="true" selection-start-line="104" selection-start-column="35" selection-end-line="104" selection-end-column="35" />
+          <folding>
+            <element signature="e#0#18#0" expanded="true" />
           </folding>
         </state>
       </provider>

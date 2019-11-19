@@ -1585,8 +1585,9 @@ class _AnalyticalSurface(_Surface):
 
         x = x_mesh*np.cos(self._total_rotation) - y_mesh*np.sin(self._total_rotation)
         y = y_mesh*np.cos(self._total_rotation) + x_mesh*np.sin(self._total_rotation)
-        x += self._total_shift[0]
-        y += self._total_shift[1]
+        x_shift, y_shift = self._total_shift
+        x += x_shift*np.cos(self._total_rotation) - y_shift*np.sin(self._total_rotation)
+        y += y_shift*np.cos(self._total_rotation) + x_shift*np.sin(self._total_rotation)
 
         return self._height(x, y)
 
@@ -1648,6 +1649,15 @@ class _AnalyticalSurface(_Surface):
 
         if isinstance(other, _AnalyticalSurface):
             return SurfaceCombination(self, other)
+
+        if isinstance(other, Surface):
+            if not self.is_descrete:
+                self_copy = copy.copy(self)
+                self_copy.extent = other.extent
+                self_copy.grid_spacing = other.grid_spacing
+                self_copy.shape = other.shape
+                self_copy.descretise()
+                return other + self_copy
 
         return super().__add__(other)
 

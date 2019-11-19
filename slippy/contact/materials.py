@@ -311,7 +311,7 @@ class _Material(_MaterialABC):
             return loads, (full_deflections,)
 
         # other is not None
-        try:
+        try:  # see if the other provides an influence matrix
             components_other = other.influence_matrix(grid_spacing=grid_spacing, span=span, components=comp_names)
             components_self = self.influence_matrix(grid_spacing=grid_spacing, span=span, components=comp_names)
 
@@ -509,6 +509,9 @@ class _Material(_MaterialABC):
                        f" residual was: {resid_norm}, convergence declared at: {tol}")
                 warnings.warn(msg)
                 break
+
+        calc_displacements = self._solve_im_loading(loads, components)
+
         return loads, calc_displacements
 
     def jacobian_influence_matrix(self, components: typing.Sequence[str], surface_shape: tuple, periodic: bool,

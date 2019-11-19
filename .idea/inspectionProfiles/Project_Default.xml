@@ -14,6 +14,7 @@
         <list>
           <option value="dict._asdict" />
           <option value="Retruns" />
+          <option value="bool.flatten" />
         </list>
       </option>
     </inspection_tool>
