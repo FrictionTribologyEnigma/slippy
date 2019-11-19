@@ -12,11 +12,13 @@ import warnings
 import numpy as np
 from numpy.matlib import repmat
 from scipy.signal import fftconvolve
+from scipy.optimize import fsolve
 import scipy.stats
 from ._johnson_utils import _fit_johnson_by_moments, _fit_johnson_by_quantiles
 import typing
 
 __all__ = ['RandomSurface', 'surface_like']
+
 
 # TODO maybe this should just be turned into fucntions that return generators for new randon surfaces?
 
@@ -117,8 +119,8 @@ class RandomSurface(_Surface):
     def rotate(self, radians):
         raise NotImplementedError("Cannot rotate this surface")
 
-    def linear_transform(self, target_acf: ACF = None, filter_size_n_m: typing.Sequence = (35, 35), max_it: int = 100,
-                         accuracy: float = 1e-5, min_relax: float = 1e-6):
+    def linear_transform(self, target_acf: ACF = None, filter_size_n_m: typing.Sequence = (14, 14), max_it: int = 100,
+                         accuracy: float = 1e-11, no_large_filter_error=False):
         r"""
         Generates a linear transform matrix
         
@@ -135,13 +137,13 @@ class RandomSurface(_Surface):
             with this ACF.
         filter_size_n_m : 2 element sequence of int
             The dimentions of the filter coeficent matrix to be genrated the defaultis (35, 35)
-        max_it : int default is 100
+        max_it : int, optional (100)
             The maximum number of iterations used
-        accuracy : float default is 1e-5
+        accuracy : float, optional (1e-11)
             The accuracy of the itterated solution
-        min_relax : float default is 1e-6
-            The minimum relaxation factor used in the newtonian itterations
-            see notes
+        no_large_filter_error: bool, optional (False
+            If Ture the program allows large filters to be used, large filters do not converge to physical solutions
+            with this method
         
         Returns
         -------
@@ -188,7 +190,7 @@ class RandomSurface(_Surface):
         
         """
         self._method_keywords = {**locals()}
-        del(self._method_keywords['target_acf'])
+        del (self._method_keywords['target_acf'])
 
         self.surface_type = 'linear_transform'
 
@@ -203,6 +205,13 @@ class RandomSurface(_Surface):
         n = filter_size_n_m[0]
         m = filter_size_n_m[1]
 
+        if n * m > 15 ** 2:
+            warnings.warn("Warning large filter sizes often do not converge")
+        if n * m > 400 and not no_large_filter_error:
+            raise ValueError("Large filter size used, this will not converge, for large surfaces it is best to "
+                             "resample a lower resolution surface. To supress this error set the "
+                             "no_large_filter_error to True, please check the result if this is done")
+
         if self.grid_spacing is None:
             msg = ("Grid spacing is not set assuming grid grid_spacing is 1, the soultion is unique for each grid "
                    "spacing")
@@ -216,76 +225,15 @@ class RandomSurface(_Surface):
         acf_array = self.target_acf(k, l)
 
         # initial guess (n by m guess of filter coefficents)
-        c = acf_array / ((m - k_mesh) * (n - l_mesh))
-        s = np.sqrt(acf_array[0, 0] / np.sum(c.flatten() ** 2))
-        alpha = s * c
+        x0 = _initial_guess(acf_array)
 
-        # fill in F matrix and first residual for first itteration
-        f = np.zeros_like(alpha)
-        for p in range(n):
-            for q in range(m):
-                f[p, q] = np.sum(alpha[0:n - p, 0:m - q] * alpha[p:n, q:m])
-        f = (f - acf_array).flatten()
-        resid_old = np.sqrt(np.sum(f ** 2))
+        alpha, *optional_out = fsolve(_opt_func, x0, args=(acf_array,), fprime=_jac, xtol=accuracy, maxfev=max_it)
 
-        # initialise counters and relaxation factor
-        it_num = 0
-        relaxation_factor = 1
-        print('Iteration started:\nNumber\tResidual\t\tRelaxation factor')
-
-        while True:
-
-            # make Jackobian matrix
-            alpha_0 = np.pad(alpha, ((n, n), (m, m)), 'constant')
-            jacobian_plus = []
-            jacobian_minus = []
-            for p in range(n):
-                jacobian_plus.extend([alpha_0[n + p:2 * n + p, m + q:2 * m + q].flatten() for q in range(m)])
-                jacobian_minus.extend([alpha_0[n - p:2 * n - p, m - q:2 * m - q].flatten() for q in range(m)])
-            jacobian = (np.array(jacobian_plus) + np.array(jacobian_minus))
-
-            # do the hard bit of the itteration (inverting the jacobian matrik)
-            change = np.matmul(np.linalg.inv(jacobian), f)
-
-            # sub itterations to reduce the change if the result is a larger residual
-            while True:
-                # candidate new alpha
-                alpha_new = (alpha.flatten() -
-                             relaxation_factor * change).reshape((n, m))
-                # make f array to find residuals
-                f_new = np.zeros_like(alpha)
-                for p in range(n):
-                    for q in range(m):
-                        f_new[p, q] = np.sum(alpha_new[0:n - p, 0:m - q] * alpha_new[p:n, q:m])
-                f_new = (f_new - acf_array).flatten()
-                resid = np.sqrt(np.sum(f_new ** 2))
-                if resid < resid_old:
-                    break
-                relaxation_factor /= 2
-
-            print('{it_num}\t{resid}\t{relaxation_factor}'.format(**locals()))
-
-            # prepair for next itteration
-            relaxation_factor = min(relaxation_factor * 4, 1)
-            alpha = alpha_new
-            f = f_new
-            resid_old = resid
-            it_num += 1
-
-            if not (it_num < max_it and relaxation_factor > min_relax and resid_old > accuracy):
-                break
-
-        # print resuilts
         self._filter_coeficents = alpha
 
-        if resid < accuracy:
-            print('Itteration stopped, sufficent accuracy reached')
-        elif relaxation_factor < min_relax:
-            print('Itteration stoped, local minima found, residual is'
-                  ' {resid}'.format(**locals()))
-        elif it_num == max_it:
-            print('Itteration stopped, no convergence after {it_num} '
-                  'itterations, residual is {resid}'.format(**locals()))
+        if optional_out[-2] != 1:
+            warnings.warn("Iterations for the filter coefficents failed to converge, processexited with error: " +
+                          optional_out[-1])
 
     def set_moments(self, skew=0, kurtosis=3):
         r"""
@@ -686,3 +634,75 @@ def surface_like(target_surface: Surface, extent: typing.Union[str, tuple] = 'or
     surf_out.descretise(pts_each_dir, periodic, False)
 
     return surf_out
+
+
+def _initial_guess(target_acf):
+    """Find the initial guess for the filter coeficent matrix in the linear transforms method
+
+    Parameters
+    ----------
+    target_acf: np.ndarray
+
+    Returns
+    -------
+    np.ndarray, initial guess of filter coefficents
+    """
+    n, m = target_acf.shape
+    c = np.zeros_like(target_acf)
+    for i in range(n):
+        for j in range(m):
+            c[i, j] = target_acf[i, j] / ((n - i) * (m - j))
+    s_sq = target_acf[0, 0] / np.sum((c ** 2).flatten())
+    return (c*s_sq**0.5).flatten()
+
+
+def _jac(alpha: np.ndarray, target_acf: np.ndarray):
+    """Jacobian of the filter coeficents matrix
+
+    Parameters
+    ----------
+    alpha: np.array
+        Filter coefficents matrix
+    target_acf: np.array
+        The target acf
+
+    Returns
+    -------
+
+    np.array shape (n,n) where n is alpha.size
+
+    """
+    alpha = alpha.reshape(target_acf.shape)
+    n, m = target_acf.shape
+    alpha_0 = np.pad(alpha, ((n, n), (m, m)), 'constant')
+    jacobian_plus = []
+    jacobian_minus = []
+    for p in range(n):
+        jacobian_plus.extend([alpha_0[n + p:2 * n + p, m + q:2 * m + q].flatten() for q in range(m)])
+        jacobian_minus.extend([alpha_0[n - p:2 * n - p, m - q:2 * m - q].flatten() for q in range(m)])
+    return np.array(jacobian_plus) + np.array(jacobian_minus)
+
+
+def _opt_func(alpha: np.ndarray, target_acf: np.ndarray):
+    """Optimisation function for linear transforms method
+
+    Parameters
+    ----------
+    alpha: np.ndarray
+        The current filter coefficent matrix
+    target_acf: np.ndarray
+        The target acf array (same shape as alpha)
+
+    Returns
+    -------
+    np.ndarray of residuals
+    """
+    alpha = alpha.reshape(target_acf.shape)
+    n, m = target_acf.shape
+    acf_estimate = np.zeros_like(target_acf)
+    for p in range(n):
+        for q in range(m):
+            acf_estimate[p, q] = sum([sum([alpha[k, l] * alpha[k + p, l + q]
+                                           for l in range(m - q)])
+                                      for k in range(n - p)])
+    return (acf_estimate - target_acf).flatten()
