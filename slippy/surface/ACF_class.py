@@ -2,6 +2,7 @@ import numpy as np
 import types
 import scipy.signal
 import scipy.interpolate
+from slippy.abcs import _SurfaceABC
 
 __all__ = ['ACF']
 
@@ -88,7 +89,7 @@ class ACF(object):
         if type(source) is str:
             self._input_check_string(source, args)
             self.acf_type = "string"
-        elif hasattr(source, 'profile'):
+        elif isinstance(source, _SurfaceABC):
             self._input_check_array(source.profile, source.grid_spacing)
             self.acf_type = "surface"
         elif isinstance(source, types.FunctionType):
@@ -99,7 +100,7 @@ class ACF(object):
                 msg = ("grid spacing positional argument must be supplied if "
                        "is an array")
                 raise ValueError(msg)
-            self.input_check_array(source, grid_spacing)
+            self._input_check_array(source, grid_spacing)
             # args should contain the grid_spacing of the array
             self.acf_type = "array"
 
@@ -114,7 +115,7 @@ class ACF(object):
             sigma = args[0]
             beta_x = args[1]
             beta_y = args[2]
-            self.method = lambda x, y: sigma ** 2 * np.exp(-2.3 * np.sqrt((x / beta_x) ** 2 + (y / beta_y) ** 2))
+            self.method = _exp_acf(sigma, beta_x, beta_y)
         elif source == 'polynomial':
             pass
             raise NotImplementedError("polynomial functions are not implemented")
@@ -195,3 +196,12 @@ class ACF(object):
             raise ValueError("Could not return ACF as array, ACF must be made from"
                              " an array or surface for this to work in stead use "
                              "array(this(x_pts,y_pts)), see documentation for __call__ for more information")
+
+
+def _exp_acf(sigma, beta_x, beta_y):
+    def inner(x_mesh, y_mesh):
+        raw = sigma ** 2 * np.exp(-2.3 * np.sqrt((x_mesh / beta_x) ** 2 + (y_mesh / beta_y) ** 2))
+        raw[x_mesh > beta_x] = 0
+        raw[y_mesh > beta_y] = 0
+        return raw
+    return inner
