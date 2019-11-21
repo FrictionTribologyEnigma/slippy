@@ -357,7 +357,7 @@ class HurstFractalSurface(Surface):
         rms_f2d = np.sqrt(sum(psd.flatten()) * (2 * np.pi) ** 2 / lx / ly)
         alpha = sigma / rms_f2d
         psd *= alpha ** 2
-        self.psd = psd
+        self.psd = np.fft.ifftshift(psd)
 
         # converting the PSD to the fft
         magnitudes = np.sqrt(psd / (grid_spacing ** 2 / (n * m * (2 * np.pi) ** 2)))
