@@ -1,21 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="5a28a9ac-3b27-4339-bf3e-1bc7174e86c7" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+    <list default="true" id="5a28a9ac-3b27-4339-bf3e-1bc7174e86c7" name="Default Changelist" comment="Random surfaces by Perez method added (specified PSD and height dist)">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/examples/Analytical surfaces.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/examples/Analytical surfaces.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/examples/Making a closure plot for a pair of surfaces.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/examples/Making a closure plot for a pair of surfaces.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/examples/Recreating the hertz solution numerically (normal contact).ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/examples/Recreating the hertz solution numerically (normal contact).ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/examples/model-1.sdb" beforeDir="false" afterPath="$PROJECT_DIR$/examples/model-1.sdb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/slippy/contact/_step_utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/slippy/contact/_step_utils.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/slippy/contact/materials.py" beforeDir="false" afterPath="$PROJECT_DIR$/slippy/contact/materials.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/slippy/contact/static_step.py" beforeDir="false" afterPath="$PROJECT_DIR$/slippy/contact/static_step.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/slippy/contact/steps.py" beforeDir="false" afterPath="$PROJECT_DIR$/slippy/contact/steps.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/slippy/contact/tests/test_elastic_bem.py" beforeDir="false" afterPath="$PROJECT_DIR$/slippy/contact/tests/test_elastic_bem.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/slippy/surface/ACF_class.py" beforeDir="false" afterPath="$PROJECT_DIR$/slippy/surface/ACF_class.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/slippy/surface/Surface_class.py" beforeDir="false" afterPath="$PROJECT_DIR$/slippy/surface/Surface_class.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/slippy/surface/johnsondists.py" beforeDir="false" afterPath="$PROJECT_DIR$/slippy/surface/johnsondists.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -37,11 +28,11 @@
           </provider>
         </entry>
       </file>
-      <file pinned="false" current-in-tab="false">
+      <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/slippy/contact/tests/test_elastic_bem.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="357">
-              <caret line="60" column="69" selection-start-line="60" selection-start-column="69" selection-end-line="60" selection-end-column="69" />
+            <state relative-caret-position="150">
+              <caret line="50" column="47" lean-forward="true" selection-start-line="50" selection-start-column="47" selection-end-line="50" selection-end-column="47" />
               <folding>
                 <element signature="e#0#26#0" expanded="true" />
               </folding>
@@ -87,19 +78,12 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/slippy/surface/Random.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="170">
-              <caret line="236" lean-forward="true" selection-start-line="236" selection-end-line="236" />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="true">
-        <entry file="file://$PROJECT_DIR$/slippy/surface/ACF_class.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="476">
-              <caret line="104" column="35" lean-forward="true" selection-start-line="104" selection-start-column="35" selection-end-line="104" selection-end-column="35" />
+            <state relative-caret-position="187">
+              <caret line="647" column="9" selection-start-line="647" selection-start-column="9" selection-end-line="647" selection-end-column="9" />
               <folding>
-                <element signature="e#0#18#0" expanded="true" />
+                <element signature="e#155#199#0" expanded="true" />
+                <element signature="e#8#26#0" expanded="true" />
+                <element signature="e#12#30#0" expanded="true" />
               </folding>
             </state>
           </provider>
@@ -108,8 +92,8 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/slippy/contact/materials.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="1190">
-              <caret line="506" column="30" selection-start-line="506" selection-start-column="30" selection-end-line="506" selection-end-column="30" />
+            <state relative-caret-position="272">
+              <caret line="901" column="66" lean-forward="true" selection-start-line="901" selection-start-column="66" selection-end-line="901" selection-end-column="66" />
               <folding>
                 <element signature="e#0#10#0" expanded="true" />
               </folding>
@@ -120,8 +104,8 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/slippy/surface/Surface_class.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="2453">
-              <caret line="1753" column="42" lean-forward="true" selection-start-line="1753" selection-start-column="42" selection-end-line="1753" selection-end-column="42" />
+            <state relative-caret-position="394">
+              <caret line="1089" lean-forward="true" selection-start-line="1089" selection-end-line="1089" />
             </state>
           </provider>
         </entry>
@@ -129,8 +113,13 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/slippy/surface/FFTBased.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="323">
-              <caret line="105" column="38" selection-start-line="105" selection-start-column="38" selection-end-line="105" selection-end-column="38" />
+            <state relative-caret-position="330">
+              <caret line="334" column="45" lean-forward="true" selection-start-line="334" selection-start-column="45" selection-end-line="334" selection-end-column="45" />
+              <folding>
+                <element signature="e#1143#1188#0" expanded="true" />
+                <element signature="e#1395#6024#0" />
+                <element signature="e#6074#8176#0" />
+              </folding>
             </state>
           </provider>
         </entry>
@@ -146,9 +135,6 @@
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
-      <find>import *</find>
-      <find>fft</find>
-      <find>initi</find>
       <find>solve_im_di</find>
       <find>ana</find>
       <find>from_surface</find>
@@ -166,7 +152,6 @@
       <find>__e</find>
       <find>filter_cut</find>
       <find>reference</find>
-      <find>show(</find>
       <find>Keyword</find>
       <find>list</find>
       <find>set_moments</find>
@@ -174,8 +159,12 @@
       <find>surface_like</find>
       <find>set_moment</find>
       <find>ITNUM</find>
-      <find>loads_f</find>
+      <find>__repr</find>
+      <find>get_psd</find>
+      <find>show(</find>
       <find>jac</find>
+      <find>rotate</find>
+      <find>loads_f</find>
     </findStrings>
   </component>
   <component name="Git.Settings">
@@ -224,26 +213,25 @@
         <option value="$PROJECT_DIR$/slippy/surface/Geometric.py" />
         <option value="$PROJECT_DIR$/slippy/contact/adhesion_models.py" />
         <option value="$PROJECT_DIR$/slippy/abcs/abcs.py" />
-        <option value="$PROJECT_DIR$/slippy/surface/FFTBased.py" />
         <option value="$PROJECT_DIR$/slippy/contact/lubricant.py" />
         <option value="$PROJECT_DIR$/slippy/contact/lubrication_steps.py" />
         <option value="$PROJECT_DIR$/slippy/surface/johnsondists.py" />
-        <option value="$PROJECT_DIR$/slippy/surface/Random.py" />
         <option value="$PROJECT_DIR$/slippy/contact/steps.py" />
-        <option value="$PROJECT_DIR$/slippy/contact/tests/test_elastic_bem.py" />
-        <option value="$PROJECT_DIR$/slippy/surface/Surface_class.py" />
         <option value="$PROJECT_DIR$/slippy/contact/static_step.py" />
         <option value="$PROJECT_DIR$/slippy/contact/materials.py" />
         <option value="$PROJECT_DIR$/slippy/contact/_step_utils.py" />
+        <option value="$PROJECT_DIR$/slippy/surface/FFTBased.py" />
         <option value="$PROJECT_DIR$/slippy/surface/ACF_class.py" />
+        <option value="$PROJECT_DIR$/slippy/surface/Surface_class.py" />
+        <option value="$PROJECT_DIR$/slippy/surface/Random.py" />
+        <option value="$PROJECT_DIR$/slippy/contact/tests/test_elastic_bem.py" />
       </list>
     </option>
   </component>
   <component name="ProjectFrameBounds" extendedState="6">
-    <option name="x" value="-8" />
-    <option name="y" value="-8" />
-    <option name="width" value="976" />
-    <option name="height" value="1056" />
+    <option name="x" value="-7" />
+    <option name="width" value="974" />
+    <option name="height" value="1047" />
   </component>
   <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
   <component name="ProjectView">
@@ -288,6 +276,13 @@
               <item name="slippy" type="462c0819:PsiDirectoryNode" />
               <item name="slippy" type="462c0819:PsiDirectoryNode" />
               <item name="surface" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="slippy" type="b2602c69:ProjectViewProjectNode" />
+              <item name="slippy" type="462c0819:PsiDirectoryNode" />
+              <item name="slippy" type="462c0819:PsiDirectoryNode" />
+              <item name="surface" type="462c0819:PsiDirectoryNode" />
+              <item name="tests" type="462c0819:PsiDirectoryNode" />
             </path>
           </expand>
           <select />
@@ -450,11 +445,40 @@
       <option name="project" value="LOCAL" />
       <updated>1574176112113</updated>
     </task>
-    <option name="localTasksCounter" value="17" />
+    <task id="LOCAL-00017" summary="Documentation, example added for specified normal interferance">
+      <created>1574188904109</created>
+      <option name="number" value="00017" />
+      <option name="presentableId" value="LOCAL-00017" />
+      <option name="project" value="LOCAL" />
+      <updated>1574188904109</updated>
+    </task>
+    <task id="LOCAL-00018" summary="Hurst Fractal surface class updated to faster version from the matlab &#10;file exchange, distributed under the 2 clause BSD licence">
+      <created>1574254769254</created>
+      <option name="number" value="00018" />
+      <option name="presentableId" value="LOCAL-00018" />
+      <option name="project" value="LOCAL" />
+      <updated>1574254769254</updated>
+    </task>
+    <task id="LOCAL-00019" summary="bug fix in hurst frequency surface, psd was not wrapped before setting &#10;as surface attribute, didn't work with plotting etc.">
+      <created>1574342923307</created>
+      <option name="number" value="00019" />
+      <option name="presentableId" value="LOCAL-00019" />
+      <option name="project" value="LOCAL" />
+      <updated>1574342923307</updated>
+    </task>
+    <task id="LOCAL-00020" summary="Random surfaces by Perez method added (specified PSD and height dist)">
+      <created>1574705878724</created>
+      <option name="number" value="00020" />
+      <option name="presentableId" value="LOCAL-00020" />
+      <option name="project" value="LOCAL" />
+      <updated>1574705878724</updated>
+    </task>
+    <option name="localTasksCounter" value="21" />
     <servers />
   </component>
   <component name="ToolWindowManager">
     <frame x="-8" y="-8" width="1936" height="1056" extended-state="6" />
+    <editor active="true" />
     <layout>
       <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.13277134" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
@@ -466,10 +490,10 @@
       <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
       <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
       <window_info anchor="bottom" id="TODO" order="6" />
-      <window_info anchor="bottom" id="Version Control" order="7" weight="0.24052005" />
+      <window_info anchor="bottom" id="Version Control" order="7" sideWeight="0.49947312" weight="0.24052005" />
       <window_info anchor="bottom" id="Terminal" order="8" weight="0.32936078" />
-      <window_info active="true" anchor="bottom" id="Event Log" order="9" sideWeight="0.43150684" side_tool="true" visible="true" weight="0.3066089" />
-      <window_info anchor="bottom" id="Python Console" order="10" sideWeight="0.5684931" visible="true" weight="0.3066089" />
+      <window_info anchor="bottom" id="Event Log" order="9" sideWeight="0.4325606" side_tool="true" visible="true" weight="0.3066089" />
+      <window_info active="true" anchor="bottom" id="Python Console" order="10" sideWeight="0.56743944" visible="true" weight="0.3066089" />
       <window_info anchor="right" id="Commander" internal_type="SLIDING" order="0" type="SLIDING" weight="0.4" />
       <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
       <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
@@ -514,7 +538,10 @@
     <MESSAGE value="Examples updated, static interferance step added" />
     <MESSAGE value="ACF definition updated for exponential acfs" />
     <MESSAGE value="Documentation, example added for specified normal interferance" />
-    <option name="LAST_COMMIT_MESSAGE" value="Documentation, example added for specified normal interferance" />
+    <MESSAGE value="Hurst Fractal surface class updated to faster version from the matlab &#10;file exchange, distributed under the 2 clause BSD licence" />
+    <MESSAGE value="bug fix in hurst frequency surface, psd was not wrapped before setting &#10;as surface attribute, didn't work with plotting etc." />
+    <MESSAGE value="Random surfaces by Perez method added (specified PSD and height dist)" />
+    <option name="LAST_COMMIT_MESSAGE" value="Random surfaces by Perez method added (specified PSD and height dist)" />
   </component>
   <component name="editorHistoryManager">
     <entry file="file://$PROJECT_DIR$/surface/__init__.py" />
@@ -679,28 +706,11 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/slippy/surface/FFTBased.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="323">
-          <caret line="105" column="38" selection-start-line="105" selection-start-column="38" selection-end-line="105" selection-end-column="38" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/slippy/contact/tests/test_hertz_full.py">
       <provider selected="true" editor-type-id="text-editor">
         <state>
           <folding>
             <element signature="e#0#18#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/slippy/contact/tests/test_elastic_bem.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="357">
-          <caret line="60" column="69" selection-start-line="60" selection-start-column="69" selection-end-line="60" selection-end-column="69" />
-          <folding>
-            <element signature="e#0#26#0" expanded="true" />
           </folding>
         </state>
       </provider>
@@ -732,16 +742,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/slippy/contact/materials.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1190">
-          <caret line="506" column="30" selection-start-line="506" selection-start-column="30" selection-end-line="506" selection-end-column="30" />
-          <folding>
-            <element signature="e#0#10#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/slippy/contact/_step_utils.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="272">
@@ -752,26 +752,63 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/slippy/surface/ACF_class.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="442">
+          <caret line="132" column="72" lean-forward="true" selection-start-line="132" selection-start-column="72" selection-end-line="132" selection-end-column="72" />
+          <folding>
+            <element signature="e#0#18#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/slippy/surface/FFTBased.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="330">
+          <caret line="334" column="45" lean-forward="true" selection-start-line="334" selection-start-column="45" selection-end-line="334" selection-end-column="45" />
+          <folding>
+            <element signature="e#1143#1188#0" expanded="true" />
+            <element signature="e#1395#6024#0" />
+            <element signature="e#6074#8176#0" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/slippy/surface/Surface_class.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="2453">
-          <caret line="1753" column="42" lean-forward="true" selection-start-line="1753" selection-start-column="42" selection-end-line="1753" selection-end-column="42" />
+        <state relative-caret-position="394">
+          <caret line="1089" lean-forward="true" selection-start-line="1089" selection-end-line="1089" />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/slippy/surface/Random.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="170">
-          <caret line="236" lean-forward="true" selection-start-line="236" selection-end-line="236" />
+        <state relative-caret-position="187">
+          <caret line="647" column="9" selection-start-line="647" selection-start-column="9" selection-end-line="647" selection-end-column="9" />
+          <folding>
+            <element signature="e#155#199#0" expanded="true" />
+            <element signature="e#8#26#0" expanded="true" />
+            <element signature="e#12#30#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/slippy/surface/ACF_class.py">
+    <entry file="file://$PROJECT_DIR$/slippy/contact/materials.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="476">
-          <caret line="104" column="35" lean-forward="true" selection-start-line="104" selection-start-column="35" selection-end-line="104" selection-end-column="35" />
+        <state relative-caret-position="272">
+          <caret line="901" column="66" lean-forward="true" selection-start-line="901" selection-start-column="66" selection-end-line="901" selection-end-column="66" />
           <folding>
-            <element signature="e#0#18#0" expanded="true" />
+            <element signature="e#0#10#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/slippy/contact/tests/test_elastic_bem.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="150">
+          <caret line="50" column="47" lean-forward="true" selection-start-line="50" selection-start-column="47" selection-end-line="50" selection-end-column="47" />
+          <folding>
+            <element signature="e#0#26#0" expanded="true" />
           </folding>
         </state>
       </provider>

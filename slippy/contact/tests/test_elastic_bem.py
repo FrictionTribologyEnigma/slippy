@@ -64,6 +64,8 @@ def test_hertz_agreement_static_interferance():
 
     my_step = c.StaticNormalInterferance(f'step-{i}', absolute_interferance=a_result['total_deflection'])
 
+    # TODO
+
 if __name__ == '__main__':
     test_hertz_agreement_static_load()
     test_hertz_agreement_static_interferance()
