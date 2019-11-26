@@ -124,6 +124,6 @@ def test_elastic():
 def test_elastic_combinations():
     # test combinations of 2 surfaces
 
-    # recreate the hertz solution by specifying the interferance and using combined matricies
+    # recreate the hertz solution by specifying the interference and using combined matricies
 
     pass

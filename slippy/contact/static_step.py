@@ -5,7 +5,7 @@ Static Modelling steps
 
 Steps for modelling static or quasi static situations:
 should include:
-specified global interferance
+specified global interference
 specified gloabal loading
 specified surface loading
 specified surface displacement
@@ -26,7 +26,7 @@ import typing
 from slippy.contact import Loads
 import numpy as np
 import pickle
-from ._step_utils import solve_normal_interferance, get_next_file_num
+from ._step_utils import solve_normal_interference, get_next_file_num
 
 __all__ = ['StaticNormalLoad', 'StaticNormalInterferance', 'ClosurePlot', 'PullOff', 'SurfaceDisplacement',
            'SurfaceLoading']
@@ -72,7 +72,7 @@ class StaticNormalLoad(_ModelStep):
     interpolation_mode: str {'nearest', 'linear', 'quadratic'}, optional ('nearest')
         The interpolation mode to be used on the second surface, only used if the second surface is not analytical
     periodic: bool, optional (False)
-        If True the second surface is considered periodic for the interferance detection step, surfaces are always
+        If True the second surface is considered periodic for the interference detection step, surfaces are always
         considered periodic for the loading step (This is a fundamental assumption of the FFT BEM technique)
     adhesion: bool, optional (True)
         If True the parent model's adhesion model is used when solving the step. Setting to false solves the step
@@ -84,8 +84,8 @@ class StaticNormalLoad(_ModelStep):
 
     Notes
     -----
-    For each iteration of the loading loop the height of the second surface is adjusted, the interferance between the
-    surfaces found and the loads on the surfaces needed to cause deformation equal to the interferance are found.
+    For each iteration of the loading loop the height of the second surface is adjusted, the interference between the
+    surfaces found and the loads on the surfaces needed to cause deformation equal to the interference are found.
 
     The displacement is solved for each iteration of the load loop, this is the step in the computation in which the
     loads on the surface needed to cause a specified displacement are found.
@@ -131,7 +131,7 @@ class StaticNormalLoad(_ModelStep):
         # check that both surfaces are defined, both materials are defined, if there is a tangential load check that
         # there is a friction model defined, print all of this to console, update the current_state set, delete the
         # previous state?
-        current_state = {'loads', 'surface_1_disp', 'surface_2_disp', 'total_disp', 'undeformed_gap', 'interferance'}
+        current_state = {'loads', 'surface_1_disp', 'surface_2_disp', 'total_disp', 'undeformed_gap', 'interference'}
 
         return current_state
 
@@ -173,7 +173,7 @@ class StaticNormalLoad(_ModelStep):
             it += 1
 
             # noinspection PyTypeChecker
-            loads, *disp_tup, contact_nodes = solve_normal_interferance(height, gap=gap, model=self.model,
+            loads, *disp_tup, contact_nodes = solve_normal_interference(height, gap=gap, model=self.model,
                                                                         adhesive_force=adhesion_model,
                                                                         contact_nodes=initial_contact_nodes,
                                                                         max_iter=opt.max_it_find_contact_nodes,
@@ -217,7 +217,7 @@ class StaticNormalLoad(_ModelStep):
 
 
         # find the loads on surface 1, 2
-        current_state['interferance'] = opt_result.root*uz
+        current_state['interference'] = opt_result.root*uz
 
         # check out put requests, check optional extra stuff that can be truned on?????
         self.solve_sub_models(current_state)
@@ -235,17 +235,17 @@ class StaticNormalLoad(_ModelStep):
 
 class StaticNormalInterferance(_ModelStep):
     """
-    Static interferance between two surfaces, found from point of first touching
+    Static interference between two surfaces, found from point of first touching
 
     Parameters
     ----------
     step_name: str
         The name of the step, can be any string, used to define output request
     absolute_interferance: float, optional (None)
-        The absolute interferance between the surfaces from the point of first contact, only one type of interferance
+        The absolute interference between the surfaces from the point of first contact, only one type of interference
         can be set
     relative_interferance: float, optional (None)
-        The realtive interferance between the surfaces from the current position, only one type of interferance can be
+        The realtive interference between the surfaces from the current position, only one type of interference can be
         set
     relative_off_set: tuple, optional (None)
         The relative off set betwee nsurface 1 and surface 2 (relative to the offset at the start of the step) only one
@@ -256,7 +256,7 @@ class StaticNormalInterferance(_ModelStep):
     interpolation_mode: str {'nearest', 'linear', 'quadratic'}, optional ('nearest')
         The interpolation mode to be used on the second surface, only used if the second surface is not analytical
     periodic: bool, optional (False)
-        If True the second surface is considered periodic for the interferance detection step, surfaces are always
+        If True the second surface is considered periodic for the interference detection step, surfaces are always
         considered periodic for the loading step (This is a fundamental assumption of the FFT BEM technique)
     adhesion: bool, optional (True)
         If True the parent model's adhesion model is used when solving the step. Setting to false solves the step
@@ -268,9 +268,9 @@ class StaticNormalInterferance(_ModelStep):
 
     """
     relative_interferance: bool = False
-    'Bool true if the interferance is relative'
+    'Bool true if the interference is relative'
     interferance: float = 0.0
-    'The specified interferance'
+    'The specified interference'
     _adhesion: bool = True
     'If false the step is solved with no adhesion'
 
@@ -280,10 +280,10 @@ class StaticNormalInterferance(_ModelStep):
                  max_it_find_contact_nodes: int = 100, material_options: dict = None):
 
         if absolute_interferance is not None and relative_interferance is not None:
-            raise ValueError('Only one type of interferance can be set, both the absolute and the relative interferacne'
+            raise ValueError('Only one type of interference can be set, both the absolute and the relative interferacne'
                              ' have been set.')
         elif absolute_interferance is None and relative_interferance is None:
-            raise ValueError('Either the relative interferance or the absolute interferance must be set')
+            raise ValueError('Either the relative interference or the absolute interference must be set')
 
         # noinspection PyTypeChecker
         self.interferance = absolute_interferance or relative_interferance
@@ -317,14 +317,14 @@ class StaticNormalInterferance(_ModelStep):
         pass
 
     def _solve(self, current_state, output_file):
-        height = current_state['interferance'] * self.relative_interferance + self.interferance
+        height = current_state['interference'] * self.relative_interferance + self.interferance
         gap, surf_1_pts, surf_2_pts = get_gap_from_model(self.model, interferance=0, off_set=self._off_set,
                                                          mode=self._options.interpolation_mode,
                                                          periodic=self._options.periodic)
         adhesion_model = self.model._adhesion if self._adhesion else None
         initial_contact_nodes = current_state['contact_nodes'] if 'contact_nodes' in current_state else None
 
-        loads, *disp_tup, contact_nodes = solve_normal_interferance(height, gap=gap, model=self.model,
+        loads, *disp_tup, contact_nodes = solve_normal_interference(height, gap=gap, model=self.model,
                                                                     adhesive_force=adhesion_model,
                                                                     contact_nodes=initial_contact_nodes,
                                                                     max_iter=self._options.max_it_find_contact_nodes,
@@ -339,20 +339,20 @@ class StaticNormalInterferance(_ModelStep):
         # check the solution is reasnoble (check not 100% contact) check that the achived load is similar to the actual load, check that the loop converged
         # TODO
         # find the loads on surface 1, 2
-        current_state['interferance'] = height
+        current_state['interference'] = height
         ################################################################################################################
-        if not hasattr(np, 'ITNUM'):
-            np.ITNUM = int(get_next_file_num(data_path))  #
-
-        total_load = np.sum(loads.z.flatten()) * self.model.surface_1.grid_spacing ** 2
-        pickle.dump({b'gap': gap, b'height': height, b'total_load': total_load, b'interferance': height,
-                     b's1_disp': disp_tup[1].z, b's2_disp': disp_tup[2].z,  b'all_loads': loads.z,
-                     b'props': {b'E1': self.model.surface_1.material.E, b'v1': self.model.surface_1.material.v,
-                                b'E2': self.model.surface_2.material.E, b'v2': self.model.surface_2.material.v},
-                     b'grid': self.model.surface_1.grid_spacing},
-                    open(f"{data_path}\\{np.ITNUM}.pkl", "wb"))
-
-        np.ITNUM += 1
+        #if not hasattr(np, 'ITNUM'):
+        #    np.ITNUM = int(get_next_file_num(data_path))  #
+#
+#        total_load = np.sum(loads.z.flatten()) * self.model.surface_1.grid_spacing ** 2
+#        pickle.dump({b'gap': gap, b'height': height, b'total_load': total_load, b'interference': height,
+#                     b's1_disp': disp_tup[1].z, b's2_disp': disp_tup[2].z,  b'all_loads': loads.z,
+#                     b'props': {b'E1': self.model.surface_1.material.E, b'v1': self.model.surface_1.material.v,
+#                                b'E2': self.model.surface_2.material.E, b'v2': self.model.surface_2.material.v},
+#                     b'grid': self.model.surface_1.grid_spacing},
+#                    open(f"{data_path}\\{np.ITNUM}.pkl", "wb"))
+#
+#        np.ITNUM += 1
         ################################################################################################################
         # check out put requests, check optional extra stuff that can be truned on?????
         self.solve_sub_models(current_state)
@@ -469,7 +469,7 @@ class _StaticStep(_ModelStep):
         either a float specifying the load between two surfaces or a dict of loads, see notes for desciption of valid
         dict. Either the load or the displacement should be set, not both.
     displacement : {float, dict} optional (None)
-        either a float specifying the interferance between two surfaces or a dict of loads, see notes for desciption of
+        either a float specifying the interference between two surfaces or a dict of loads, see notes for desciption of
         valid dict. Either the load or the displacement should be set, not both.
     simple : bool optional (True)
         A flag which can be set to False if a 'full' analysis is required, otherwise loads only cause displacements in

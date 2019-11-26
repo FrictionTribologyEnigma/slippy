@@ -66,7 +66,7 @@ def get_gap_from_model(model: _ContactModelABC, interferance: float,
     model : ContactModel
         An instance of a contact model containing two surfaces
     interferance :
-        The interferance between the surfaces, from the point of first contact, positive is into the surface
+        The interference between the surfaces, from the point of first contact, positive is into the surface
     off_set
         The off set in the x and y directions between the origin of the first and second surface
     mode : str {'nearest', 'linear', 'cubic'} optional, 'nearest'
@@ -79,12 +79,12 @@ def get_gap_from_model(model: _ContactModelABC, interferance: float,
     Returns
     -------
     point_wise_interferance : np.ndarray
-        pointwise interferance between the surfaces with the same grid spacing as the first surface in the contact
+        pointwise interference between the surfaces with the same grid spacing as the first surface in the contact
         model
     contact_points_1 : tuple[np.ndarray, np.ndarray]
-        The x and y locations of the interferance array in the same coordinates as the first surface
+        The x and y locations of the interference array in the same coordinates as the first surface
     contact_points_2 : tuple[np.ndarray, np.ndarray]
-        The x and y loactions of the interferance array in the same coordinates as the first surface
+        The x and y loactions of the interference array in the same coordinates as the first surface
 
     See Also
     --------
@@ -98,7 +98,7 @@ def get_gap_from_model(model: _ContactModelABC, interferance: float,
     if model.surface_2 is None:
         raise ValueError("Second surface must be set for this contact type")
     if not model.surface_1.is_descrete:
-        raise ValueError("The master surface (surface 1) must be descretised to find the interferance")
+        raise ValueError("The master surface (surface 1) must be descretised to find the interference")
 
     if model.surface_2.is_descrete:
         # find overlap
@@ -130,7 +130,7 @@ def get_gap_from_model(model: _ContactModelABC, interferance: float,
 
     else:  # model.surface_2 is not descrete
         if not model.surface_2.is_analytic:
-            raise ValueError("The second surface is not descretised or an analytical surface the interferance "
+            raise ValueError("The second surface is not descretised or an analytical surface the interference "
                              "between the surfaces cannot be found")
         # find overlap extents (same as periodic)
         contact_points_1 = model.surface_1.get_points_from_extent()

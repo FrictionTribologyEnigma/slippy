@@ -9,26 +9,26 @@ from numbers import Number
 import warnings
 import os
 
-__all__ = ['solve_normal_interferance', 'get_next_file_num']
+__all__ = ['solve_normal_interference', 'get_next_file_num']
 
 
-def solve_normal_interferance(interferance: float, gap: np.ndarray, model: _ContactModelABC,
+def solve_normal_interference(interference: float, gap: np.ndarray, model: _ContactModelABC,
                               adhesive_force: typing.Union[float, typing.Callable] = None,
                               contact_nodes: np.ndarray = None, max_iter: int = 50,
                               material_options: dict = None, remove_percent: float = 0.5,
                               node_thresh_percent: int = 0.01):
-    """Solves contact with set normal iterferance
+    """Solves contact with set normal interference
 
     Parameters
     ----------
-    interferance: flaot
-        The interferance between the surfaces measured from the point of first contact
+    interference: float
+        The interference between the surfaces measured from the point of first contact
     gap: np.ndarray
         The undeformed gap between the surfaces at the moment of first contact
     model: _ContactModelABC
         A contact model object containing the surfaces
-    adhesive_force: {flaot, Callable}, optional (None)
-        The maximum adhesive force between the two surfaces, or a callable whcih wll be called as following:
+    adhesive_force: {float, Callable}, optional (None)
+        The maximum adhesive force between the two surfaces, or a callable which wll be called as following:
         adhesive_force(surface_loads, deformed_gap, contact_nodes, model) and must return two boolean arrays containing
         the nodes to be removed and the nodes to be added in the iteration.
     contact_nodes: np.ndarray
@@ -38,7 +38,7 @@ def solve_normal_interferance(interferance: float, gap: np.ndarray, model: _Cont
     max_iter: int
         The maximum number of iterations to find a stable set of contact nodes
     remove_percent: float
-        The percentage of the current contact nodes which can be removed in a single itteration
+        The percentage of the current contact nodes which can be removed in a single iteration
     node_thresh_percent: float
         Percentage of contact nodes which can need to be added before the solution is converged
 
@@ -65,9 +65,9 @@ def solve_normal_interferance(interferance: float, gap: np.ndarray, model: _Cont
     if adhesive_force is None:
         adhesive_force = 0
 
-    # z = -1 * np.clip(gap - interferance, None, 0)
+    # z = -1 * np.clip(gap - interference, None, 0)
     # z[z == 0] = np.nan
-    z = interferance - gap  # necessary displacement for completely touching, positive is into surfaces
+    z = interference - gap  # necessary displacement for completely touching, positive is into surfaces
 
     if contact_nodes is None:
         contact_nodes = z > 0
@@ -90,7 +90,7 @@ def solve_normal_interferance(interferance: float, gap: np.ndarray, model: _Cont
                                                                           **material_options)
 
         # find deformed gap and add contacting nodes to the contact nodes
-        deformed_gap = gap - interferance + disp_tup[0].z  # the gap minus the interferance plus the displacement
+        deformed_gap = gap - interference + disp_tup[0].z  # the gap minus the interference plus the displacement
 
         force_another_iteration = False
         n_contact_nodes = sum(contact_nodes.flatten())
@@ -123,7 +123,7 @@ def solve_normal_interferance(interferance: float, gap: np.ndarray, model: _Cont
             contact_nodes[nodes_to_add] = True
             contact_nodes[nodes_to_remove] = False
             n_nodes_added = sum(nodes_to_add.flatten())
-            added_nodes_last_it = n_nodes_added if n_nodes_added else added_nodes_last_it  # if you added any nodes then update
+            added_nodes_last_it = n_nodes_added if n_nodes_added else added_nodes_last_it  # if any nodes then update
             displacements = Displacements(z=z.copy(), x=None, y=None)
             displacements.z[np.logical_not(contact_nodes)] = np.nan
 
@@ -133,7 +133,7 @@ def solve_normal_interferance(interferance: float, gap: np.ndarray, model: _Cont
         it_num += 1
 
         if it_num > max_iter:
-            warnings.warn('Solution failed to converge on a set of contact nodes while solving for normal interferance')
+            warnings.warn('Solution failed to converge on a set of contact nodes while solving for normal interference')
             loads.z[:] = np.nan
             break
 
