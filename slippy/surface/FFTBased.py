@@ -23,7 +23,7 @@ Classes for generating pseudo-random surfaces based on description of FFT:
         doc strings
 """
 
-from .Surface_class import _AnalyticalSurface
+from .Surface_class import _AnalyticalSurface, Surface
 import numpy as np
 import typing
 from numbers import Number
@@ -196,19 +196,16 @@ class ProbFreqSurface(_AnalyticalSurface):
         return f'ProbFreqSurface(h={self.h}, qr={self.qr}, qs={self.qs}{string})'
 
 
-class HurstFractalSurface(_AnalyticalSurface):
+class HurstFractalSurface(Surface):
     r"""Hurst fractal surfaces
 
     Parameters
     ----------
-    q0: float
-        The lowest frequency in the surface
-    q0_amp: float
-        The amptitude of the lowest frequency component
-    q_cut_off: float
-        The highest frequency represented in the surface
-    hurst: float
-        The hurst parameter, see notes for definition
+    sigma: float
+        The RSM roughness of the surface
+    hurst_exponent: float
+        The hurst exponent, must be between 0 and 1, related to the fractal dimension by D = 3-H
+    roll_off_frequency: float, opotional (0.0)
     generate: bool, optional (False)
         If true the surface profile is generated on instantiation, two of: grid_spacing, extent or shape must be set
     grid_spacing: float, optional (None)
@@ -216,7 +213,7 @@ class HurstFractalSurface(_AnalyticalSurface):
     extent: tuple, optional (None)
         The overall surface dimentions in the x and y direcitons
     shape: tuple, otional (None)
-        The number of grid points in the x and y directions
+        The number of grid points in the x and y directions, computation is faster for powers of 2
 
     See Also
     --------
@@ -251,7 +248,7 @@ class HurstFractalSurface(_AnalyticalSurface):
     --------
 
     >>> #create the surface object with the specified fractal prameters
-    >>> my_surface=HurstFractalSurface(1,0.1,1000,2, extent=(1, 1), grid_spacing=0.01)
+    >>> my_surface=HurstFractalSurface(1,0.2,1000, shape=(128, 128), grid_spacing=0.01)
     >>> #descrtise the surface over a grid 1 unit by 1 unit with a grid_spacing of 0.01
     >>> my_surface.descretise()
     >>> my_surface.show()
@@ -260,50 +257,138 @@ class HurstFractalSurface(_AnalyticalSurface):
     is_descrete = False
     surface_type = "hurstFractal"
 
-    def __init__(self, q0, q0_amp, q_cut_off, hurst, generate: bool = False, grid_spacing: float = None,
-                 extent: tuple = None, shape: tuple = None):
-        self.input_params = (q0, q0_amp, q_cut_off, hurst)
-        n = int(round(q_cut_off / q0))
-        h, k = range(-1 * n, n + 1), range(-1 * n, n + 1)
-        h_mesh, k_mesh = np.meshgrid(h, k)
-        h_mesh[n, n] = 1
-        mm2 = q0_amp ** 2 * ((h_mesh ** 2 + k_mesh ** 2) / 2) ** (1 - hurst)
-        mm2[n, n] = 0
-        pha = 2 * np.pi * np.random.rand(mm2.shape[0], mm2.shape[1])
+    def __init__(self, sigma: float, hurst_exponent: float, roll_off_frequency: float = 0, generate: bool = False,
+                 grid_spacing: float = None, extent: tuple = None, shape: tuple = None):
+        self.input_params = (sigma, hurst_exponent, roll_off_frequency)
 
-        mean_mags2 = np.zeros((2 * n + 1, 2 * n + 1))
-        phases = np.zeros_like(mean_mags2)
+        if hurst_exponent > 1 or hurst_exponent < 0:
+            raise ValueError('Hurst exponent must be between 0 and 1')
 
-        mean_mags2[:][n:] = mm2[:][n:]
-        mean_mags2[:][0:n + 1] = np.flipud(mm2[:][n:])
-        self.mean_mags = np.sqrt(mean_mags2).flatten()
+        self._hurst_exponent = hurst_exponent
+        self._sigma = sigma
+        self._roll_off_frequency = roll_off_frequency
 
-        phases[:][n:] = pha[:][n:]
-        phases[:][0:n + 1] = np.pi * 2 - np.fliplr(np.flipud(pha[:][n:]))
-        phases[n, 0:n] = np.pi * 2 - np.flip(phases[n, n + 1:])
-        # next line added
-        phases = 2 * np.pi * np.random.rand(phases.shape[0], phases.shape[1])
-        self.phases = phases.flatten()
-        self.mags = self.mean_mags * np.cos(self.phases) + 1j * self.mean_mags * np.sin(self.phases)
-        k_mesh = np.transpose(h_mesh)
-        self.qkh = np.transpose(np.array([q0 * h_mesh.flatten(), q0 * k_mesh.flatten()]))
-        super().__init__(grid_spacing=grid_spacing, extent=extent, shape=shape, generate=generate)
+        super().__init__(grid_spacing=grid_spacing, extent=extent, shape=shape)
 
-    def _height(self, x_mesh, y_mesh):
-        input_shape = x_mesh.shape
+        if generate:
+            self.descretise()
 
-        coords = np.array([x_mesh.flatten(), y_mesh.flatten()])
+    def descretise(self, return_new: bool = False):
+        """Generate a new profile realisation, return a new surface if needed
 
-        z = np.zeros_like(x_mesh.flatten())
-        for idx in range(len(self.qkh)):
-            z += np.real(self.mags[idx] * np.exp(-1j * np.dot(self.qkh[idx], coords) * 2 * np.pi))
+        Parameters
+        ----------
+        return_new: bool
+            If True a new surface instance is returned, else the profile property of the current surface is set
 
-        return np.reshape(z, input_shape)
+        Returns
+        -------
+        out: Surface
+            A new surface object with the profile set, will have the same shape and grid spacing as the current object
+            only returned if return_new is True
+
+        Notes
+        -----
+        As a side effect this will set the FFT and PSD properties of the descretised surface.
+
+        Copyright (c) 2016, Mona Mahboob Kanafi
+        All rights reserved.
+
+        Redistribution and use in source and binary forms, with or without
+        modification, are permitted provided that the following conditions are met:
+
+        * Redistributions of source code must retain the above copyright notice, this
+          list of conditions and the following disclaimer.
+
+        * Redistributions in binary form must reproduce the above copyright notice,
+          this list of conditions and the following disclaimer in the documentation
+          and/or other materials provided with the distribution
+        * Neither the name of Aalto University nor the names of its
+          contributors may be used to endorse or promote products derived from this
+          software without specific prior written permission.
+        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+        AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+        IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+        DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE
+        FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+        DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+        SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+        CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+        OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+        OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+        References
+        ----------
+        Code ported from the matlab version:
+        https://uk.mathworks.com/matlabcentral/fileexchange/60817-surface-generator-artificial-randomly-rough-surfaces?s_tid=mwa_osa_a
+        """
+        if self.profile is not None and not return_new:
+            raise ValueError('Profile is already set, set the return_new argument to true to retrun a new surface '
+                             'instance with the same fractal properties')
+
+        if self.shape is None or self.grid_spacing is None:
+            raise ValueError('Grid spacing and shape of the surface must be set before a hurst fractal can be '
+                             'generated')
+
+        m, n = [s + s % 2 for s in self.shape]
+        grid_spacing = self.grid_spacing
+        hurst_exponent = self._hurst_exponent
+        sigma = self._sigma
+        qr = self._roll_off_frequency
+
+        lx, ly = [n_pts * grid_spacing for n_pts in [m, n]]
+        # make the wave vectors
+        qx = np.array([2 * np.pi / m * k for k in range(m)])
+        qx = np.unwrap((np.fft.fftshift(qx)) - 2 * np.pi) / grid_spacing
+
+        qy = np.array([2 * np.pi / n * k for k in range(n)])
+        qy = np.unwrap((np.fft.fftshift(qy)) - 2 * np.pi) / grid_spacing
+
+        # find absolute frequencies
+        qx_mesh, qy_mesh = np.meshgrid(qx, qy)
+        rho = (qy_mesh ** 2 + qx_mesh ** 2) ** 0.5
+
+        # make the PSD matrix
+        psd = rho ** (-2 * (hurst_exponent + 1))
+        psd[rho < qr] = qr ** (-2 * (hurst_exponent + 1)) if qr > 0 else np.inf
+        psd[n // 2, m // 2] = 0.0
+
+        # Scale surface to sigma (apply rms)
+        rms_f2d = np.sqrt(sum(psd.flatten()) * (2 * np.pi) ** 2 / lx / ly)
+        alpha = sigma / rms_f2d
+        psd *= alpha ** 2
+        self.psd = np.fft.ifftshift(psd)
+
+        # converting the PSD to the fft
+        magnitudes = np.sqrt(psd / (grid_spacing ** 2 / (n * m * (2 * np.pi) ** 2)))
+        magnitudes = _conj_sym(magnitudes)
+        phases = -np.pi + (2 * np.pi) * np.random.rand(n, m)
+        phases = _conj_sym(phases, neg=True)
+
+        u, v = _pol2cart(magnitudes, phases)
+        fou_trans = np.empty(u.shape, dtype=complex)
+        fou_trans.real = u
+        fou_trans.imag = v
+
+        fou_trans = np.fft.ifftshift(fou_trans)
+
+        profile = np.fft.ifft2(fou_trans)
+
+        profile = profile.real
+
+        if return_new:
+            out = Surface(profile=profile, grid_spacing=grid_spacing)
+            out.psd = psd
+            out.fft = fou_trans
+            return out
+
+        self.profile = profile
+        self.fft = fou_trans
 
     def __repr__(self):
-        string = self._repr_helper()
+        string = super().__repr__()[:-1]
         input_param_string = ', '.join([str(p) for p in self.input_params])
-        return f'HurstFractalSurface({input_param_string}{string})'
+        return f'HurstFractal{string}, {input_param_string[:-1]})'
 
     def rotate(self, radians: Number):
         raise NotImplementedError("Hurst fractal surface cannot be rotated")
@@ -344,3 +429,34 @@ def check_coords_are_simple(x_mesh, y_mesh):
     grid_spacing = difference[0]
     shape = [ex / grid_spacing + 1 for ex in extent]
     return grid_spacing, extent, shape
+
+
+def _conj_sym(matrix: np.ndarray, in_place=True, neg=False):
+    """ apply conjigate symmetry to a matrix
+    """
+    try:
+        n, m = matrix.shape
+    except:
+        raise ValueError(f'Input matrix must be a 2d numpy array, got {type(matrix)}')
+
+    mult = -1 if neg else 1
+
+    if not in_place:
+        matrix = matrix.copy()
+    matrix[0, 0] = 0.0
+    matrix[0, m // 2] = 0.0
+    matrix[n // 2, 0] = 0.0
+    matrix[n // 2, m // 2] = 0.0
+
+    matrix[1:, 1:m // 2] = mult * np.rot90(matrix[1:, m // 2 + 1:], 2)
+    matrix[0, 1:m // 2] = mult * np.flip(matrix[0, m // 2 + 1:])  # actually just needs to flip it
+    matrix[n // 2 + 1:, 0] = mult * np.flip(matrix[1:n // 2, 0])  # also just needs to flip it
+    matrix[n // 2 + 1:, m // 2] = mult * np.flip(matrix[1:n // 2, m // 2])
+
+    return matrix
+
+
+def _pol2cart(rho, phi):
+    x = rho * np.cos(phi)
+    y = rho * np.sin(phi)
+    return x, y

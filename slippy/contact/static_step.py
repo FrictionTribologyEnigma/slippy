@@ -338,25 +338,26 @@ class StaticNormalInterferance(_ModelStep):
         current_state['gap'] = gap
         # check the solution is reasnoble (check not 100% contact) check that the achived load is similar to the actual load, check that the loop converged
         # TODO
-
         # find the loads on surface 1, 2
         current_state['interferance'] = height
-
+        ################################################################################################################
         if not hasattr(np, 'ITNUM'):
-            np.ITNUM = get_next_file_num(data_path) #
+            np.ITNUM = int(get_next_file_num(data_path))  #
 
         total_load = np.sum(loads.z.flatten()) * self.model.surface_1.grid_spacing ** 2
         pickle.dump({b'gap': gap, b'height': height, b'total_load': total_load, b'interferance': height,
                      b's1_disp': disp_tup[1].z, b's2_disp': disp_tup[2].z,  b'all_loads': loads.z,
                      b'props': {b'E1': self.model.surface_1.material.E, b'v1': self.model.surface_1.material.v,
-                                b'E2': self.model.surface_2.material.E, b'v2': self.model.surface_2.material.v}},
+                                b'E2': self.model.surface_2.material.E, b'v2': self.model.surface_2.material.v},
+                     b'grid': self.model.surface_1.grid_spacing},
                     open(f"{data_path}\\{np.ITNUM}.pkl", "wb"))
 
         np.ITNUM += 1
-
+        ################################################################################################################
         # check out put requests, check optional extra stuff that can be truned on?????
         self.solve_sub_models(current_state)
         self.save_outputs(current_state, output_file)
+        return current_state
 
     def __repr__(self):
         return 'Not yet'

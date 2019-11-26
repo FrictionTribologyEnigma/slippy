@@ -514,9 +514,8 @@ class _Surface(_SurfaceABC):
             self.acf = ACF(self)
         else:
             profile = np.asarray(profile_in)
-            x = profile.shape[0]
-            y = profile.shape[1]
-            output = (scipy.signal.correlate(profile, profile, 'same') / (x * y))
+            # noinspection PyTypeChecker
+            output = np.array(ACF(profile))
             return output
 
     def get_psd(self):
@@ -889,7 +888,7 @@ class _Surface(_SurfaceABC):
                                  'e it can be shown')
 
         types2d = ['profile', 'fft2d', 'psd', 'acf', 'apsd']
-        types1d = ['histogram', 'fft1d', 'qq']
+        types1d = ['histogram', 'fft1d', 'qq', 'hist']
 
         # using a recursive call to deal with multiple plots on the same fig
         if type(property_to_plot) is list:
@@ -943,12 +942,12 @@ class _Surface(_SurfaceABC):
             fig = plt.figure(**figure_kwargs)
 
         if property_to_plot in types2d:
-            if not ax and not plot_type == 'image':
-                # noinspection PyUnboundLocalVariable
-                ax = fig.add_subplot(111, projection='3d')
-            elif not ax and plot_type == 'image':
+            if not ax and (plot_type == 'image' or plot_type == 'default'):
                 # noinspection PyUnboundLocalVariable
                 ax = fig.add_subplot(111)
+            elif not ax:
+                # noinspection PyUnboundLocalVariable
+                ax = fig.add_subplot(111, projection='3d')
 
             if property_to_plot == 'profile':
                 labels = ['Surface profile', 'x', 'y', 'Height']
@@ -969,7 +968,7 @@ class _Surface(_SurfaceABC):
                 if self.psd is None:
                     self.get_psd()
                 # noinspection PyTypeChecker
-                z = np.abs(np.fft.fftshift(self.psd))
+                z = np.log(np.abs(np.fft.fftshift(self.psd)))
                 x = np.fft.fftfreq(self.shape[0], self.grid_spacing)
                 y = np.fft.fftfreq(self.shape[1], self.grid_spacing)
 
@@ -1000,7 +999,7 @@ class _Surface(_SurfaceABC):
 
             mesh_x, mesh_y = np.meshgrid(x, y)
 
-            if plot_type == 'default' or plot_type == 'surface':
+            if  plot_type == 'surface':
                 ax.plot_surface(mesh_x, mesh_y, np.transpose(z))
                 # plt.axis('equal')
                 ax.set_zlabel(labels[3])
@@ -1014,7 +1013,7 @@ class _Surface(_SurfaceABC):
                     ax.plot_wireframe(mesh_x, mesh_y, np.transpose(z), rstride=25,
                                       cstride=25)
                 ax.set_zlabel(labels[3])
-            elif plot_type == 'image':
+            elif plot_type == 'default' or plot_type == 'image':
                 ax.imshow(z, extent=[min(y), max(y), min(x), max(x)], aspect=1)
             else:
                 ValueError('Unrecognised plot type')
@@ -1033,7 +1032,7 @@ class _Surface(_SurfaceABC):
                 # noinspection PyUnboundLocalVariable
                 ax = fig.add_subplot(111)
 
-            if property_to_plot == 'histogram':
+            if property_to_plot == 'histogram' or property_to_plot == 'hist':
                 # do all plotting in this loop for 1D plots
                 labels = ['Histogram of sufrface heights', 'height', 'counts']
                 ax.hist(self.profile.flatten(), 100)
@@ -1088,11 +1087,6 @@ class _Surface(_SurfaceABC):
     @abc.abstractmethod
     def __repr__(self):
         return "Surface(profile=" + self.profile.__repr__() + ", grid_spacing=" + self.grid_spacing.__repr__() + ")"
-
-    def rotate(self, radians):
-        """Rotate the surface relative to the grid and reinterpolate
-        """
-        raise NotImplementedError('Not implemented yet')
 
     def get_points_from_extent(self, extent=None, grid_spacing=None, shape=None):
         """
@@ -1585,8 +1579,9 @@ class _AnalyticalSurface(_Surface):
 
         x = x_mesh*np.cos(self._total_rotation) - y_mesh*np.sin(self._total_rotation)
         y = y_mesh*np.cos(self._total_rotation) + x_mesh*np.sin(self._total_rotation)
-        x += self._total_shift[0]
-        y += self._total_shift[1]
+        x_shift, y_shift = self._total_shift
+        x += x_shift*np.cos(self._total_rotation) - y_shift*np.sin(self._total_rotation)
+        y += y_shift*np.cos(self._total_rotation) + x_shift*np.sin(self._total_rotation)
 
         return self._height(x, y)
 
@@ -1648,6 +1643,15 @@ class _AnalyticalSurface(_Surface):
 
         if isinstance(other, _AnalyticalSurface):
             return SurfaceCombination(self, other)
+
+        if isinstance(other, Surface):
+            if not self.is_descrete:
+                self_copy = copy.copy(self)
+                self_copy.extent = other.extent
+                self_copy.grid_spacing = other.grid_spacing
+                self_copy.shape = other.shape
+                self_copy.descretise()
+                return other + self_copy
 
         return super().__add__(other)
 

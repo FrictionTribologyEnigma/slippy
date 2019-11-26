@@ -16,15 +16,274 @@ from scipy.optimize import fsolve
 import scipy.stats
 from ._johnson_utils import _fit_johnson_by_moments, _fit_johnson_by_quantiles
 import typing
+from collections import defaultdict
 
-__all__ = ['RandomSurface', 'surface_like']
-
-
-# TODO maybe this should just be turned into fucntions that return generators for new randon surfaces?
+__all__ = ['RandomFilterSurface', 'RandomPerezSurface', 'surface_like']
 
 
-class RandomSurface(_Surface):
-    """ Surfaces based on transformations of random sequences
+class RandomPerezSurface(_Surface):
+    """ Surfaces with set height distribution and PSD found by the Perez method
+
+    Parameters
+    ----------
+    target_psd: np.ndarray
+        The PSD which the surface will approximate, the shape of the surface will be the same as the psd array
+        (the same number of points in each direction)
+    height_distribution: {scipy.stats.rv_continuous, sequence}
+        Either a scipy.stats distribution or a sequence of the same size as the required output
+    accuracy: float, optional (1e-3)
+        The accuracy required for the solution to be considered converged, see the notes of the descretise mathod for
+        more information
+    max_it: int, optional (100)
+        The maximum number of iterations used to descretise a realisation
+    min_speed: float, optional (1e-10)
+        The minimum speed of the iterations, if the iterations are converging slower than this they are deemed not to
+        converge
+    generate: bool, optional (False)
+        If True the surface profile is found on instantiation
+    grid_spacing: float, optional (None)
+        The distance between grid points on the surface
+
+    Notes
+    -----
+    This method iterates between a surface with the exact right height distribution and one with the exact right PSD
+    this method is not garanteed to converge for all surfaces, for more details see the reference.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import scipy.stats as stats
+    >>> import slippy.surface as s
+    >>> # making a surface with an exponential ACF as described in the original paper:
+    >>>beta = 10 # the drop off length of the acf
+    >>>sigma = 1 # the roughness of the surface
+    >>>qx = np.arange(-128,128)
+    >>>qy = np.arange(-128,128)
+    >>>Qx, Qy = np.meshgrid(qx,qy)
+    >>>Cq = sigma**2*beta/(2*np.pi*(beta**2+Qx**2+Qy**2)**0.5) # the PSD of the surface
+    >>>height_distribution = stats.norm()
+    >>>my_surface = s.RandomPerezSurface(target_psd = Cq, height_distribution=height_distribution, grid_spacing=1
+    >>>                                  generate=True)
+    >>>my_surface.show()
+
+    References
+    ----------
+    Based on the method and code given in:
+
+    Francesc Pérez-Ràfols, Andreas Almqvist,
+    Generating randomly rough surfaces with given height probability distribution and power spectrum,
+    Tribology International,
+    Volume 131,
+    2019,
+    Pages 591-604,
+    ISSN 0301-679X,
+    https://doi.org/10.1016/j.triboint.2018.11.020.
+    (http://www.sciencedirect.com/science/article/pii/S0301679X18305607)
+
+    """
+
+    dist: scipy.stats.rv_continuous = None
+    _rvs: np.ndarray = None
+
+    def __init__(self, target_psd: np.ndarray,
+                 height_distribution: typing.Union[scipy.stats.rv_continuous, typing.Sequence] = None,
+                 accuracy: float = 1e-3, max_it: int = 100, min_speed: float = 1e-10,
+                 generate: bool = False, grid_spacing: float = None):
+
+        super().__init__(grid_spacing, None, None)
+        self._target_psd = target_psd
+        if height_distribution is None:
+            height_distribution = scipy.stats.norm()
+        try:
+            if hasattr(height_distribution, 'rvs'):
+                self.dist = height_distribution
+            elif len(height_distribution) == target_psd.size or height_distribution.size == target_psd.size:
+                self._rvs = np.array(height_distribution).flatten()
+        except AttributeError:
+            raise ValueError('Unrecognised type for height distribution')
+        self._accuracy = accuracy
+        self._max_it = max_it
+        self._min_speed = min_speed
+        if generate:
+            self.descretise()
+
+    def __repr__(self):
+        pass
+
+    def descretise(self, return_new: bool = False, accuracy: float = None, max_it: int = None, min_speed: float = None,
+                   supress_errors: bool = False, return_original: bool = False):
+        """Descretise the surface with a realisiation
+
+        Parameters
+        ----------
+        return_new: bool, optional (False)
+            If True a new surface is returned else Nothing is returned and the profile property of the surface is set
+        accuracy: float, optional (None)
+            The tollerance used to detect convergence of the psd and height distribution, if not set defaults to the
+            value set on initialisation
+        max_it: int, optional (None)
+            The maximum number of iterations used to fit the PSD and height spectra, if not set defaults to the value
+            set on initialisation
+        min_speed: float, optional (None)
+            The minimum speed which the iterations can be converging before they are stopped (assumed to be not
+            converging), if not set defaults to the value set on initialisation
+        supress_errors: bool, optional (False)
+            If True convergence errors are supressed and the profile realisation is made even if the solution has not
+            converged, warnings are produced
+        return_original: bool, optional (False)
+            If True the variables returned by the original code given in the paper are returned, these are: the
+            estimated surface with the correct height distribution, the esitmatied surface with the correct PSD and a
+            dict of errors with each element being a list of error values with one value for each iteration.
+
+        Returns
+        -------
+        Will return a new surface object if the return_new argument is True, otherwise sets the profile property of the
+        parent surface
+        Will return two surface estimates and a dict of errors  if return_original is True
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import scipy.stats as stats
+        >>> import slippy.surface as s
+        >>> # making a surface with an exponential ACF as described in the original paper:
+        >>>beta = 10 # the drop off length of the acf
+        >>>sigma = 1 # the roughness of the surface
+        >>>qx = np.arange(-128,128)
+        >>>qy = np.arange(-128,128)
+        >>>Qx, Qy = np.meshgrid(qx,qy)
+        >>>Cq = sigma**2*beta/(2*np.pi*(beta**2+Qx**2+Qy**2)**0.5) # the PSD of the surface
+        >>>height_distribution = stats.norm()
+        >>>my_surface = s.RandomPerezSurface(target_psd = Cq, height_distribution=height_distribution, grid_spacing=1)
+        >>>my_surface.descretise()
+        >>>my_surface.show()
+        Zh, Zs, error = fractal_surf_generator(np.fft.ifftshift(Cq),
+                                               np.random.randn(256,256),
+                                               min_speed = 1e-10,max_error=0.01)
+
+        Notes
+        -----
+        Durring iteration of this solution two surfaces are maintained, one which has the correct PSD and one which has
+        the correct height distribution, the one returned is the one which was first deemed to have converged. To over
+        ride this behaviour set return original to True
+
+        References
+        ----------
+
+        Francesc Pérez-Ràfols, Andreas Almqvist,
+        Generating randomly rough surfaces with given height probability distribution and power spectrum,
+        Tribology International,
+        Volume 131,
+        2019,
+        Pages 591-604,
+        ISSN 0301-679X,
+        https://doi.org/10.1016/j.triboint.2018.11.020.
+        (http://www.sciencedirect.com/science/article/pii/S0301679X18305607)
+        """
+        if return_original and return_new:
+            raise ValueError("Only one of return_new and return_original can be set to True")
+
+        accuracy = self._accuracy if accuracy is None else accuracy
+        max_it = self._max_it if max_it is None else max_it
+        min_speed = self._min_speed if min_speed is None else min_speed
+
+        # scale and centre the PSD
+        power_spectrum = self._target_psd
+        m, n = power_spectrum.shape
+        power_spectrum[0, 0] = 0
+        power_spectrum = power_spectrum / np.sqrt(np.sum(power_spectrum.flatten() ** 2)) * m * n
+
+        # generate random values for the surface
+        if self.dist is not None:
+            height_distribution = self.dist.rvs(power_spectrum.shape).flatten()
+        elif self._rvs is not None:
+            height_distribution = self._rvs
+        else:
+            raise ValueError("Height distribution not set, cannot descretise")
+
+        # scale and centre the height probability distribution
+        mean_height = np.mean(height_distribution.flatten())
+        height_guess = height_distribution - mean_height
+        sq_roughness = np.sqrt(np.mean(height_guess.flatten() ** 2))
+        height_guess = height_guess / sq_roughness
+
+        # sort height dist
+        index_0 = np.argsort(height_guess.flatten())
+        sorted_target_heights = height_guess.flatten()[index_0]
+
+        # find bins for height distribution error
+        bin_width = 3.5 * sorted_target_heights.size ** (-1 / 3)  # Scott bin method *note that the
+        # values are normalised to have unit standard deviation
+        n_bins = int(np.ceil((sorted_target_heights[-1] - sorted_target_heights[0]) / bin_width))
+        bin_edges = np.linspace(sorted_target_heights[0], sorted_target_heights[-1], n_bins + 1)
+        n0, bin_edges = np.histogram(sorted_target_heights, bins=bin_edges, density=True)
+        error = defaultdict(list)
+
+        height_guess = height_guess.reshape(power_spectrum.shape)
+        fft_height_guess = np.fft.fft2(height_guess)
+
+        while True:
+            # Step 1: fix power spectrum by FFT filter
+            # Zs = np.fft.ifft2(zh*power_spectrum/Ch)
+            phase = np.angle(fft_height_guess)
+            # phase = _conj_sym(phase, neg=True)
+            psd_guess = np.fft.ifft2(power_spectrum * np.exp(1j * phase)).real
+
+            # find error in height distribution
+            n_hist, _ = np.histogram(psd_guess.flatten(), bin_edges, density=True)
+            error['H'].append(np.sum(np.abs(n_hist - n0) * (bin_edges[1:] - bin_edges[:-1])))
+
+            # Step 2: Fix the height distribution rank ordering
+            height_guess = psd_guess.flatten()
+            index = np.argsort(height_guess)
+            height_guess[index] = sorted_target_heights
+            height_guess = height_guess.reshape((m, n))
+            fft_height_guess = np.fft.fft2(height_guess)
+            # find error in the power spectrum
+            fft_hg_abs = np.abs(fft_height_guess)
+            # Ch = np.abs(zh**2)#*grid_spacing**2/(n*m*(2*np.pi)**2)
+            error['PS'].append(np.sqrt(np.mean((1 - fft_hg_abs[power_spectrum > 0] /
+                                                power_spectrum[power_spectrum > 0]) ** 2)))
+            error['PS0'].append(np.sqrt(np.mean(fft_hg_abs[power_spectrum == 0] ** 2)) /
+                                np.mean(power_spectrum[power_spectrum > 0]))
+
+            if len(error['H']) >= max_it:
+                msg = 'Iterations for fractal surface failed to converge in the set number of iterations'
+                break
+            if len(error['H']) > 2 and abs(error['H'][-1] - error['H'][-2]) / error['H'][-1] < min_speed:
+                msg = ('Solution for fractal surface convering is converging '
+                       'slower than the minimum speed, solution failed to converge')
+                break
+            if len(error['H']) > 2 and (error['H'][-2] - error['H'][-1]) < 0:
+                msg = 'Solution is diverging, solution failed to converge'
+                break
+            if error['H'][-1] < accuracy or \
+                    (error['PS'][-1] < accuracy and error['PS0'][-1] < accuracy):
+                msg = ''
+                break  # soltuon converged
+
+        if msg:
+            if supress_errors:
+                warnings.warn(msg)
+            else:
+                raise StopIteration(msg)
+
+        if error['PS'][-1] < accuracy and error['PS0'][-1] < accuracy:
+            profile = psd_guess * sq_roughness + mean_height
+        else:
+            profile = height_guess * sq_roughness + mean_height
+
+        if return_new:
+            return Surface(profile=profile, grid_spacing=self.grid_spacing)
+
+        if return_original:
+            return height_guess, psd_guess, error
+
+        self.profile = profile
+
+
+class RandomFilterSurface(_Surface):
+    """ Surfaces based on transformations of random sequences by a filter
     
     Attributes
     ----------
@@ -63,9 +322,14 @@ class RandomSurface(_Surface):
     _moments = None
     _method_keywords = None
 
-    def __init__(self, target_acf: ACF = None, method: str = 'linear_transform', generate: bool = False,
-                 grid_spacing: typing.Optional[float] = None, extent: typing.Optional[typing.Sequence] = None,
-                 shape: typing.Optional[typing.Sequence] = None, moments: typing.Sequence = None,
+    def __init__(self, method: str = 'linear_transform',
+                 target_acf: ACF = None,
+                 target_psd: np.ndarray = None,
+                 generate: bool = False,
+                 grid_spacing: typing.Optional[float] = None,
+                 extent: typing.Optional[typing.Sequence] = None,
+                 shape: typing.Optional[typing.Sequence] = None,
+                 moments: typing.Sequence = None,
                  quantiles: typing.Sequence = None, **method_keywords):
         """
         aims: should be able to generate in single line, needs to include the mode that the matrix will be
@@ -77,7 +341,8 @@ class RandomSurface(_Surface):
 
         valid_methods = ['linear_transform', 'fir_filter']
 
-        if target_acf is not None:
+        if target_acf is not None or target_psd is not None:
+            self.target_psd = target_psd
             self.target_acf = target_acf
             if method in valid_methods:
                 method = self.__getattribute__(method)
@@ -115,9 +380,6 @@ class RandomSurface(_Surface):
             string += f'generate = True, '
         string = string[:-2]
         return string + ')'
-
-    def rotate(self, radians):
-        raise NotImplementedError("Cannot rotate this surface")
 
     def linear_transform(self, target_acf: ACF = None, filter_size_n_m: typing.Sequence = (14, 14), max_it: int = 100,
                          accuracy: float = 1e-11, no_large_filter_error=False):
@@ -619,7 +881,7 @@ def surface_like(target_surface: Surface, extent: typing.Union[str, tuple] = 'or
     if not target_surface.acf:
         target_surface.get_acf()
 
-    surf_out = RandomSurface(extent=extent, grid_spacing=grid_spacing)
+    surf_out = RandomFilterSurface(extent=extent, grid_spacing=grid_spacing)
 
     surf_out.linear_transform(target_surface.acf, filter_shape, filter_method,
                               **filter_kwargs)

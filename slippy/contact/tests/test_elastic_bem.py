@@ -1,57 +1,71 @@
+import slippy.surface as s
+import slippy.contact as c
 import numpy as np
 import numpy.testing as npt
-# from pytest import raises as assert_raises
-import slippy.contact as C
-import warnings
 
 # ['convert_array', 'convert_dict', 'elastic_displacement', '_solve_ed',
 #         'elastic_loading', '_solve_el', 'elastic_im'
 
-if __name__ == '__main__':
-    periodic = False
-    surface_shape = (5, 21)
-    s = C.Elastic('steel', {'E': 200e9, 'v': 0.3})
-    influence_martix_span = (11, 9)
-    b = s.influence_matrix([0.01, 0.01], influence_martix_span, ['zz'])['zz']
-    influence_martix_span = b.shape
-    if periodic:
-        # check that the surface shape is odd in both dimentions
-        if not all([el % 2 for el in surface_shape]):
-            raise ValueError("Surface shape must be odd in both dimentions for periodic surfaces")
 
-        dif = [int((ims-ss)/2) for ims, ss in zip(influence_martix_span, surface_shape)]
-        if dif[0] > 0:
-            b = b[dif[0]:-1*dif[0], :]
-        if dif[1] > 0:
-            b = b[:, dif[1]:-1*dif[1]]
-        trimmed_ims = b.shape
-        inf_mat = np.pad(b, ((0, surface_shape[0] - trimmed_ims[0]),
-                             (0, surface_shape[1] - trimmed_ims[1])), mode='constant')
-        inf_mat = np.roll(inf_mat, (-1*int(trimmed_ims[0]/2), -1*int(trimmed_ims[1]/2)), axis=[0, 1]).flatten()
-        c = []
-        roll_num = 0
-        for n in range(surface_shape[0]):
-            for m in range(surface_shape[1]):
-                c.append(np.roll(inf_mat, roll_num))
-                roll_num += 1
-        c = np.asarray(c)
-    else:  # not periodic
-        pad_0 = int(surface_shape[0]-np.floor(influence_martix_span[0]/2))
-        pad_1 = int(surface_shape[1]-np.floor(influence_martix_span[1]/2))
-        if pad_0 < 0:
-            b = b[-1*pad_0:pad_0, :]
-            pad_0 = 0
-        if pad_1 < 0:
-            b = b[:, -1*pad_1:pad_1]
-            pad_1 = 0
-        inf_mat = np.pad(b, ((pad_0, pad_0), (pad_1, pad_1)), mode='constant')
-        c = []
-        idx_0 = 0
-        for n in range(surface_shape[0]):
-            idx_1 = 0
-            for m in range(surface_shape[1]):
-                c.append(inf_mat[surface_shape[0]-idx_0:2*surface_shape[0]-idx_0,
-                                 surface_shape[1]-idx_1:2*surface_shape[1]-idx_1].copy().flatten())
-                idx_1 += 1
-            idx_0 += 1
-        c = np.asarray(c)
+def test_hertz_agreement_static_load():
+    """ Test that the load controled static step gives approximately the same answer as the
+    analytical hertz solver
+
+    """
+    # make surfaces
+    flat_surface = s.FlatSurface(shift=(0, 0))
+    round_surface = s.RoundSurface((1, 1, 1), extent=(0.006, 0.006), shape=(255, 255), generate=True)
+    # set materials
+    steel = c.Elastic('Steel', {'E': 200e9, 'v':0.3})
+    aluminum = c.Elastic('Aluminum', {'E': 70e9, 'v':0.33})
+    flat_surface.material = aluminum
+    round_surface.material = steel
+    # create model
+    my_model = c.ContactModel('model-1', round_surface, flat_surface)
+    # set model parameters
+    total_load = 100
+    my_step = c.StaticNormalLoad('contact', load_z=total_load)
+    my_model.add_step(my_step)
+
+    out = my_model.solve(skip_data_check=True)
+
+    final_load = sum(out['loads'].z.flatten() * round_surface.grid_spacing ** 2)
+
+    # check the converged load is the same as the set load
+    npt.assert_approx_equal(final_load, total_load, 3)
+
+    # get the analytical hertz result
+    a_result = c.hertz_full([1, 1], [np.inf, np.inf], [200e9, 70e9], [0.3, 0.33], 100)
+
+    # check max pressure
+    npt.assert_approx_equal(a_result['max_pressure'], max(out['loads'].z.flatten()), 2)
+
+    # check contact area
+    found_area = round_surface.grid_spacing ** 2 * sum(out['contact_nodes'].flatten())
+    npt.assert_approx_equal(a_result['contact_area'], found_area, 2)
+
+    # check deflection
+    npt.assert_approx_equal(a_result['total_deflection'], out['interferance'], 4)
+
+
+def test_hertz_agreement_static_interferance():
+    """Tests that the static normal interferance step agrees with the analytial hertz solution"""
+    flat_surface = s.FlatSurface(shift=(0, 0))
+    round_surface = s.RoundSurface((1, 1, 1), extent=(0.006, 0.006), shape=(255, 255), generate=True)
+    # set materials
+    steel = c.Elastic('Steel', {'E': 200e9, 'v': 0.3})
+    aluminum = c.Elastic('Aluminum', {'E': 70e9, 'v': 0.33})
+    flat_surface.material = aluminum
+    round_surface.material = steel
+    # create model
+    my_model = c.ContactModel('model-1', round_surface, flat_surface)
+
+    a_result = c.hertz_full([1, 1], [np.inf, np.inf], [200e9, 70e9], [0.3, 0.33], 100)
+
+    my_step = c.StaticNormalInterferance(f'step-{i}', absolute_interferance=a_result['total_deflection'])
+
+    # TODO
+
+if __name__ == '__main__':
+    test_hertz_agreement_static_load()
+    test_hertz_agreement_static_interferance()

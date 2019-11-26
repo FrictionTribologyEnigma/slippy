@@ -85,7 +85,7 @@ class ACF(object):
     acf_type = ''
     """A description of the acf source"""
 
-    def __init__(self, source, grid_spacing=None, *args):
+    def __init__(self, source, grid_spacing=1, *args):
         if type(source) is str:
             self._input_check_string(source, args)
             self.acf_type = "string"
@@ -97,8 +97,7 @@ class ACF(object):
             self.acf_type = "function"
         else:
             if grid_spacing is None:
-                msg = ("grid spacing positional argument must be supplied if "
-                       "is an array")
+                msg = "grid spacing positional argument must be supplied if ACF source is an array"
                 raise ValueError(msg)
             self._input_check_array(source, grid_spacing)
             # args should contain the grid_spacing of the array
