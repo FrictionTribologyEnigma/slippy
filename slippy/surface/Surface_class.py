@@ -176,7 +176,7 @@ class _Surface(_SurfaceABC):
 
     @property
     def size(self):
-        """The total numebr of points in the surface"""
+        """The total number of points in the surface"""
         return self._size
 
     @property
