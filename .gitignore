@@ -103,4 +103,5 @@ ENV/
 # pycharm project settings
 .idea/
 
-# workspace.xml
+# slippy results
+*.sdb
