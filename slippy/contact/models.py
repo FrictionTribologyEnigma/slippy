@@ -18,17 +18,47 @@ class ContactModel(_ContactModelABC):
     
     Parameters
     ----------
-    
+    name: str
+        The name of the contact model, used for output and log files by default
+    surface_1, surface_2: _SurfaceABC
+        A surface object with the height profile and the material for the surface set. The first surface will be the
+        master surface, when grid points are not aligned surface 2 will be interpolated on the grid points for
+        surface 1.
+    lubricant: _LubricantModelABC
+        A lubricant model
+    log_file_name: str
+        The name of the log file to use, if not set the model name will be used instead
+    output_file_name: str
+        The name of the output file to use, if not set the model name will be used, can also be set when solve is called
+
     Attributes
     ----------
-    
+    steps: OrderedDict
+        The model steps in the order they will be solved in, each value will be a ModelStep object.
+    surface_1, surface_2: _SurfaceABC
+        Surface objects of the two model surfaces
+    history_outputs: dict
+        Output request for history data from the model, non spatially resolved results such as total load etc.
+    field_outputs: dict
+        Output request for field data (spatial data from the results)
+
     Methods
     -------
-    
+    add_step
+        Adds a step object to the model
+    add_field_output
+        Adds a field output to the model
+    add_history_output
+        Adds a history output to the model
+    data_check
+        Performs analysis checks for each of the steps and the model as a whole, prints the results to the log file
+    solve
+        Solves all of the model steps in sequence, writing history and field outputs to the output file. Writes progress
+        to the log file
     
     """
-    history_outputs = {}
-    field_outputs = {}
+    history_outputs = dict()
+    field_outputs = dict()
     _domains = {'all': None}
     _lubricant: _LubricantModelABC = None
     """Flag set to true if one of the surfaces is rigid"""
@@ -38,7 +68,8 @@ class ContactModel(_ContactModelABC):
     output_file_name: str = None
 
     def __init__(self, name: str, surface_1: _SurfaceABC, surface_2: _SurfaceABC = None,
-                 lubricant: _LubricantModelABC = None, log_file_name: str = None):
+                 lubricant: _LubricantModelABC = None, log_file_name: str = None,
+                 output_file_name: str = None):
         self.surface_1 = surface_1
         self.surface_2 = surface_2
         self.name = name
@@ -48,6 +79,9 @@ class ContactModel(_ContactModelABC):
         if log_file_name is None:
             log_file_name = name
         self.log_file_name = log_file_name + '.log'
+        if output_file_name is None:
+            output_file_name = name
+        self.output_file_name = output_file_name + '.log'
         try:
             os.remove(self.log_file_name)
         except FileNotFoundError:
