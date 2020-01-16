@@ -1,9 +1,10 @@
 """
 model object just a container for step object that do the real work
 """
-from slippy.abcs import _SurfaceABC, _FrictionModelABC, _WearModelABC, _LubricantModelABC, _AdhesionModelABC, _ContactModelABC
+from slippy.abcs import _SurfaceABC, _LubricantModelABC, _ContactModelABC
 from slippy.contact.steps import _ModelStep, InitialStep, step
-from slippy.contact.outputs import FieldOutputRequest, HistoryOutputRequest, possible_field_outpts, possible_history_outpts
+from slippy.contact.outputs import FieldOutputRequest, HistoryOutputRequest, possible_field_outpts, \
+    possible_history_outpts
 from datetime import datetime
 import typing
 from collections import OrderedDict
@@ -57,8 +58,7 @@ class ContactModel(_ContactModelABC):
         to the log file
     
     """
-    history_outputs = dict()
-    field_outputs = dict()
+
     _domains = {'all': None}
     _lubricant: _LubricantModelABC = None
     """Flag set to true if one of the surfaces is rigid"""
@@ -86,6 +86,8 @@ class ContactModel(_ContactModelABC):
             os.remove(self.log_file_name)
         except FileNotFoundError:
             pass
+        self.history_outputs = dict()
+        self.field_outputs = dict()
 
     @property
     def lubricant_model(self):
@@ -104,43 +106,7 @@ class ContactModel(_ContactModelABC):
         # noinspection PyTypeChecker
         self._lubricant = None
 
-    @property
-    def friction_model(self):
-        return self._friction
-
-    @friction_model.setter
-    def friction_model(self, value):
-        if issubclass(type(value), _FrictionModelABC):
-            self._friction = value
-        else:
-            raise ValueError("Unable to set friction model, expected "
-                             "friction model object, received "
-                             "%s" % str(type(value)))
-
-    @friction_model.deleter
-    def friction_model(self):
-        # noinspection PyTypeChecker
-        self._friction = None
-
-    @property
-    def adhesion_model(self):
-        return self._adhesion
-
-    @adhesion_model.setter
-    def adhesion_model(self, value):
-        if issubclass(type(value), _AdhesionModelABC):
-            self._adhesion = value
-        else:
-            raise ValueError("Unable to set adhesion model, expected "
-                             "adhesion model object, received "
-                             "%s" % str(type(value)))
-
-    @adhesion_model.deleter
-    def adhesion_model(self):
-        # noinspection PyTypeChecker
-        self._adhesion = None
-
-    def add_step(self, step_instance: _ModelStep = None, position: {int, str}=None):
+    def add_step(self, step_instance: _ModelStep = None, position: {int, str} = None):
         """ Adds a solution stepe to the current model
         
         Parameters
