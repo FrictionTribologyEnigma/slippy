@@ -17,18 +17,15 @@ No models should have to do wear or other time varying stuff.
 
 All should return a current state dict...?
 """
-
-from slippy.contact.steps import _ModelStep
-from collections import namedtuple
 import scipy.optimize as optimize
-from slippy.contact._model_utils import get_gap_from_model, non_dimentional_height
 import typing
-from slippy.contact import Loads
 import numpy as np
-import pickle
-from ._step_utils import solve_normal_interference, get_next_file_num
+from collections import namedtuple
+from slippy.contact import Loads, _ModelStep
+from slippy.contact._model_utils import get_gap_from_model, non_dimentional_height
+from slippy.contact._step_utils import solve_normal_interference  # , get_next_file_num
 
-__all__ = ['StaticNormalLoad', 'StaticNormalInterferance', 'ClosurePlot', 'PullOff', 'SurfaceDisplacement',
+__all__ = ['StaticNormalLoad', 'StaticNormalInterference', 'ClosurePlot', 'PullOff', 'SurfaceDisplacement',
            'SurfaceLoading']
 
 data_path = r'D:\slippy_data'
@@ -39,7 +36,7 @@ StaticNormalLoadOptions = namedtuple('StaticNormalLoadOptions',
                                       'material_options'],
                                      defaults=(None, )*7)
 
-StaticNormalInterferanceOptions = namedtuple('StaticNormalInterferanceOptions',
+StaticNormalInterferenceOptions = namedtuple('StaticNormalInterferenceOptions',
                                              ['periodic', 'interpolation_mode',
                                               'max_it_find_contact_nodes', 'material_options'],
                                              defaults=(None, )*4)
@@ -170,7 +167,7 @@ class StaticNormalLoad(_ModelStep):
         def opt_func(height):
             nonlocal results, it
 
-            # make height non dimentional
+            # make height non dimensional
             height *= uz
             it += 1
 
@@ -202,7 +199,7 @@ class StaticNormalLoad(_ModelStep):
 
         print(f'upper bound set at: {upper}')
         axtol = opt.atol_load_loop
-        print(f'Interferance tolerance set to {axtol}')
+        print(f'Interference tolerance set to {axtol}')
 
         # TODO implement initial guesses
 
@@ -214,14 +211,15 @@ class StaticNormalLoad(_ModelStep):
         #                                      method='bounded')  # tol = max(gap.flatten())*opt.rtol_load_loop/uz
         current_state.update(results)
         current_state['gap'] = gap
-        # check the solution is reasnoble (check not 100% contact) check that the achived load is similar to the actual load, check that the loop converged
+        # check the solution is reasonable (check not 100% contact) check that the achived load is similar to the
+        # #actual load, check that the loop converged
         # TODO
 
-
         # find the loads on surface 1, 2
+
         current_state['interference'] = opt_result.root*uz
 
-        # check out put requests, check optional extra stuff that can be truned on?????
+        # check out put requests/ sub models
         self.solve_sub_models(current_state)
         self.save_outputs(current_state, output_file)
 
@@ -235,7 +233,7 @@ class StaticNormalLoad(_ModelStep):
         pass
 
 
-class StaticNormalInterferance(_ModelStep):
+class StaticNormalInterference(_ModelStep):
     """
     Static interference between two surfaces, found from point of first touching
 
@@ -243,10 +241,10 @@ class StaticNormalInterferance(_ModelStep):
     ----------
     step_name: str
         The name of the step, can be any string, used to define output request
-    absolute_interferance: float, optional (None)
+    absolute_interference: float, optional (None)
         The absolute interference between the surfaces from the point of first contact, only one type of interference
         can be set
-    relative_interferance: float, optional (None)
+    relative_interference: float, optional (None)
         The realtive interference between the surfaces from the current position, only one type of interference can be
         set
     relative_off_set: tuple, optional (None)
@@ -269,33 +267,33 @@ class StaticNormalInterferance(_ModelStep):
         Dict of options to be passed to the loads_from_surface_displacement method of the first surface in the model
 
     """
-    relative_interferance: bool = False
+    relative_interference: bool = False
     'Bool true if the interference is relative'
-    interferance: float = 0.0
+    interference: float = 0.0
     'The specified interference'
     _adhesion: bool = True
     'If false the step is solved with no adhesion'
 
-    def __init__(self, step_name: str, absolute_interferance: float = None, relative_interferance: float = None,
+    def __init__(self, step_name: str, absolute_interference: float = None, relative_interference: float = None,
                  relative_off_set: tuple = None, absolute_off_set: typing.Optional[tuple] = None,
                  interpolation_mode: str = 'nearest', periodic: bool = False, adhesion: bool = True,
                  max_it_find_contact_nodes: int = 100, material_options: dict = None):
 
-        if absolute_interferance is not None and relative_interferance is not None:
-            raise ValueError('Only one type of interference can be set, both the absolute and the relative interferacne'
+        if absolute_interference is not None and relative_interference is not None:
+            raise ValueError('Only one type of interference can be set, both the absolute and the relative interference'
                              ' have been set.')
-        elif absolute_interferance is None and relative_interferance is None:
+        elif absolute_interference is None and relative_interference is None:
             raise ValueError('Either the relative interference or the absolute interference must be set')
 
         # noinspection PyTypeChecker
-        self.interferance = absolute_interferance or relative_interferance
-        self.relative_interferance = absolute_interferance is None
+        self.interference = absolute_interference or relative_interference
+        self.relative_interference = absolute_interference is None
 
         material_options = dict() or material_options
 
         self._adhesion = adhesion
 
-        self._options = StaticNormalInterferanceOptions(periodic=periodic, interpolation_mode=interpolation_mode,
+        self._options = StaticNormalInterferenceOptions(periodic=periodic, interpolation_mode=interpolation_mode,
                                                         max_it_find_contact_nodes=max_it_find_contact_nodes,
                                                         material_options=material_options)
 
@@ -319,7 +317,7 @@ class StaticNormalInterferance(_ModelStep):
         pass
 
     def _solve(self, current_state, output_file):
-        height = current_state['interference'] * self.relative_interferance + self.interferance
+        height = current_state['interference'] * self.relative_interference + self.interference
         gap, surf_1_pts, surf_2_pts = get_gap_from_model(self.model, interferance=0, off_set=self._off_set,
                                                          mode=self._options.interpolation_mode,
                                                          periodic=self._options.periodic)
@@ -338,12 +336,13 @@ class StaticNormalInterferance(_ModelStep):
         current_state['surf_2_disp'] = disp_tup[2]
         current_state['contact_nodes'] = contact_nodes
         current_state['gap'] = gap
-        # check the solution is reasnoble (check not 100% contact) check that the achived load is similar to the actual load, check that the loop converged
+        # check the solution is reasnoble (check not 100% contact) check that the achived load is similar to the
+        # actual load, check that the loop converged
         # TODO
         # find the loads on surface 1, 2
         current_state['interference'] = height
         ################################################################################################################
-        #if not hasattr(np, 'ITNUM'):
+        # if not hasattr(np, 'ITNUM'):
         #    np.ITNUM = int(get_next_file_num(data_path))  #
 #
 #        total_load = np.sum(loads.z.flatten()) * self.model.surface_1.grid_spacing ** 2
