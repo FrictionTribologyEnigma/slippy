@@ -40,8 +40,24 @@ class _AdhesionModelABC(abc.ABC):
 class _ContactModelABC(abc.ABC):
     surface_1: _SurfaceABC
     surface_2: _SurfaceABC
-    _adhesion: _AdhesionModelABC
-    pass
+    _lubricant: _LubricantModelABC = None
+
+    @property
+    def lubricant_model(self):
+        return self._lubricant
+
+    @lubricant_model.setter
+    def lubricant_model(self, value):
+        if issubclass(type(value), _LubricantModelABC):
+            self._lubricant = value
+        else:
+            raise ValueError("Unable to set lubricant, expected lubricant "
+                             "object, received %s" % str(type(value)))
+
+    @lubricant_model.deleter
+    def lubricant_model(self):
+        # noinspection PyTypeChecker
+        self._lubricant = None
 
 
 class _StepABC(abc.ABC):

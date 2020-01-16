@@ -60,7 +60,6 @@ class ContactModel(_ContactModelABC):
     """
 
     _domains = {'all': None}
-    _lubricant: _LubricantModelABC = None
     """Flag set to true if one of the surfaces is rigid"""
     _is_rigid: bool = False
     steps: OrderedDict
@@ -88,23 +87,6 @@ class ContactModel(_ContactModelABC):
             pass
         self.history_outputs = dict()
         self.field_outputs = dict()
-
-    @property
-    def lubricant_model(self):
-        return self._lubricant
-
-    @lubricant_model.setter
-    def lubricant_model(self, value):
-        if issubclass(type(value), _LubricantModelABC):
-            self._lubricant = value
-        else:
-            raise ValueError("Unable to set lubricant, expected lubricant "
-                             "object, received %s" % str(type(value)))
-
-    @lubricant_model.deleter
-    def lubricant_model(self):
-        # noinspection PyTypeChecker
-        self._lubricant = None
 
     def add_step(self, step_instance: _ModelStep = None, position: typing.Union[int, str] = None):
         """ Adds a solution step to the current model

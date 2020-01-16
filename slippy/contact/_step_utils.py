@@ -8,8 +8,12 @@ from slippy.contact import Displacements
 from numbers import Number
 import warnings
 import os
+from collections import namedtuple
 
-__all__ = ['solve_normal_interference', 'get_next_file_num']
+__all__ = ['solve_normal_interference', 'get_next_file_num', 'OffSetOptions']
+
+
+OffSetOptions = namedtuple('off_set_options', ['off_set', 'abs_off_set', 'periodic', 'interpolation_mode'])
 
 
 def solve_normal_interference(interference: float, gap: np.ndarray, model: _ContactModelABC,

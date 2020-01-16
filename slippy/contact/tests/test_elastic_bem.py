@@ -64,7 +64,7 @@ def test_hertz_agreement_static_interference():
 
     a_result = c.hertz_full([1, 1], [np.inf, np.inf], [200e9, 70e9], [0.3, 0.33], set_load)
 
-    my_step = c.StaticNormalInterferance('step', absolute_interferance=a_result['total_deflection'])
+    my_step = c.StaticNormalInterference('step', absolute_interference=a_result['total_deflection'])
     my_model.add_step(my_step)
     final_state = my_model.solve()
 
