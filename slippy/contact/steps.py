@@ -116,7 +116,7 @@ class _ModelStep(_StepABC):
 
     @abc.abstractmethod
     def _solve(self, current_state, output_file):
-        """ Take in the current state solve the step and update the curent state and any field outputs, printing in the
+        """ Take in the current state solve the step and update the current state and any field outputs, printing in the
         solve method will add to the log file, the standard output will be changed before running
 
         Parameters
@@ -126,7 +126,7 @@ class _ModelStep(_StepABC):
 
         Returns
         -------
-
+        current_state
         """
         raise NotImplementedError("Solver not specified for this step!")
 
@@ -146,7 +146,7 @@ class _ModelStep(_StepABC):
         """
         raise NotImplementedError()
 
-    def save_outputs(self, current_state:typing.Union[dict, set], output_file=None, data_check=False):
+    def save_outputs(self, current_state: typing.Union[dict, set], output_file=None, data_check=False):
         # TODO should check the ouput requests to see if there are any needed in this step (memoise this result) then
         #  save the requested ouputs if data_check is true just work like a data check (checking that the required
         #  things are present in the set,

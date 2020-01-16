@@ -6,7 +6,7 @@ this module should be as minimal as possible as it will be imported every time a
 import abc
 
 __all__ = ['_SurfaceABC', '_AdhesionModelABC', '_MaterialABC', '_StepABC', '_FrictionModelABC', '_WearModelABC',
-           '_ACFABC', '_LubricantModelABC', '_ContactModelABC']
+           '_ACFABC', '_LubricantModelABC', '_ContactModelABC', '_ReynoldsSolverABC']
 
 
 class _LubricantModelABC(abc.ABC):
@@ -57,4 +57,8 @@ class _WearModelABC(abc.ABC):
 
 
 class _ACFABC(abc.ABC):
+    pass
+
+
+class _ReynoldsSolverABC(abc.ABC):
     pass

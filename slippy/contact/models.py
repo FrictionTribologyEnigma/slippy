@@ -106,8 +106,8 @@ class ContactModel(_ContactModelABC):
         # noinspection PyTypeChecker
         self._lubricant = None
 
-    def add_step(self, step_instance: _ModelStep = None, position: {int, str} = None):
-        """ Adds a solution stepe to the current model
+    def add_step(self, step_instance: _ModelStep = None, position: typing.Union[int, str] = None):
+        """ Adds a solution step to the current model
         
         Parameters
         ----------
@@ -123,7 +123,7 @@ class ContactModel(_ContactModelABC):
         Notes
         -----
         Steps should only be added to the model using this method 
-        #TODO detailed descriptiion of inputs
+        #TODO detailed description of inputs
         
         Examples
         --------
@@ -131,7 +131,7 @@ class ContactModel(_ContactModelABC):
         """
         # note to self
         """
-        New steps should be bare bones, all the relavent information should be
+        New steps should be bare bones, all the relevant information should be
         added to the steps at the data check stage, essentially there should be 
         nothing you can do to make a nontrivial error here.
         """
@@ -160,7 +160,7 @@ class ContactModel(_ContactModelABC):
                          time_points: typing.Sequence,
                          output: typing.Sequence[str]):
         f"""
-        Adds a field output reques to the model
+        Adds a field output request to the model
 
         Parameters
         ----------
@@ -168,7 +168,7 @@ class ContactModel(_ContactModelABC):
             The name of the output request
         domain : {{str, Sequence}}
             The name of the node set or the node set to be used, node sets for 'all', 'surface_1' and 'surface_2' are
-            created auomatically
+            created automatically
         step_name : str
             The name of the step that the field output is to be taken from, ues 'all' for all steps
         time_points : Sequence
@@ -176,7 +176,7 @@ class ContactModel(_ContactModelABC):
             is only required at the end of the step used (None,), otherwise pass a sequence of time points or a slice
             object.
         output : Sequence[str]
-            Names of output parrameters to be included in the request, for more information see the documentaion of
+            Names of output parameters to be included in the request, for more information see the documentation of
             FieldOutputRequest
 
         See Also
@@ -191,7 +191,7 @@ class ContactModel(_ContactModelABC):
         if domain not in self._domains:
             model_domains = ', '.join(self._domains.keys())
             raise ValueError(f"Unrecognised domain :{domain}, model domains are: {model_domains}")
-        # check that name is str (dosn't start with _)
+        # check that name is str (doesn't start with _)
         if type(name) is not str:
             raise TypeError(f"Field output name should be string, not {type(name)}")
         elif name.startswith('_'):
@@ -199,7 +199,7 @@ class ContactModel(_ContactModelABC):
         # check that step exists
         if step_name not in self.steps and step_name != 'all':
             raise ValueError(f"Step name {step_name} not found.")
-        # check that all outpust are valid
+        # check that all outputs are valid
         out_in = [o in possible_field_outpts for o in output]
         if not all(out_in):
             raise ValueError(f"Unrecognised output request: {output[out_in.index(False)]}, valid outputs are: "
@@ -212,7 +212,7 @@ class ContactModel(_ContactModelABC):
 
     def add_history_output(self, name: str, step_name: str, time_points: typing.Sequence, output: typing.Sequence[str]):
         f"""
-        Adds a field output reques to the model
+        Adds a field output request to the model
 
         Parameters
         ----------
@@ -225,7 +225,7 @@ class ContactModel(_ContactModelABC):
             is only required at the end of the step used (None,), otherwise pass a sequence of time points or a slice
             object.
         output : Sequence[str]
-            Names of output parrameters to be included in the request, for more information see the documentaion of
+            Names of output parameters to be included in the request, for more information see the documentation of
             HistoryOutputRequest
 
         See Also
@@ -236,7 +236,7 @@ class ContactModel(_ContactModelABC):
         -----
         Valid outputs are {', '.join(possible_history_outpts)}
         """
-        # check that name is str (dosn't start with _)
+        # check that name is str (doesn't start with _)
         if type(name) is not str:
             raise TypeError(f"History output name should be string, not {type(name)}")
         elif name.startswith('_'):
@@ -244,7 +244,7 @@ class ContactModel(_ContactModelABC):
         # check that step exists
         if step_name not in self.steps and step_name != 'all':
             raise ValueError(f"Step name {step_name} not found.")
-        # check that all outpust are valid
+        # check that all outputs are valid
         out_in = [o in possible_history_outpts for o in output]
         if not all(out_in):
             raise ValueError(f"Unrecognised output request: {output[out_in.index(False)]}, valid outputs are: "
@@ -267,6 +267,7 @@ class ContactModel(_ContactModelABC):
 
                 for this_step in self.steps:
                     print(f"Checking step: {this_step}")
+                    # noinspection PyProtectedMember
                     current_state = self.steps[this_step]._data_check(current_state)
 
     def _model_check(self):
@@ -289,8 +290,8 @@ class ContactModel(_ContactModelABC):
         Parameters
         ----------
         output_file_name: str, optional (None)
-            The file name of the output file (not including the extention) if None the file name defaults to the same as
-            the model name set on instantiton
+            The file name of the output file (not including the extension) if None the file name defaults to the same as
+            the model name set on instantiation
         verbose: bool optional (False)
             If True, logs are written to the console instead of the log file
         skip_data_check: bool, optional (False)
@@ -323,10 +324,11 @@ class ContactModel(_ContactModelABC):
 
             for this_step in self.steps:
                 print(f"Solving step {this_step}")
+                # noinspection PyProtectedMember
                 current_state = self.steps[this_step]._solve(current_state, output_file)
 
             now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            print(f"Analysis completed sucessfully at: {now}")
+            print(f"Analysis completed successfully at: {now}")
         return current_state
 
     def __repr__(self):

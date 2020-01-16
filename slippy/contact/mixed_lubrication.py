@@ -1,3 +1,6 @@
+""" This is just a python port of Abdullah's code should not be used or referenced in any way!"""
+
+
 import numpy as np
 from scipy.linalg.lapack import dgtsv
 

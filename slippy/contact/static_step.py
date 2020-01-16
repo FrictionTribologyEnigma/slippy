@@ -131,7 +131,9 @@ class StaticNormalLoad(_ModelStep):
         # check that both surfaces are defined, both materials are defined, if there is a tangential load check that
         # there is a friction model defined, print all of this to console, update the current_state set, delete the
         # previous state?
-        current_state = {'loads', 'surface_1_disp', 'surface_2_disp', 'total_disp', 'undeformed_gap', 'interference'}
+
+        current_state = {'off_set', 'loads', 'surface_1_disp', 'surface_2_disp', 'total_disp', 'undeformed_gap',
+                         'interference'}
 
         return current_state
 
@@ -149,7 +151,7 @@ class StaticNormalLoad(_ModelStep):
         gap, surf_1_pts, surf_2_pts = get_gap_from_model(self.model, interferance=0, off_set=off_set,
                                                          mode=opt.interpolation_mode, periodic=opt.periodic)
 
-        adhesion_model = self.model._adhesion if self._adhesion else None
+        adhesion_model = self._adhesion if self._adhesion else None
 
         results = dict()
         it = 0
@@ -185,7 +187,7 @@ class StaticNormalLoad(_ModelStep):
             results['surf_2_disp'] = disp_tup[2]
             results['contact_nodes'] = contact_nodes
             print(f'Iteration {it}:')
-            print(f'Interferance is: {height}')
+            print(f'Interference is: {height}')
             print(f'Percentage of nodes in contact: {sum(contact_nodes.flatten())/contact_nodes.size}')
             set_load = self._load.z
             print(f'Target load is: {set_load}')
