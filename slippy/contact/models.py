@@ -31,30 +31,19 @@ class ContactModel(_ContactModelABC):
     field_outputs = {}
     _domains = {'all': None}
     _lubricant: _LubricantModelABC = None
-    _friction: _FrictionModelABC = None
-    _wear: _WearModelABC = None
-    _adhesion: _AdhesionModelABC = None
+    """Flag set to true if one of the surfaces is rigid"""
     _is_rigid: bool = False
     steps: OrderedDict
     log_file_name: str = None
     output_file_name: str = None
-    """Flag set to true if one of the surfaces is rigid"""
 
     def __init__(self, name: str, surface_1: _SurfaceABC, surface_2: _SurfaceABC = None,
-                 lubricant: _LubricantModelABC = None,
-                 friction: _FrictionModelABC = None, adhesion: _AdhesionModelABC = None,
-                 wear_model: _WearModelABC = None, log_file_name: str = None):
+                 lubricant: _LubricantModelABC = None, log_file_name: str = None):
         self.surface_1 = surface_1
         self.surface_2 = surface_2
         self.name = name
         if lubricant is not None:
             self.lubricant_model = lubricant
-        if friction is not None:
-            self.friciton_model = friction
-        if adhesion is not None:
-            self.adhesion = adhesion
-        if wear_model is not None:
-            self.wear_model = wear_model
         self.steps = OrderedDict({'Initial': InitialStep()})
         if log_file_name is None:
             log_file_name = name
@@ -74,7 +63,7 @@ class ContactModel(_ContactModelABC):
             self._lubricant = value
         else:
             raise ValueError("Unable to set lubricant, expected lubricant "
-                             "object recived %s" % str(type(value)))
+                             "object, received %s" % str(type(value)))
 
     @lubricant_model.deleter
     def lubricant_model(self):
@@ -91,7 +80,7 @@ class ContactModel(_ContactModelABC):
             self._friction = value
         else:
             raise ValueError("Unable to set friction model, expected "
-                             "friction model object recived "
+                             "friction model object, received "
                              "%s" % str(type(value)))
 
     @friction_model.deleter
@@ -108,98 +97,14 @@ class ContactModel(_ContactModelABC):
         if issubclass(type(value), _AdhesionModelABC):
             self._adhesion = value
         else:
-            raise ValueError("Unable to set adhsion model, expected "
-                             "adhesion model object recived "
+            raise ValueError("Unable to set adhesion model, expected "
+                             "adhesion model object, received "
                              "%s" % str(type(value)))
 
     @adhesion_model.deleter
     def adhesion_model(self):
         # noinspection PyTypeChecker
         self._adhesion = None
-
-    def add_friction_model(self, friction_model_instance: typing.Optional[_FrictionModelABC] = None):
-        """Add a friciton model to this instance of a contact model
-        
-        Parameters
-        ----------
-        friction_model_instance: _FrictionModel, optional (None)
-            A friciton model object, if none is suplied the friciton model helper fucntion is run
-            
-        See Also
-        --------
-        friction_model
-        
-        Notes
-        -----
-        This method is an alias of friciton_model, for detailed usage 
-        infromation see the documentaion of that function or pass 'info' as the
-        name
-        
-        Examples
-        --------
-        >>> import numpy as np
-        >>> import slippy.surface as s
-        >>> surface1, surface2 = s.assurface(np.random.rand(128,128),0.01), s.assurface(np.random.rand(128,128),0.01)
-        >>> # add coulomb friction to a contact model
-        >>> my_model=ContactModel(surface1, surface2)
-        >>> my_model.add_friction_model('coulomb', {'mu':0.3})
-        """
-
-        self.friction_model = friction_model_instance  # name, parameters)
-
-    def add_adhesion_model(self, name: str, parameters: dict = None):
-        """Add an adhesion model to this instance of a contaact model
-        
-        Parameters
-        ----------
-        name : str
-            The name of the adhesion model to be added
-        parameters : dict
-            A dict of parameters required by the adhesion model
-            
-        See Also
-        --------
-        adhesion_model
-        
-        Notes
-        -----
-        This method is an alias of adhesion_model, for deatiled usage 
-        information see the documentation for that function or pass 'info' as 
-        the name into this method
-        
-        Examples
-        --------
-        
-        >>> #TODO
-        """
-        pass
-
-    def add_lubricant_model(self, name: str, parameters: dict):
-        """Add a lubricant to this instace of a contact model
-        
-        Parameters
-        ----------
-        name : str
-            The name of the lubricant model to be used 
-        parameters : dict
-            A dict of parameters required by the lubricant model
-        
-        See Also
-        --------
-        lubricant_model
-        
-        Notes
-        -----
-        This method is an alias of lubricant_model, for deatiled usage 
-        information see the documentation for that function or pass 'info' as 
-        the name into this method
-        
-        Examples
-        --------
-        
-        >>> #TODO
-        """
-        pass
 
     def add_step(self, step_instance: _ModelStep = None, position: {int, str}=None):
         """ Adds a solution stepe to the current model
