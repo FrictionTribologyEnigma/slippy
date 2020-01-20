@@ -3,7 +3,8 @@ Model steps for lubricated contacts
 """
 import typing
 import numpy as np
-from collections import namedtuple
+from collections import namedtuple, Sequence
+from numbers import Number
 from slippy.abcs import _ReynoldsSolverABC
 from slippy.contact._model_utils import get_gap_from_model
 from .steps import _ModelStep
@@ -131,17 +132,40 @@ class IterSemiSystemLoad(_ModelStep):
         else:
             off_set = tuple(current + change for current, change in zip(previous_state['off_set'],
                                                                         self._off_set_options.off_set))
-        # TODO carry on from here
-        if self.initial_guess is None:
-            interferance = 0
-            undeformed_gap, surf_1_pts, surf_2_pts = get_gap_from_model(self.model, interferance=0,
-                                                                        off_set=off_set,
-                                                                        mode=self._off_set_options.interpolation_mode,
-                                                                        periodic=self._off_set_options.periodic)
-        if 'pressure' not in previous_state:
-            previous_state['pressure'] = np.zeros_like(gap)
-        if 'temperature' not in previous_state:
-            previous_state['temperature'] = np.zeros_like(gap)
+
+        just_touching_gap, surf_1_pts, surf_2_pts = get_gap_from_model(self.model, interferance=0,
+                                                                       off_set=off_set,
+                                                                       mode=self._off_set_options.interpolation_mode,
+                                                                       periodic=self._off_set_options.periodic)
+
+        # Sorting out the initial guess:
+        initial_guess = self.initial_guess
+
+        if initial_guess is None:
+            initial_guess = [0, 0]
+        if isinstance(initial_guess, Sequence):
+            interferance = initial_guess[0]
+            if isinstance(initial_guess[1], Number):
+                pressure = initial_guess[1]*np.ones_like(just_touching_gap)
+            else:
+                try:
+                    pressure = np.asarray(initial_guess[1], dtype=np.float)
+                    assert(pressure.shape == just_touching_gap.shape)
+                except ValueError:
+                    raise ValueError('Initial guess for pressure could not be converted to a numeric array')
+                except AssertionError:
+                    raise ValueError('Initial guess for pressure produced an array of the wrong size:'
+                                     f'expected {just_touching_gap.shape}, got: {pressure.shape}')
+        elif isinstance(initial_guess, str) and initial_guess.lower() == 'previous':
+            pressure = np.zeros_like(just_touching_gap) if 'pressure' not in previous_state else \
+                previous_state['pressure']
+            interference = 0.0 if 'interference' not in previous_state else previous_state['interference']
+        elif hasattr(initial_guess, '__call__'):
+            interferance, pressure = initial_guess(self.model, just_touching_gap)
+        else:
+            raise ValueError('Unsupported type for initial guess')
+
+        # main loops
         while load != set_load:
             while not_converged:
                 # solve lubricant models

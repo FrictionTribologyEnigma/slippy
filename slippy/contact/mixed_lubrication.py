@@ -308,7 +308,7 @@ def HREEI(DX, p, AK, GOU, ROU, KK, G0, A1, A2, A3, roelands_exponent, ENDA):
 
     # adjust for load balance
     W1 = np.sum(p)
-    W1 *= DX ** 2 / G0
+    W1 *= DX ** 2 / G0 # < total load (non dimentional)
     DW = 1.0 - W1
     H00OLD = H00.copy()
     H00 -= 0.1 * DW
