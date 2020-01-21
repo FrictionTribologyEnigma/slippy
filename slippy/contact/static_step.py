@@ -17,10 +17,12 @@ No models should have to do wear or other time varying stuff.
 
 All should return a current state dict...?
 """
-import scipy.optimize as optimize
 import typing
-import numpy as np
 from collections import namedtuple
+
+import numpy as np
+import scipy.optimize as optimize
+
 from slippy.contact import Loads, _ModelStep
 from slippy.contact._model_utils import get_gap_from_model, non_dimentional_height
 from slippy.contact._step_utils import solve_normal_interference  # , get_next_file_num
@@ -164,6 +166,7 @@ class StaticNormalLoad(_ModelStep):
 
         print(f'uz = {uz}')
 
+
         def opt_func(height):
             nonlocal results, it
 
@@ -198,8 +201,7 @@ class StaticNormalLoad(_ModelStep):
         upper = 5*max(gap.flatten())/uz
 
         print(f'upper bound set at: {upper}')
-        axtol = opt.atol_load_loop
-        print(f'Interference tolerance set to {axtol}')
+        print(f'Interference tolerance set to {opt.atol_load_loop} A, {opt.rtol_load_loop} R')
 
         # TODO implement initial guesses
 
@@ -209,6 +211,7 @@ class StaticNormalLoad(_ModelStep):
         # opt_result = optimize.minimize_scalar(opt_func, bounds=(0, upper),
         #                                      options={'maxiter': opt.maxit_load_loop, 'xatol': axtol},
         #                                      method='bounded')  # tol = max(gap.flatten())*opt.rtol_load_loop/uz
+
         current_state.update(results)
         current_state['gap'] = gap
         # check the solution is reasonable (check not 100% contact) check that the achived load is similar to the
@@ -222,7 +225,6 @@ class StaticNormalLoad(_ModelStep):
         # check out put requests/ sub models
         self.solve_sub_models(current_state)
         self.save_outputs(current_state, output_file)
-
         return current_state
 
     def __repr__(self):

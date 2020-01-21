@@ -1,15 +1,16 @@
 """
 model object just a container for step object that do the real work
 """
-from slippy.abcs import _SurfaceABC, _LubricantModelABC, _ContactModelABC
-from slippy.contact.steps import _ModelStep, InitialStep, step
-from slippy.contact.outputs import FieldOutputRequest, HistoryOutputRequest, possible_field_outpts, \
-    possible_history_outpts
-from datetime import datetime
+import os
 import typing
 from collections import OrderedDict
 from contextlib import redirect_stdout, ExitStack
-import os
+from datetime import datetime
+
+from slippy.abcs import _SurfaceABC, _LubricantModelABC, _ContactModelABC
+from slippy.contact.outputs import FieldOutputRequest, HistoryOutputRequest, possible_field_outpts, \
+    possible_history_outpts
+from slippy.contact.steps import _ModelStep, InitialStep, step
 
 __all__ = ["ContactModel"]
 
@@ -80,7 +81,7 @@ class ContactModel(_ContactModelABC):
         self.log_file_name = log_file_name + '.log'
         if output_file_name is None:
             output_file_name = name
-        self.output_file_name = output_file_name + '.log'
+        self.output_file_name = output_file_name + '.sdb'
         try:
             os.remove(self.log_file_name)
         except FileNotFoundError:
@@ -311,6 +312,7 @@ class ContactModel(_ContactModelABC):
 
             now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             print(f"Analysis completed successfully at: {now}")
+
         return current_state
 
     def __repr__(self):

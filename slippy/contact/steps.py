@@ -1,7 +1,8 @@
-from slippy.abcs import _ContactModelABC, _StepABC
 import abc
-import typing
 import pickle
+import typing
+
+from slippy.abcs import _ContactModelABC, _StepABC
 
 __all__ = ['step', '_ModelStep', 'InitialStep']
 
@@ -190,7 +191,7 @@ class InitialStep(_ModelStep):
     def _solve(self, current_state, output_file):
         """
         Need to:
-        find separtion, initialise current state(does this mean looking through the outputs? or should that be in the
+        find separation, initialise current state(does this mean looking through the outputs? or should that be in the
         model solve function), ???? anthing else?
         """
         if current_state is not None:

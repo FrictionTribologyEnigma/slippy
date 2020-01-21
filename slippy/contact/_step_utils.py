@@ -157,10 +157,10 @@ def solve_normal_interference(interference: float, gap: np.ndarray, model: _Cont
         force_another_iteration = False
         n_contact_nodes = sum(contact_nodes.flatten())
 
-        print('Total contact nodes:', sum(contact_nodes.flatten()))
+        print('Total contact nodes:', n_contact_nodes)
 
         if isinstance(adhesive_force, Number):
-            nodes_to_remove = loads.z < adhesive_force
+            nodes_to_remove = np.logical_and(loads.z < adhesive_force, contact_nodes)
             nodes_to_add = np.logical_and(deformed_gap < 0, np.logical_not(contact_nodes))
             print('Nodes to add: ', sum(nodes_to_add.flatten()))
             # noinspection PyUnresolvedReferences
@@ -169,8 +169,6 @@ def solve_normal_interference(interference: float, gap: np.ndarray, model: _Cont
             max_remove = int(min(n_contact_nodes * remove_percent, 0.5*added_nodes_last_it))
             # noinspection PyUnresolvedReferences
             if sum(nodes_to_remove.flatten()) > max_remove:
-                if not max_remove:
-                    raise ValueError()
                 nodes_to_remove = np.argpartition(-loads.z.flatten(), -max_remove)[-max_remove:]
                 nodes_to_remove = np.unravel_index(nodes_to_remove, contact_nodes.shape)
                 print('Nodes to remove treated: ', len(nodes_to_remove[0]))
