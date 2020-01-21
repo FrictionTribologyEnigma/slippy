@@ -1,19 +1,77 @@
 """
 Helper functions for steps
 """
-import numpy as np
-from slippy.abcs import _ContactModelABC
-import typing
-from slippy.contact import Displacements
-from numbers import Number
-import warnings
 import os
+import typing
+import warnings
 from collections import namedtuple
+from numbers import Number
 
-__all__ = ['solve_normal_interference', 'get_next_file_num', 'OffSetOptions']
+import numpy as np
+
+from slippy.abcs import _ContactModelABC
+from slippy.contact import Displacements
+from ._material_utils import Loads
+
+__all__ = ['solve_normal_interference', 'get_next_file_num', 'OffSetOptions', 'solve_normal_loading']
 
 
 OffSetOptions = namedtuple('off_set_options', ['off_set', 'abs_off_set', 'periodic', 'interpolation_mode'])
+
+
+def solve_normal_loading(loads: Loads, model: _ContactModelABC, deflections: str = 'xyz', material_options: list = None,
+                         reverse_loads_on_second_surface: str = ''):
+    """
+
+    Parameters
+    ----------
+    loads: Loads
+        The loads on the surface in the same units as the material object
+    model: _ContactModelABC
+        A contact model object containing the surfaces and materials to be used
+    deflections: str, optional ('xyz')
+        The directions of the deflections to be calculated for each surface
+    material_options: dict, optional (None)
+        list of Dicts of options to be passed to the displacement_from_surface_loads method of the surface
+    reverse_loads_on_second_surface: str, optional ('')
+        string containing the components of the loads to be reversed for the second surface for example 'x' will reverse
+        loads in the x direction
+
+    Returns
+    -------
+    total_displacement: Displacements
+        A named tuple of the total displacement
+    surface_1_displacement: Displacements
+        A named tuple of the displacement on surface 1
+    surface_2_displacement: Displacements
+        A named tuple of the displacement on surface 2
+
+    """
+    surf_1 = model.surface_1
+    surf_2 = model.surface_2
+    if material_options is None:
+        material_options = [dict(), dict()]
+    else:
+        material_options = [mo or dict() for mo in material_options]
+
+    surface_1_displacement = surf_1.material.displacement_from_surface_loads(loads=loads,
+                                                                             grid_spacing=surf_1.grid_spacing,
+                                                                             deflections=deflections,
+                                                                             **material_options[0])
+
+    if reverse_loads_on_second_surface:
+        loads_2 = Loads(*[-1 * loads.__getattribute__(l) if l in reverse_loads_on_second_surface
+                          else loads.__getattribute__(l) for l in 'xyz'])
+    else:
+        loads_2 = loads
+
+    surface_2_displacement = surf_2.material.displacement_from_surface_loads(loads=loads_2,
+                                                                             grid_spacing=surf_1.grid_spacing,
+                                                                             deflections=deflections,
+                                                                             **material_options[1])
+    total_displacement = [s1 + s2 for s1, s2 in zip(surface_1_displacement, surface_2_displacement)]
+
+    return total_displacement, surface_1_displacement, surface_2_displacement
 
 
 def solve_normal_interference(interference: float, gap: np.ndarray, model: _ContactModelABC,
@@ -105,6 +163,7 @@ def solve_normal_interference(interference: float, gap: np.ndarray, model: _Cont
             nodes_to_remove = loads.z < adhesive_force
             nodes_to_add = np.logical_and(deformed_gap < 0, np.logical_not(contact_nodes))
             print('Nodes to add: ', sum(nodes_to_add.flatten()))
+            # noinspection PyUnresolvedReferences
             print('Nodes to remove raw: ', sum(nodes_to_remove.flatten()))
 
             max_remove = int(min(n_contact_nodes * remove_percent, 0.5*added_nodes_last_it))

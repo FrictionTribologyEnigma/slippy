@@ -3,11 +3,12 @@ import collections
 import typing
 import warnings
 from itertools import product
-from slippy.abcs import _MaterialABC
+
 import numpy as np
 from scipy.signal import fftconvolve
-from ._material_utils import _get_properties, Loads, Displacements, memoize_components
 
+from slippy.abcs import _MaterialABC
+from ._material_utils import _get_properties, Loads, Displacements, memoize_components
 
 __all__ = ["Elastic", "_Material", "rigid"]
 
@@ -83,7 +84,7 @@ class _Material(_MaterialABC):
         span: tuple
             The span of the influence matrix in grid points defaults to same as the loads span
         grid_spacing : tuple or float
-            The grid spacing only needed if surface is an array
+            The grid spacing in each direction, if float it is assumed to be the same in each direction
         simple: bool optional (False)
             If true only deflections in the directions of the loads are calculated,
             only the Cxx, Cyy and Czz components of the influcence matrix are used
@@ -91,7 +92,7 @@ class _Material(_MaterialABC):
         Returns
         -------
         displacements : Displacements
-            nameded tuple of surface displacements
+            named tuple of surface displacements
 
         See Also
         --------

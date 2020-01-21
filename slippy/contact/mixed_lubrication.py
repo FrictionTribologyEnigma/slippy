@@ -176,7 +176,9 @@ def populate_influence_matrix(num_points):
     AK: np.array
         The influence matrix (needs multiplying by 2/pi**2 to be used
     """
-    s = lambda x, y: x + np.sqrt(x ** 2 + y ** 2)
+
+    def stencil(x, y):
+        return x + np.sqrt(x ** 2 + y ** 2)
 
     ak = np.zeros((num_points, num_points))
 
@@ -186,10 +188,10 @@ def populate_influence_matrix(num_points):
         for j in range(i + 1):
             ym = j - 0.5
             yp = j + 0.5
-            a1 = s(yp, xp) / s(ym, xp)
-            a2 = s(xm, ym) / s(xp, ym)
-            a3 = s(ym, xm) / s(yp, xm)
-            a4 = s(xp, yp) / s(xm, yp)
+            a1 = stencil(yp, xp) / stencil(ym, xp)
+            a2 = stencil(xm, ym) / stencil(xp, ym)
+            a3 = stencil(ym, xm) / stencil(yp, xm)
+            a4 = stencil(xp, yp) / stencil(xm, yp)
             ak[i, j] = xp * np.log(a1) + ym * np.log(a2) + xm * np.log(a3) + yp * np.log(a4)
             ak[j, i] = ak[i, j]
     return ak
@@ -202,7 +204,7 @@ def ITERSEMISEPI(N: int, KK: int, DX: float, DT: float, ERH, H00, G0, X, Y, H, H
 
     AK00 = 2 / np.pi ** 2 * AK[0, 0] # replace these with their definition,
     AK10 = 2 / np.pi ** 2 * AK[1, 0]
-    AK20 = 2 / np.pi ** 2 * AK[2, 0]  # first three components of the influence matrix
+    AK20 = 2 / np.pi ** 2 * AK[2, 0]  # first three components of the influence matrix? AK isn't used past this
 
     DXT = 1 / DT if DT > 0 else 0.0
 
@@ -217,7 +219,8 @@ def ITERSEMISEPI(N: int, KK: int, DX: float, DT: float, ERH, H00, G0, X, Y, H, H
     AW, BW, CW, FW = np.zeros(N), np.zeros(N), np.zeros(N), np.zeros(N)
     ATIME, BTIME, CTIME, FTIME = np.zeros(N), np.zeros(N), np.zeros(N), np.zeros(N)
 
-    for K in range(KK):
+    for K in range(
+            KK):  # this is set to 20 before this fucntion is called, seems to be the number of iterations allowed
         ICB, ICM, ICP, ICT = 0, 0, 0, 0
         for J in range(N - 1, 1, -1):
 
@@ -270,9 +273,7 @@ def ITERSEMISEPI(N: int, KK: int, DX: float, DT: float, ERH, H00, G0, X, Y, H, H
             P[:, J] = P1D
 
         # reynolds solver end
-
-
-        # HREEI(** continue from here!!!!!!!!!!)
+        # HREEI() is called here but let's not do it like this
     # write results return outputs
     return
 
@@ -325,7 +326,7 @@ def HREEI(DX, p, AK, GOU, ROU, KK, G0, A1, A2, A3, roelands_exponent, ENDA):
     return H, EDA, RO, EPS
 
 
-def ehl(n, n1, PH, E1, eta_0, ball_radius, US, X0, XE, sliding_to_rolling_ratio, grid_spacing):
+def ehl(n, n1, hertzian_contact_stress, E1, eta_0, ball_radius, US, X0, XE, sliding_to_rolling_ratio, grid_spacing):
     """
 
     Parameters
@@ -335,7 +336,7 @@ def ehl(n, n1, PH, E1, eta_0, ball_radius, US, X0, XE, sliding_to_rolling_ratio,
     n1
 
     read from input file:
-    PH
+    hertzian_contact_stress
     E1
     eta_0: was EDA0
     ball_radius: was Rx
@@ -354,14 +355,14 @@ def ehl(n, n1, PH, E1, eta_0, ball_radius, US, X0, XE, sliding_to_rolling_ratio,
 
     PLCOUNT = np.zeros((n, n), dtype=int)
 
-    Hsub = 1.15e9 / PH
+    Hsub = 1.15e9 / hertzian_contact_stress
     Hardness = Hsub
 
     MM = N - 1
 
     A1 = np.log(eta_0) + 9.67
-    A2 = 5.1e-9 * PH
-    A3 = 0.59 / (PH * 1.0e-9)
+    A2 = 5.1e-9 * hertzian_contact_stress
+    A3 = 0.59 / (hertzian_contact_stress * 1.0e-9)
 
     # Setting the speeds
     ball_speed = 0.253  # speed of the ball
@@ -370,8 +371,8 @@ def ehl(n, n1, PH, E1, eta_0, ball_radius, US, X0, XE, sliding_to_rolling_ratio,
     sliding_to_rolling_ratio = 2 * (ball_speed - flat_speed) / (ball_speed + flat_speed)  # sliding to rolling ratio
     nd_rolling_speed = eta_0 * rolling_speed / (E1 * ball_radius)  # non dimentional speed
 
-    hertzian_half_width = pi * PH * ball_radius / E1  # Half width of hertzian contact
-    nd_load = 2 * pi * PH / (3 * E1) * (hertzian_half_width / ball_radius)  # nondimentioal load
+    hertzian_half_width = pi * hertzian_contact_stress * ball_radius / E1  # Half width of hertzian contact
+    nd_load = 2 * pi * hertzian_contact_stress / (3 * E1) * (hertzian_half_width / ball_radius)  # nondimentioal load
     W = nd_load * E1 * ball_radius ** 2  # load in newtons
 
     ALFA = 14.94e-9  # Pressure viscosity
@@ -381,7 +382,7 @@ def ehl(n, n1, PH, E1, eta_0, ball_radius, US, X0, XE, sliding_to_rolling_ratio,
                 1 - np.exp(-0.68))
 
     lambda_bar = 12 * rolling_speed * eta_0 * ball_radius ** 2 / (
-                hertzian_half_width ** 3 * PH)  # 12*nd_rolling_speed*(E1/PH)*(ball_radius/hertzian_half_width)**3  # reynolds ..somthing?
+            hertzian_half_width ** 3 * hertzian_contact_stress)  # 12*nd_rolling_speed*(E1/hertzian_contact_stress)*(ball_radius/hertzian_half_width)**3  # reynolds ..somthing?
     # was lambda_bar
 
     # write some stuff to file
@@ -408,7 +409,7 @@ def ehl(n, n1, PH, E1, eta_0, ball_radius, US, X0, XE, sliding_to_rolling_ratio,
 
     MK = 1
     while True:
-        ER = itersemisepi(n, KK, grid_spacing, DT, ERH, H00, G0, X, Y, H, HO0, RO, RO0, EPS, EDA, P, V, GOU, ROU)
+        ER = ITERSEMISEPI(n, KK, grid_spacing, DT, ERH, H00, G0, X, Y, H, HO0, RO, RO0, EPS, EDA, P, V, GOU, ROU)
         MK += 1
         update_pressure(N, relaxation_factor, ER, P, POLD)
         if ER < 1e-6:
@@ -428,7 +429,7 @@ def ehl(n, n1, PH, E1, eta_0, ball_radius, US, X0, XE, sliding_to_rolling_ratio,
     H[H < min_possible_height] = min_possible_height
     H2 = min(H.flatten())  # ND minimum film thickness (no roughness?)
     H3 = H2 * hertzian_half_width * hertzian_half_width / ball_radius  # minimum film thickness in m
-    P3 = P2 * PH  # Max pressure in pascals
+    P3 = P2 * hertzian_contact_stress  # Max pressure in pascals
 
     # Finding the load sharing
 
@@ -455,8 +456,8 @@ def ehl(n, n1, PH, E1, eta_0, ball_radius, US, X0, XE, sliding_to_rolling_ratio,
     GEOM(N, DAB, X, Y, GOU, ROU2, RMSRB)
 
     for K2 in range(5):
-        A2 = 5.1e-9 * PH
-        A3 = 0.59 / (PH * 1e-9)
+        A2 = 5.1e-9 * hertzian_contact_stress
+        A3 = 0.59 / (hertzian_contact_stress * 1e-9)
 
         ball_speed = 0.2530  # ball speed
         flat_speed = 0.2480
@@ -464,7 +465,7 @@ def ehl(n, n1, PH, E1, eta_0, ball_radius, US, X0, XE, sliding_to_rolling_ratio,
         sliding_to_rolling_ratio = 2 * (ball_speed - flat_speed) / (ball_speed + flat_speed)
         nd_rolling_speed = eta_0 * rolling_speed / (E1 * ball_radius)
 
-        nd_load = 2 * pi * PH / (3 * E1) * (hertzian_half_width / ball_radius) ** 2
+        nd_load = 2 * pi * hertzian_contact_stress / (3 * E1) * (hertzian_half_width / ball_radius) ** 2
         W = nd_load * E1 * ball_radius ** 2
 
         HM0 = 3.63 * (ball_radius / hertzian_half_width) ** 2 * G ** 0.49 * nd_rolling_speed ** 0.68 * nd_load ** (
@@ -472,7 +473,7 @@ def ehl(n, n1, PH, E1, eta_0, ball_radius, US, X0, XE, sliding_to_rolling_ratio,
         HMC = 2.69 * (ball_radius / hertzian_half_width) ** 2 * G ** 0.53 * nd_rolling_speed ** 0.67 * nd_load ** (
             -0.067) * (1 - 0.61 * np.exp(-0.73))
 
-        lambda_bar = 12 * rolling_speed * eta_0 * ball_radius ** 2 / (hertzian_half_width ** 3 * PH)
+        lambda_bar = 12 * rolling_speed * eta_0 * ball_radius ** 2 / (hertzian_half_width ** 3 * hertzian_contact_stress)
 
         MK = 1
         G0 = 2.0943951
@@ -503,7 +504,7 @@ def ehl(n, n1, PH, E1, eta_0, ball_radius, US, X0, XE, sliding_to_rolling_ratio,
                     if DW < 1e-5:
                         DH *= 0.95
             else:
-                if COUNT >= 70:
+                if COUNT >= 70:  # this is the minimum number of iterations
                     break
 
         # Main loop ends here
