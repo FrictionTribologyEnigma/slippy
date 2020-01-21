@@ -126,7 +126,7 @@ class StaticNormalLoad(_ModelStep):
 
         super().__init__(step_name)
 
-    def _data_check(self, previous_state: set):
+    def data_check(self, previous_state: set):
         # check that both surfaces are defined, both materials are defined, if there is a tangential load check that
         # there is a friction model defined, print all of this to console, update the current_state set, delete the
         # previous state?
@@ -136,7 +136,7 @@ class StaticNormalLoad(_ModelStep):
 
         return current_state
 
-    def _solve(self, current_state: dict, output_file):
+    def solve(self, current_state: dict, output_file):
         # just encase the displacement finder in a scipy optimise block should be a continuous function, no special
         # treatment required
         opt = self._options
@@ -315,10 +315,10 @@ class StaticNormalInterference(_ModelStep):
 
         super().__init__(step_name)
 
-    def _data_check(self, current_state):
+    def data_check(self, current_state):
         pass
 
-    def _solve(self, current_state, output_file):
+    def solve(self, current_state, output_file):
         height = current_state['interference'] * self.relative_interference + self.interference
         gap, surf_1_pts, surf_2_pts = get_gap_from_model(self.model, interferance=0, off_set=self._off_set,
                                                          mode=self._options.interpolation_mode,
@@ -378,10 +378,10 @@ class ClosurePlot(_ModelStep):
     def __init__(self, step_name: str):
         super().__init__(step_name)
 
-    def _data_check(self, current_state):
+    def data_check(self, current_state):
         pass
 
-    def _solve(self, current_state, output_file):
+    def solve(self, current_state, output_file):
         pass
 
     def __repr__(self):
@@ -396,10 +396,10 @@ class PullOff(_ModelStep):
     def __init__(self, step_name: str):
         super().__init__(step_name)
 
-    def _data_check(self, current_state):
+    def data_check(self, current_state):
         pass
 
-    def _solve(self, current_state, output_file):
+    def solve(self, current_state, output_file):
         pass
 
     def __repr__(self):
@@ -419,10 +419,10 @@ class SurfaceLoading(_ModelStep):
     def __init__(self, step_name: str):
         super().__init__(step_name)
 
-    def _data_check(self, current_state):
+    def data_check(self, current_state):
         pass
 
-    def _solve(self, current_state, output_file):
+    def solve(self, current_state, output_file):
         pass
 
     def __repr__(self):
@@ -442,10 +442,10 @@ class SurfaceDisplacement(_ModelStep):
     def __init__(self, step_name: str):
         super().__init__(step_name)
 
-    def _data_check(self, current_state):
+    def data_check(self, current_state):
         pass
 
-    def _solve(self, current_state, output_file):
+    def solve(self, current_state, output_file):
         pass
 
     def __repr__(self):

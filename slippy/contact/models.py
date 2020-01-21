@@ -251,7 +251,7 @@ class ContactModel(_ContactModelABC):
                 for this_step in self.steps:
                     print(f"Checking step: {this_step}")
                     # noinspection PyProtectedMember
-                    current_state = self.steps[this_step]._data_check(current_state)
+                    current_state = self.steps[this_step].data_check(current_state)
 
     def _model_check(self):
         """
@@ -308,7 +308,7 @@ class ContactModel(_ContactModelABC):
             for this_step in self.steps:
                 print(f"Solving step {this_step}")
                 # noinspection PyProtectedMember
-                current_state = self.steps[this_step]._solve(current_state, output_file)
+                current_state = self.steps[this_step].solve(current_state, output_file)
 
             now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             print(f"Analysis completed successfully at: {now}")

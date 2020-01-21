@@ -97,7 +97,7 @@ class _ModelStep(_StepABC):
             raise ValueError("Supplied model is not a contact model or no contact model supplied")
 
     @abc.abstractmethod
-    def _data_check(self, current_state: set):
+    def data_check(self, current_state: set):
         """
         Write potential errors and warnings to the log file, update the current state with what will be in it by the end
         of the step (warnings will be written by printing, the standard output will be changed before running).
@@ -116,7 +116,7 @@ class _ModelStep(_StepABC):
         raise NotImplementedError("Data check have not been implemented for this step type!")
 
     @abc.abstractmethod
-    def _solve(self, current_state, output_file):
+    def solve(self, current_state, output_file):
         """ Take in the current state solve the step and update the current state and any field outputs, printing in the
         solve method will add to the log file, the standard output will be changed before running
 
@@ -180,7 +180,7 @@ class InitialStep(_ModelStep):
         if separation is not None:
             self.separation = float(separation)
 
-    def _data_check(self, current_state: set):
+    def data_check(self, current_state: set):
         """
         Just check if this is the first step in the model
         """
@@ -188,7 +188,7 @@ class InitialStep(_ModelStep):
             print("Error steps are out of order, initial step should be first")
         return {'off_set'}
 
-    def _solve(self, current_state, output_file):
+    def solve(self, current_state, output_file):
         """
         Need to:
         find separation, initialise current state(does this mean looking through the outputs? or should that be in the

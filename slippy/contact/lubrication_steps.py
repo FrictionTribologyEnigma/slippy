@@ -141,13 +141,13 @@ class IterSemiSystemLoad(_ModelStep):
     def reynolds(self):
         self._reynolds = None
 
-    def _data_check(self, previous_state: set):
+    def data_check(self, previous_state: set):
         # check if there is a lubricant defined for the model
         if self.model.lubricant_model is None:
             print('Error: No lubricant model set for the contact model, lubrication based steps will not solve')
         pass
 
-    def _solve(self, previous_state: dict, output_file):
+    def solve(self, previous_state: dict, output_file):
         if self._off_set_options.abs_off_set:
             off_set = self._off_set_options.off_set
         else:
