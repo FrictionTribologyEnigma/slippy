@@ -47,9 +47,13 @@ class IterSemiSystemLoad(_ModelStep):
         If true the surfaces are treated as periodic for the off set application, note this has no effect on the
         solver. To apply periodicity to the solver, this should be specified in the material options and the reynolds
         solver object.
+    material_options: list, optional (None)
+        a list of material options dicts which will be passed to the materials displacement_from_surface_loading method
+        the first item in the list will be passed to the first material the second item will be passed to the second
+        material. If no options are specified the default for the material is used.
     initial_guess: {callable, 'previous', list}, optional (None)
         The initial guess for the interference, and/or pressure profile between the surfaces, any callable will be
-        called with the contact model and the undeformed gap as positional arguments, it must return the interference
+        called with the contact model and the undeformed nd_gap as positional arguments, it must return the interference
         and the pressure profile. 'previous' will use the result(s) from the previous step, if results are not found the
         interference and pressure profile will be set to 0. Can also be a 2 element list, the first element being the
         interference and the second being the pressure profile as an array, if this is the wrong shape zeros wil be
@@ -79,13 +83,13 @@ class IterSemiSystemLoad(_ModelStep):
 
     def __init__(self, step_name: str, reynolds_solver: _ReynoldsSolverABC, load_z: float,
                  surface_1_speed: float, surface_2_speed: float,
-                 representative_length: float, nd_length: typing.Union[float, str] = 'from_model',
+                 radius_in_rolling_direction: float, hertzian_half_width: float,
                  relative_off_set: tuple = None, absolute_off_set: typing.Optional[tuple] = None,
                  max_pressure_it: int = 100, pressure_tol: float = 1e-7,
                  max_interference_it: int = 100, load_tol: float = 1e-7,
                  relaxation_factor: float = 0.5,
                  interpolation_mode: str = 'nearest', periodic: bool = False,
-                 material_options: dict = None,
+                 material_options: list = None,
                  initial_guess: typing.Union[typing.Callable, list, str] = None):
 
         self.adjust_height_every_step = True
@@ -94,7 +98,7 @@ class IterSemiSystemLoad(_ModelStep):
         self.load = load_z
         self.reynolds = reynolds_solver
 
-        self._material_options = {} or material_options
+        self._material_options = [{}, {}] or material_options
 
         self.rolling_speed = (surface_1_speed + surface_2_speed) / 2
         self.srr = 2 * (surface_1_speed - surface_2_speed) / (surface_1_speed + surface_2_speed)
@@ -187,14 +191,15 @@ class IterSemiSystemLoad(_ModelStep):
         else:
             raise ValueError('Unsupported type for initial guess')
 
-        previous_state = {'interference': interference, 'pressure': pressure, 'just_touching_gap': just_touching_gap}
+        previous_state = {'pressure': pressure, 'just_touching_gap': just_touching_gap}
 
         # we have the interference, and the pressure initial guesses
         # initiate all sub models
         gs = self.model.surface_1.grid_spacing
 
         if not all(previous_state['pressure'] == 0):
-            disp = solve_normal_loading(Loads(z=previous_state['pressure']), self.model)
+            disp = solve_normal_loading(loads=Loads(z=previous_state['pressure'], x=None, y=None), model=self.model,
+                                        deflections='z', material_options=self._material_options)
             previous_state['displacement'] = disp
         else:
             previous_state['displacement'] = (np.zeros_like(just_touching_gap),  # total
@@ -204,8 +209,10 @@ class IterSemiSystemLoad(_ModelStep):
         # main loops
         it_num = 0
         while True:
+            gap_array = just_touching_gap + previous_state['displacement'][0].z - interference
+
             # solve reynolds
-            current_state = self.reynolds.solve(previous_state)
+            current_state = self.reynolds.solve(previous_state, gap_array)
 
             # check for pressure convergence
             change_in_pressures = current_state['pressure'] - previous_state['pressure']
@@ -219,7 +226,7 @@ class IterSemiSystemLoad(_ModelStep):
             # solve contact geometry
             disp = solve_normal_loading(current_state['pressure'], self.model)
             current_state['displacement'] = disp
-            current_state['gap'] = just_touching_gap - current_state['interference'] - disp[0].z
+            current_state['nd_gap'] = just_touching_gap - current_state['interference'] - disp[0].z
 
             # solve lubricant sub models
             current_state = self.model.lubricant_model.solve_sub_models(current_state)
@@ -247,15 +254,15 @@ class IterSemiSystemLoad(_ModelStep):
                 # adjust height based on load balance
                 new_interference = self.update_interference(it_num, pressure_relative_error, load_relative_error,
                                                             previous_state['interference'],
-                                                            np.mean(current_state['gap']),
-                                                            np.min(current_state['gap']))
+                                                            np.mean(current_state['nd_gap']),
+                                                            np.min(current_state['nd_gap']))
                 current_state['interference'] = new_interference
             elif pressure_converged:
                 # adjust height based on load balance
                 new_interference = self.update_interference(it_num, pressure_relative_error, load_relative_error,
                                                             previous_state['interference'],
-                                                            np.mean(current_state['gap']),
-                                                            np.min(current_state['gap']))
+                                                            np.mean(current_state['nd_gap']),
+                                                            np.min(current_state['nd_gap']))
                 current_state['interference'] = new_interference
 
             it_num += 1
@@ -282,9 +289,9 @@ class IterSemiSystemLoad(_ModelStep):
         current_interference: float
             The current interference between the two bodies (the maximum overlap between the undeformed profiles)
         mean_gap
-            The average gap between the surfaces
+            The average nd_gap between the surfaces
         min_gap
-            The minimum gap between the surfaces
+            The minimum nd_gap between the surfaces
 
         Returns
         -------
@@ -293,7 +300,7 @@ class IterSemiSystemLoad(_ModelStep):
         Notes
         -----
         This method is quite basic at the moment and can definitely be improved, if executed on every loop, the height
-        is just updated by a fixed proportion of the minimum gap size
+        is just updated by a fixed proportion of the minimum nd_gap size
 
         If updated only when the solver converges, the regula falsi method is used
         """

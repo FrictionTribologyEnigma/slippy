@@ -223,9 +223,13 @@ def ITERSEMISEPI(N: int, KK: int, DX: float, DT: float, ERH, H00, G0, X, Y, H, H
             KK):  # this is set to 20 before this fucntion is called, seems to be the number of iterations allowed
         ICB, ICM, ICP, ICT = 0, 0, 0, 0
         for J in range(N - 1, 1, -1):
+            j0 = J - 1
+            j1 = J + 1
 
             for I in range(1, N):
-                D1 = 0.5 * (EPS[I - 1, J] + EPS[I, J])  # CHANGED from original...
+                # only unique value in d1 is 0.5*(EPS(0,J)+EPS(1,J))
+                D1 = 0.5 * (EPS[I - 1, J] + EPS[
+                    I, J])  # CHANGED from original, previous one used loop to set d1=d2 each time, we will vectorise this
                 D2 = 0.5 * (EPS[I + 1, J] + EPS[I, J])
                 D4 = 0.5 * (EPS[I, J - 1] + EPS[I, J])
                 D5 = 0.5 * (EPS[I, J + 1] + EPS[I, J])
@@ -299,7 +303,7 @@ def HREEI(DX, p, AK, GOU, ROU, KK, G0, A1, A2, A3, roelands_exponent, ENDA):
     some_flag = False
 
     # find HMIN
-    H = (GOU + ROU + V)  # gap height
+    H = (GOU + ROU + V)  # nd_gap height
     HMIN = min(H).flatten()
 
     if KK == 0:
@@ -515,7 +519,7 @@ def ehl(n, n1, hertzian_contact_stress, E1, eta_0, ball_radius, US, X0, XE, slid
 
         # Find load sharing
 
-        # find average, deformed gap
+        # find average, deformed nd_gap
 
 
 if __name__ == '__main__':

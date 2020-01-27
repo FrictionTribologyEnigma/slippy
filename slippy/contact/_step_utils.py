@@ -86,7 +86,7 @@ def solve_normal_interference(interference: float, gap: np.ndarray, model: _Cont
     interference: float
         The interference between the surfaces measured from the point of first contact
     gap: np.ndarray
-        The undeformed gap between the surfaces at the moment of first contact
+        The undeformed nd_gap between the surfaces at the moment of first contact
     model: _ContactModelABC
         A contact model object containing the surfaces
     adhesive_force: {float, Callable}, optional (None)
@@ -127,7 +127,7 @@ def solve_normal_interference(interference: float, gap: np.ndarray, model: _Cont
     if adhesive_force is None:
         adhesive_force = 0
 
-    # z = -1 * np.clip(gap - interference, None, 0)
+    # z = -1 * np.clip(nd_gap - interference, None, 0)
     # z[z == 0] = np.nan
     z = interference - gap  # necessary displacement for completely touching, positive is into surfaces
 
@@ -151,8 +151,8 @@ def solve_normal_interference(interference: float, gap: np.ndarray, model: _Cont
                                                                           other=surf_2.material,
                                                                           **material_options)
 
-        # find deformed gap and add contacting nodes to the contact nodes
-        deformed_gap = gap - interference + disp_tup[0].z  # the gap minus the interference plus the displacement
+        # find deformed nd_gap and add contacting nodes to the contact nodes
+        deformed_gap = gap - interference + disp_tup[0].z  # the nd_gap minus the interference plus the displacement
 
         force_another_iteration = False
         n_contact_nodes = sum(contact_nodes.flatten())

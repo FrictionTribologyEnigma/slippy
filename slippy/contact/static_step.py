@@ -210,10 +210,10 @@ class StaticNormalLoad(_ModelStep):
 
         # opt_result = optimize.minimize_scalar(opt_func, bounds=(0, upper),
         #                                      options={'maxiter': opt.maxit_load_loop, 'xatol': axtol},
-        #                                      method='bounded')  # tol = max(gap.flatten())*opt.rtol_load_loop/uz
+        #                                      method='bounded')  # tol = max(nd_gap.flatten())*opt.rtol_load_loop/uz
 
         current_state.update(results)
-        current_state['gap'] = gap
+        current_state['nd_gap'] = gap
         # check the solution is reasonable (check not 100% contact) check that the achived load is similar to the
         # #actual load, check that the loop converged
         # TODO
@@ -337,7 +337,7 @@ class StaticNormalInterference(_ModelStep):
         current_state['surf_1_disp'] = disp_tup[1]
         current_state['surf_2_disp'] = disp_tup[2]
         current_state['contact_nodes'] = contact_nodes
-        current_state['gap'] = gap
+        current_state['nd_gap'] = gap
         # check the solution is reasnoble (check not 100% contact) check that the achived load is similar to the
         # actual load, check that the loop converged
         # TODO
@@ -348,7 +348,7 @@ class StaticNormalInterference(_ModelStep):
         #    np.ITNUM = int(get_next_file_num(data_path))  #
 #
 #        total_load = np.sum(loads.z.flatten()) * self.model.surface_1.grid_spacing ** 2
-#        pickle.dump({b'gap': gap, b'height': height, b'total_load': total_load, b'interference': height,
+        #        pickle.dump({b'nd_gap': nd_gap, b'height': height, b'total_load': total_load, b'interference': height,
 #                     b's1_disp': disp_tup[1].z, b's2_disp': disp_tup[2].z,  b'all_loads': loads.z,
 #                     b'props': {b'E1': self.model.surface_1.material.E, b'v1': self.model.surface_1.material.v,
 #                                b'E2': self.model.surface_2.material.E, b'v2': self.model.surface_2.material.v},
