@@ -2,27 +2,28 @@
 
 # TODO documentation
 
-# TODO make list of all functionallity
+# TODO make list of all functionality
 
-import os
-import warnings
+import abc
+import collections
 import copy
+import csv
+import os
+import typing
+import warnings
+from numbers import Number
+
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.interpolate
 import scipy.signal
-import typing
-import abc
-import collections
-import csv
-from scipy.stats import probplot
 # noinspection PyUnresolvedReferences
 from mpl_toolkits.mplot3d import Axes3D
 from scipy.io import loadmat
+from scipy.stats import probplot
 from skimage.restoration import inpaint
-from slippy.abcs import _MaterialABC, _SurfaceABC
-from numbers import Number
 
+from slippy.abcs import _MaterialABC, _SurfaceABC
 from .ACF_class import ACF
 from .roughness_funcs import get_height_of_mat_vr, low_pass_filter
 from .roughness_funcs import get_mat_vr, get_summit_curvatures
@@ -124,21 +125,21 @@ class _Surface(_SurfaceABC):
     analytical surface please subclass _AnalyticalSurface
     """
 
-    # The surface class for descrete surfaces (typically experiemntal)
-    is_descrete: bool = False
+    # The surface class for discrete surfaces (typically experimental)
+    is_discrete: bool = False
     """ A bool flag, True if there is a profile present """
     acf: typing.Optional[ACF] = None
-    """ The autocorelation function of the surface profile """
+    """ The auto correlation function of the surface profile """
     psd: typing.Optional[np.ndarray] = None
     """ The power spectral density of the surface """
     fft: typing.Optional[np.ndarray] = None
     """ The fast fourier transform of the surface """
     surface_type: str = "Generic"
     """ A description of the surface type """
-    dimentions: typing.Optional[int] = 2
-    """ The number of spartial dimentions that """
+    dimensions: typing.Optional[int] = 2
+    """ The number of spatial dimensions that """
     is_analytic: bool = False
-    """ A bool, true if the surface can be described by an equaiton and a  Z=height(X,Y) method is provided"""
+    """ A bool, true if the surface can be described by an equation and a  Z=height(X,Y) method is provided"""
     invert_surface: bool = False
 
     _material: typing.Optional[_MaterialABC] = None
@@ -155,11 +156,11 @@ class _Surface(_SurfaceABC):
     _original_extent = None
 
     def __init__(self, grid_spacing: typing.Optional[float] = None, extent: typing.Optional[tuple] = None,
-                 shape: typing.Optional[tuple] = None, is_descrete: bool = False):
+                 shape: typing.Optional[tuple] = None, is_discrete: bool = False):
         if grid_spacing is not None and extent is not None and shape is not None:
             raise ValueError("Up to two of grid_spacing, extent and size should be set, all three were set")
 
-        self.is_descrete = is_descrete
+        self.is_discrete = is_discrete
 
         if grid_spacing is not None:
             self.grid_spacing = grid_spacing
@@ -209,7 +210,7 @@ class _Surface(_SurfaceABC):
 
     @property
     def extent(self):
-        """ The overall dimentions of the surface in the same units as grid spacing
+        """ The overall dimensions of the surface in the same units as grid spacing
         """
         return self._extent
 
@@ -219,7 +220,7 @@ class _Surface(_SurfaceABC):
             msg = "Extent must be a Sequence, got {}".format(type(value))
             raise TypeError(msg)
         if len(value) > 2:
-            raise ValueError("Too many elements in extent, must be a maximum of two dimentions")
+            raise ValueError("Too many elements in extent, must be a maximum of two dimensions")
 
         if self.profile is not None:
             p_aspect = (self.shape[0]) / (self.shape[1])
@@ -232,7 +233,7 @@ class _Surface(_SurfaceABC):
                 self._grid_spacing = value[0] / (self.shape[0])
         else:
             self._extent = tuple(value)
-            self.dimentions = len(value)
+            self.dimensions = len(value)
             if self.grid_spacing is not None:
                 self._shape = tuple([int(v / self.grid_spacing) for v in value])
                 self._size = np.product(self._shape)
@@ -255,7 +256,7 @@ class _Surface(_SurfaceABC):
     @shape.setter
     def shape(self, value: typing.Sequence[int]):
         if not isinstance(value, collections.Sequence):
-            raise ValueError(f"Shape shuld be a Sequence type, got: {type(value)}")
+            raise ValueError(f"Shape should be a Sequence type, got: {type(value)}")
 
         if self._profile is not None:
             raise ValueError("Cannot set shape when profile is present")
@@ -304,21 +305,20 @@ class _Surface(_SurfaceABC):
         try:
             self._profile = np.asarray(value, dtype=float)
         except ValueError:
-            msg = ("Could not convert profile to array of floats, profile contai"
-                   "ns invalid values")
+            msg = "Could not convert profile to array of floats, profile contains invalid values"
             raise ValueError(msg)
 
         self._shape = self._profile.shape
         self._size = self._profile.size
-        self.dimentions = len(self._profile.shape)
+        self.dimensions = len(self._profile.shape)
         self._wear = np.zeros_like(self._profile)
 
         if self.grid_spacing is not None:
             self._extent = tuple([self.grid_spacing * p for p in self.shape])
         elif self.extent is not None:
-            if self.dimentions == 1:
+            if self.dimensions == 1:
                 self._grid_spacing = (self.extent[0] / self.shape[0])
-            if self.dimentions == 2:
+            if self.dimensions == 2:
                 e_aspect = self.extent[0] / self.extent[1]
                 p_aspect = self.shape[0] / self.shape[1]
 
@@ -336,7 +336,7 @@ class _Surface(_SurfaceABC):
         del self.extent
         del self.mask
         self._wear = None
-        self.is_descrete = False
+        self.is_discrete = False
 
     @property
     def worn_profile(self):
@@ -398,7 +398,7 @@ class _Surface(_SurfaceABC):
             self._material = value
         else:
             raise ValueError("Unable to set material, expected material object"
-                             " recived %s" % str(type(value)))
+                             " received %s" % str(type(value)))
 
     @material.deleter
     def material(self):
@@ -407,13 +407,13 @@ class _Surface(_SurfaceABC):
     def get_fft(self, profile_in=None):
         """ Find the fourier transform of the surface
 
-        Findes the fft of the surface and stores it in your_instance.fft
+        Finds the fft of the surface and stores it in your_instance.fft
 
         Parameters
         ----------
         profile_in : array-like optional (None)
             If set the fft of profile_in will be found and returned otherwise
-            instances profile attribue is used
+            instances profile attribute is used
 
         Returns
         -------
@@ -465,9 +465,9 @@ class _Surface(_SurfaceABC):
             return transform
 
     def get_acf(self, profile_in=None):
-        """ Find the auto corelation function of the surface
+        """ Find the auto correlation function of the surface
 
-        Findes the ACF of the surface and stores it in your_instance.acf
+        Finds the ACF of the surface and stores it in your_instance.acf
 
         Parameters
         ----------
@@ -505,7 +505,7 @@ class _Surface(_SurfaceABC):
 
         >>> # Finding the ACF of a provided profile:
         >>> ACF_object_for_profile_2=my_surface.get_acf(np.array([[4, 3], [2, 1]]))
-        >>> # equvalent to ACF(profile_2)
+        >>> # equivalent to ACF(profile_2)
 
         """
 
@@ -521,7 +521,7 @@ class _Surface(_SurfaceABC):
     def get_psd(self):
         """ Find the power spectral density of the surface
 
-        Findes the PSD of the surface and stores it in your_instance.psd
+        Finds the PSD of the surface and stores it in your_instance.psd
 
         Parameters
         ----------
@@ -710,7 +710,7 @@ class _Surface(_SurfaceABC):
         >>> import slippy.surface as s
         >>> profile=np.random.normal(size=(101,101))
         >>> my_surface=s.assurface(profile, grid_spacing=1)
-        >>> # interpolate on a corse grid:
+        >>> # interpolate on a coarse grid:
         >>> my_surface.resample(10)
         >>> # check shape:
         >>> my_surface.shape
@@ -795,25 +795,25 @@ class _Surface(_SurfaceABC):
         return Surface(profile=new_profile, grid_spacing=new_gs)
 
     def __eq__(self, other):
-        if not isinstance(other, _Surface) or self.is_descrete != other.is_descrete:
+        if not isinstance(other, _Surface) or self.is_discrete != other.is_discrete:
             return False
-        if self.is_descrete:
+        if self.is_discrete:
             return np.array_equal(self.profile, other.profile) and self.grid_spacing == other.grid_spacing
         else:
             return repr(self) == repr(other)
 
     def show(self, property_to_plot='profile', plot_type='default', ax=False, *, dist=None, stride=None,
              **figure_kwargs):
-        """ Polt surface properties
+        """ Plot surface properties
 
         Parameters
         ----------
         property_to_plot : str or list of str length N optional ('profile')
             The property to be plotted see notes for supported names
-        plot_type : str or list of str length N optional ('defalut')
+        plot_type : str or list of str length N optional ('default')
             The type of plot to be produced, see notes for supported types
         ax : matplotlib axes or False optional (False)
-            If supploed the plot will be added to the axis
+            If supplied the plot will be added to the axis
         dist : a scipy probability distribution, optional (None)
             Only used if probplot is requested, the probability distribution
             to plot against
@@ -838,7 +838,7 @@ class _Surface(_SurfaceABC):
         Notes
         -----
         If fft, psd or acf are requested the field of the surface is filled
-        by the relavent get_ method before plotting.
+        by the relevant get_ method before plotting.
 
         The grid spacing attribute should be set before plotting
 
@@ -848,7 +848,7 @@ class _Surface(_SurfaceABC):
             - fft2d   - fft of the surface profile
             - psd     - power spectral density of the surface profile
             - acf     - auto correlation function of the surface
-            - apsd    - angular powerspectral density of the profile
+            - apsd    - angular power spectral density of the profile
 
         Plot types allowed for 2D plots are:
 
@@ -863,7 +863,7 @@ class _Surface(_SurfaceABC):
 
             - histogram - histogram of the profile heights
             - fft1d     - 1 dimentional fft of the surface
-            - qq        - quantile quantile plot of the surface heights
+            - qq        - quartile quartile plot of the surface heights
 
         If qq or dist hist are requested the distribution to be plotted against
         the height values can be specified by the dist keyword
@@ -884,8 +884,7 @@ class _Surface(_SurfaceABC):
         """
 
         if self.profile is None:
-            raise AttributeError('The profile of the surface must be set befor'
-                                 'e it can be shown')
+            raise AttributeError('The profile of the surface must be set before it can be shown')
 
         types2d = ['profile', 'fft2d', 'psd', 'acf', 'apsd']
         types1d = ['histogram', 'fft1d', 'qq', 'hist']
@@ -973,7 +972,7 @@ class _Surface(_SurfaceABC):
                 y = np.fft.fftfreq(self.shape[1], self.grid_spacing)
 
             elif property_to_plot == 'acf':
-                labels = ['Auto corelation function', 'x', 'y',
+                labels = ['Auto correlation function', 'x', 'y',
                           'Surface auto correlation']
                 if self.acf is None:
                     self.get_acf()
@@ -999,7 +998,7 @@ class _Surface(_SurfaceABC):
 
             mesh_x, mesh_y = np.meshgrid(x, y)
 
-            if  plot_type == 'surface':
+            if plot_type == 'surface':
                 ax.plot_surface(mesh_x, mesh_y, np.transpose(z))
                 # plt.axis('equal')
                 ax.set_zlabel(labels[3])
@@ -1034,11 +1033,11 @@ class _Surface(_SurfaceABC):
 
             if property_to_plot == 'histogram' or property_to_plot == 'hist':
                 # do all plotting in this loop for 1D plots
-                labels = ['Histogram of sufrface heights', 'height', 'counts']
+                labels = ['Histogram of surface heights', 'height', 'counts']
                 ax.hist(self.profile.flatten(), 100)
 
             elif property_to_plot == 'fft1d':
-                if self.dimentions == 1:
+                if self.dimensions == 1:
                     labels = ['FFt of surface', 'frequency', '|F(x)|']
 
                     if type(self.fft) is bool:
@@ -1054,13 +1053,13 @@ class _Surface(_SurfaceABC):
                     u = np.fft.fftfreq(self.shape[0], self.grid_spacing)
                     v = np.fft.fftfreq(self.shape[1], self.grid_spacing)
                     u_mesh, v_mesh = np.meshgrid(u, v)
-                    freqs = u_mesh + v_mesh
+                    frequencies = u_mesh + v_mesh
                     if type(self.fft) is bool:
                         self.get_fft()
                     mags = np.abs(self.fft)
                     # scatter plot for 2d frequencies
-                    ax.scatter(freqs.flatten(), mags.flatten(), 0.5, None, 'x')
-                    ax.set_xlim(0, max(freqs.flatten()))
+                    ax.scatter(frequencies.flatten(), mags.flatten(), 0.5, None, 'x')
+                    ax.set_xlim(0, max(frequencies.flatten()))
                     ax.set_ylim(0, max(mags.flatten()))
             elif property_to_plot == 'qq':
 
@@ -1072,7 +1071,7 @@ class _Surface(_SurfaceABC):
                 else:
                     probplot(self.profile.flatten(), fit=True, plot=ax)
             else:
-                raise ValueError(f"Porperty to plot {property_to_plot}, not recognised.")
+                raise ValueError(f"Property to plot {property_to_plot}, not recognised.")
 
             ax.set_title(labels[0])
             ax.set_xlabel(labels[1])
@@ -1111,7 +1110,7 @@ class _Surface(_SurfaceABC):
             try:
                 mesh_x, mesh_y = dum.get_points_from_extent()
             except AttributeError:
-                raise ValueError('Exactly two parameters must be suppplied')
+                raise ValueError('Exactly two parameters must be supplied')
 
         return mesh_x, mesh_y
 
@@ -1119,7 +1118,7 @@ class _Surface(_SurfaceABC):
         """
         Returns a Mesh object for the surface
 
-        Equvalent to Mesh(surface)
+        Equivalent to Mesh(surface)
 
         Parameters
         ----------
@@ -1128,13 +1127,13 @@ class _Surface(_SurfaceABC):
         """
         pass
         # raise NotImplementedError("No mesh yet, Sorry!")
-        # if not self.is_descrete:
-        #     raise ValueError("Surface must be descrete before meshing")
+        # if not self.is_discrete:
+        #     raise ValueError("Surface must be discrete before meshing")
 
     def interpolate(self, x_points: np.ndarray, y_points: np.ndarray, mode: str = 'nearest',
                     remake_interpolator: bool = False):
         """
-        Easy memoised interpolation on surface objects
+        Easy memoized interpolation on surface objects
 
         Parameters
         ----------
@@ -1186,21 +1185,21 @@ class Surface(_Surface):
         ----------
         profile: np.ndarray, optional (None)
             The height profile of the surface, the units should be the same as used for the grid spacing parameter
-        grid_spacing: float, optioanl (None)
+        grid_spacing: float, optional (None)
             The distance between the grid points in the surface profile
         shape: tuple, optional (None)
-            The number of grid points in the surrface in each direction, should not be set if a profile is given
+            The number of grid points in the surface in each direction, should not be set if a profile is given
         extent: tuple, optional (None)
             The total extent of the surface in the same units as the grid spacing, either this or the grid spacing can
             be set if a profile is given (either as the profile argument or from a file)
         file_name: str, optional (None)
-            The full path including the file extention to a supported file type, supported types are .txt, .csv, .al3d,
+            The full path including the file extension to a supported file type, supported types are .txt, .csv, .al3d,
             .mat
         csv_delimiter: str, optional (None)
-            The delimeter used in the .csv or .txt file, only used if the file name is given and the file is a .txt or
+            The delimiter used in the .csv or .txt file, only used if the file name is given and the file is a .txt or
             .csv file
         csv_dialect: {csv.Dialect, str), optional ('sniff')
-            The dialect used to read the csv file, only used if a file is suppled and the file is a csv file, defaults
+            The dialect used to read the csv file, only used if a file is supplied and the file is a csv file, defaults
             to 'sniff' meaning that the csv. sniffer will be used.
         csv_sniffer_n_bytes: int, optional (2048)
             The number of bytes used by the csv sniffer, only used if 'sniff' is given as the dialect and a csv file is
@@ -1242,8 +1241,8 @@ class Surface(_Surface):
 
         if profile is not None or file_name is not None:
             if shape is not None:
-                raise ValueError("The shape cannot be set if the profile is also set, please set either the grid_spacin"
-                                 "g or the extent only")
+                raise ValueError("The shape cannot be set if the profile is also set, please set either the "
+                                 "grid_spacing or the extent only")
             if grid_spacing is not None and extent is not None:
                 raise ValueError("Either the grid_spacing or the extent should be set with a profile, not both")
             self.profile = profile
@@ -1258,9 +1257,9 @@ class Surface(_Surface):
                 self.read_al3d(file_name)
             elif file_ext == '.txt' or file_ext == '.csv':
                 self.read_csv(file_name, delimiter=csv_delimiter, dialect=csv_dialect, sniff_bytes=csv_sniffer_n_bytes)
-            # read file replace profiel
+            # read file replace profile
 
-        super().__init__(grid_spacing=grid_spacing, extent=extent, shape=shape, is_descrete=True)
+        super().__init__(grid_spacing=grid_spacing, extent=extent, shape=shape, is_discrete=True)
 
     def read_al3d(self, file_name: str, return_data: bool = False):
         """
@@ -1269,7 +1268,7 @@ class Surface(_Surface):
         Parameters
         ----------
         file_name: str
-            The full path including the extention of the .al3d file
+            The full path including the extension of the .al3d file
         return_data: bool, optional (False)
             If True the data from the al3d file is returned as a dict
 
@@ -1293,7 +1292,7 @@ class Surface(_Surface):
         Parameters
         ----------
         file_name: str
-            The full path to the .txt or .csv file including the file extention
+            The full path to the .txt or .csv file including the file extension
         delimiter: str, optional (None)
             The delimiter used in by csv reader
         return_profile: bool, optional (False)
@@ -1345,13 +1344,13 @@ class Surface(_Surface):
         profile_name : srt, optional ('profile')
             The name of the profile variable in the .mat file
         grid_spacing_name : str, optional (None)
-            The name of the grid_spacing variable in the .mat file, if set to none the grid spacing variabel is not set
+            The name of the grid_spacing variable in the .mat file, if set to none the grid spacing variable is not set
 
         Notes
         -----
         This method will search the .mat file for the given keys. If no keys
         are given, and the .mat file contains variables called grid_spacing or
-        profile these are set as the relavent attributes. Otherwise, if the
+        profile these are set as the relevant attributes. Otherwise, if the
         .mat file only contains one variable this is set as the profile.
         If none of the above are true, or if the given keys are not found
         an error is raised
@@ -1363,8 +1362,7 @@ class Surface(_Surface):
 
         if grid_spacing_name is not None:
             try:
-                # noinspection PyAttributeOutsideInit
-                self.grid_spcaing = mat[grid_spacing_name]
+                self.grid_spacing = mat[grid_spacing_name]
             except KeyError:
                 msg = ("Name {} not found in .mat file,".format(grid_spacing_name) +
                        " names found were: ".join(keys))
@@ -1379,7 +1377,7 @@ class Surface(_Surface):
 
     def fill_holes(self, hole_value='auto', mk_copy=False, remove_boarder=True,
                    b_thresh=0.99):
-        """ Replaces specificed values with filler
+        """ Replaces specified values with filler
 
         Removes boarder then uses biharmonic equations algorithm to fill holes
 
@@ -1397,7 +1395,7 @@ class Surface(_Surface):
             first row and column that have
         b_thresh : float
             (0>, <=1) If the boarder is removed, the removal will continue until the row
-            or coloumn to be removed contains at least this proportion of real values
+            or column to be removed contains at least this proportion of real values
 
         Returns
         -------
@@ -1507,12 +1505,13 @@ class Surface(_Surface):
 
 class _AnalyticalSurface(_Surface):
     """
-    A abstract base class for analytical surfaces, to extend the height and __repr__ mehtods must be overwritten
+    A abstract base class for analytical surfaces, to extend the height and __repr__ methods must be overwritten
     """
     _total_shift: tuple = (0, 0)
     _total_rotation: float = 0
     is_analytic = True
     _analytic_subclass_registry = []
+    is_discrete = False
 
     def __init__(self, generate: bool = False, rotation: Number = None,
                  shift: typing.Union[str, tuple] = None,
@@ -1524,26 +1523,26 @@ class _AnalyticalSurface(_Surface):
         self.shift(shift)
 
         if generate:
-            self.descretise()
+            self.discretise()
 
-    def descretise(self):
-        if self.is_descrete:
+    def discretise(self):
+        if self.is_discrete:
             msg = ('Surface is already discrete this will overwrite surface'
                    ' profile')
             warnings.warn(msg)
         if self.grid_spacing is None:
-            msg = 'A grid spacing must be provided before descretisation'
+            msg = 'A grid spacing must be provided before discretisation'
             raise AttributeError(msg)
 
         if self.extent is None:
-            msg = 'The extent or the shape of the surface must be set before descretisation'
+            msg = 'The extent or the shape of the surface must be set before discretisation'
             raise AttributeError(msg)
         if self.size > 10E7:
             warnings.warn('surface contains over 10^7 points calculations will'
                           ' be slow, consider splitting surface for analysis')
 
         x_mesh, y_mesh = self.get_points_from_extent()
-        self.is_descrete = True
+        self.is_discrete = True
         self.profile = self.height(x_mesh, y_mesh)
 
     @abc.abstractmethod
@@ -1591,7 +1590,7 @@ class _AnalyticalSurface(_Surface):
             string += ', shift = ' + repr(self._total_shift)
         if self._total_rotation:
             string += ', rotation = ' + repr(self._total_rotation)
-        if self.is_descrete:
+        if self.is_discrete:
             string += ', generate = True'
         if self.grid_spacing:
             string += f', grid_spacing = {self.grid_spacing}'
@@ -1645,12 +1644,12 @@ class _AnalyticalSurface(_Surface):
             return SurfaceCombination(self, other)
 
         if isinstance(other, Surface):
-            if not self.is_descrete:
+            if not self.is_discrete:
                 self_copy = copy.copy(self)
                 self_copy.extent = other.extent
                 self_copy.grid_spacing = other.grid_spacing
                 self_copy.shape = other.shape
-                self_copy.descretise()
+                self_copy.discretise()
                 return other + self_copy
 
         return super().__add__(other)
@@ -1673,14 +1672,14 @@ class _AnalyticalSurface(_Surface):
         if not isinstance(other, self.__class__):
             return False
 
-        if self.is_descrete and other.is_descrete:
+        if self.is_discrete and other.is_discrete:
             return super().__eq__(other)
 
         return self.__dict__ == other.__dict__
 
     def show(self, property_to_plot='profile', plot_type='default', ax=False, *, dist=None, stride=None, n_pts=100,
              **figure_kwargs):
-        if self.is_descrete:
+        if self.is_discrete:
             return super().show(property_to_plot=property_to_plot, plot_type=plot_type, ax=ax, dist=dist, stride=stride,
                                 **figure_kwargs)
 
@@ -1755,12 +1754,3 @@ class SurfaceCombination(_AnalyticalSurface):
 if __name__ == '__main__':
     A = Surface(file_name='C:\\Users\\44779\\code\\SlipPY\\data\\image1_no header_units in nm.txt', csv_delimiter=' ',
                 grid_spacing=0.001)
-    # testing show()
-    # types2d=['profile', 'fft2d', 'psd', 'acf', 'apsd']
-    # types1d=['histogram','fft1d', 'qq', 'disthist']
-    # A.show(['profile','fft2d','acf'], ['surface', 'mesh', 'image'])
-    # A.show(['histogram', 'fft1d', 'qq', 'disthist'])
-    # out=A.birmingham(['sa', 'sq', 'ssk', 'sku'])
-    # out=A.birmingham(['sds','sz', 'ssc'])
-    # out=A.birmingham(['std','sbi', 'svi', 'str'])
-    # out=A.birmingham(['sdr', 'sci', 'str'])
