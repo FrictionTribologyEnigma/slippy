@@ -110,7 +110,7 @@ class _ModelStep(_StepABC):
         -------
         errors: bool
             True if there were no errors false if there were errors
-        current_state: set
+        previous_state: set
             set of items in the current state afteer the step has run
         """
         raise NotImplementedError("Data check have not been implemented for this step type!")
@@ -127,7 +127,7 @@ class _ModelStep(_StepABC):
 
         Returns
         -------
-        current_state
+        previous_state
         """
         raise NotImplementedError("Solver not specified for this step!")
 

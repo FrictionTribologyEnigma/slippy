@@ -23,10 +23,12 @@ Classes for generating pseudo-random surfaces based on description of FFT:
         doc strings
 """
 
-from .Surface_class import _AnalyticalSurface, Surface
-import numpy as np
 import typing
 from numbers import Number
+
+import numpy as np
+
+from .Surface_class import _AnalyticalSurface, Surface
 
 __all__ = ["DiscFreqSurface", "ProbFreqSurface", "HurstFractalSurface"]  # , "DtmnFreqSurface"]
 
@@ -57,7 +59,7 @@ class DiscFreqSurface(_AnalyticalSurface):
     grid_spacing: float, optional (None)
         The grid spacing of the surface profile
     extent: tuple, optional (None)
-        The overall dimentions of the surface in the same units as the grid spacing, should be a two element tuple of
+        The overall dimensions of the surface in the same units as the grid spacing, should be a two element tuple of
         float
     shape: tuple = None
         The number of points in each direction of the surface array, should be a two element tuple of integers
@@ -82,7 +84,7 @@ class DiscFreqSurface(_AnalyticalSurface):
     
     Usage:
     
-    DiscFreqSurface(frequencies, amptitudes=[1], phases_rads=[0], dimentions=2)
+    DiscFreqSurface(frequencies, amptitudes=[1], phases_rads=[0], dimensions=2)
     
     Generates a surface with the specified frequencies, amptitudes and phases 
     any kwargs that can be passed to surface can also be passed to this
@@ -94,7 +96,7 @@ class DiscFreqSurface(_AnalyticalSurface):
     Generates and descretises a 2D surface with a frequency of 10 rads/unit
     of global size, descretised on a grid with a grid_spacing of 0.001
     """
-    is_descrete = False
+    is_discrete = False
     surface_type = 'discreteFreq'
 
     def __init__(self, frequencies: typing.Sequence[float], amptitudes: typing.Sequence[float] = (1,),
@@ -156,7 +158,7 @@ class ProbFreqSurface(_AnalyticalSurface):
     
     """
 
-    is_descrete = False
+    is_discrete = False
     surface_type = 'Random'
 
     def __init__(self, h=2, qr=0.05, qs=10,
@@ -211,7 +213,7 @@ class HurstFractalSurface(Surface):
     grid_spacing: float, optional (None)
         The grid spacing of the surface profile
     extent: tuple, optional (None)
-        The overall surface dimentions in the x and y direcitons
+        The overall surface dimensions in the x and y direcitons
     shape: tuple, otional (None)
         The number of grid points in the x and y directions, computation is faster for powers of 2
 
@@ -250,11 +252,11 @@ class HurstFractalSurface(Surface):
     >>> #create the surface object with the specified fractal prameters
     >>> my_surface=HurstFractalSurface(1,0.2,1000, shape=(128, 128), grid_spacing=0.01)
     >>> #descrtise the surface over a grid 1 unit by 1 unit with a grid_spacing of 0.01
-    >>> my_surface.descretise()
+    >>> my_surface.discretise()
     >>> my_surface.show()
 
     """
-    is_descrete = False
+    is_discrete = False
     surface_type = "hurstFractal"
 
     def __init__(self, sigma: float, hurst_exponent: float, roll_off_frequency: float = 0, generate: bool = False,

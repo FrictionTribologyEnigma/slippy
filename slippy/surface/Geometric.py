@@ -22,12 +22,14 @@ Classes for generating geometric surfaces:
 
 __all__ = ['FlatSurface', 'RoundSurface', 'PyramidSurface']
 
-from .Surface_class import _AnalyticalSurface
-import warnings
-import numpy as np
-from numbers import Number
-import typing
 import collections.abc
+import typing
+import warnings
+from numbers import Number
+
+import numpy as np
+
+from .Surface_class import _AnalyticalSurface
 
 
 class FlatSurface(_AnalyticalSurface):
@@ -85,7 +87,7 @@ class FlatSurface(_AnalyticalSurface):
             # noinspection PyTypeChecker
             slope = float(slope)
             self._slope = [slope, 0]
-            if self.dimentions == 2:
+            if self.dimensions == 2:
                 warnings.warn("Assumed 0 slope in Y direction for"
                               " analytical flat surface")
         super().__init__(generate=generate, rotation=rotation, shift=shift,
@@ -264,7 +266,7 @@ class PyramidSurface(_AnalyticalSurface):
             lengths = (lengths, ) * 3
 
         if type(lengths) is tuple:
-            if len(lengths) == (self.dimentions + 1):
+            if len(lengths) == (self.dimensions + 1):
                 self._lengths = lengths
             else:
                 msg = ('Lengths must be either scalar or list of Lengths equal'

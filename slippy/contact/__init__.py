@@ -7,15 +7,38 @@ Contact mechanics models (:mod:`slippy.contact`)
 
 This module contains functions and classes for contact mechanics.
 
-Functions and classes for generating multistep contact models
+Functions and classes for generating multi-step contact models
 =============================================================
 
 .. autosummary::
    :toctree: generated
 
-   ContactModel   --A multistep contact model
-   Step           --
-   Elastic
+   ContactModel   -- A multi-step contact model
+
+   Step                     -- An abstract base class for steps in a contact model
+   SurfaceDisplacement      -- Specified displacements on each grid point of a surface
+   SurfaceLoading           -- Specified pressures on each grid point of a surface
+   StaticNormalInterference -- Specified interference between two surfaces
+   StaticNormalLoad         -- Specified loading between two surfaces
+   ClosurePlot              -- Generate the data for a closure plot/ load separation curve for two surfaces
+   PullOff                  -- Generate the data for an adhesive pull off test between two surfaces
+
+   IterSemiSystemLoad       -- Iterative semi system lubrication step
+
+   Material       -- An abstract base class for materials, these are assigned to surfaces
+   Elastic        -- An elastic material
+
+Adhesion models which can be added to dry contacts
+
+Sub models which can be added to a contact simulation
+=====================================================
+
+#TODO
+
+Output requests for long simulations
+====================================
+
+#TODO
 
 Analytical solutions to common problems
 =======================================
@@ -27,20 +50,20 @@ Analytical solutions to common problems
    solve_hertz_line
    solve_hertz_point
 
-XXXXXXXX put some examples here!
-================================
+Examples
+========
+Examples can be found in the examples folder on github:
+https://github.com/FrictionTribologyEnigma/SlipPY/tree/master/examples
 
-   
 """
 
+from ._material_utils import Loads, Displacements
+from .adhesion_models import *
+from .friciton_models import *
 from .hertz import *
 from .materials import *
-from .friciton_models import *
-from .adhesion_models import *
-from ._material_utils import Loads, Displacements
-from .steps import *
-from .static_step import *
 from .models import *
-
+from .static_step import *
+from .steps import *
 
 __all__ = [s for s in dir() if not s.startswith("_")]

@@ -10,7 +10,9 @@ roughness functions are tested in more detail in their own tests
 import numpy as np
 import numpy.testing as npt
 from pytest import raises as assert_raises
+
 import slippy.surface as S
+
 
 def test_assurface():
     profile=np.random.normal(size=[10,10])
@@ -114,13 +116,13 @@ def test_dimentions():
     npt.assert_equal(ms.shape, (10, 10))
     ms.grid_spacing=0.1
     npt.assert_allclose(ms.extent, [1,1])
-    assert ms.is_descrete==True
+    assert ms.is_discrete == True
     
     # deleting 
     
     del ms.profile
-    
-    assert ms.is_descrete==False
+
+    assert ms.is_discrete == False
     assert ms.profile is None
     assert ms.extent is None
     assert ms.shape is None

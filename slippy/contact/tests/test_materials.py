@@ -1,8 +1,8 @@
-import slippy.surface as S
-import slippy.contact as C
-
 import numpy as np
 import numpy.testing as npt
+
+import slippy.contact as C
+import slippy.surface as S
 
 """
 If you add a material you need to add the properties that it will be tested with to the material_parameters dict, 
@@ -56,7 +56,7 @@ def test_elastic():
     round_surface = S.RoundSurface()
     round_surface.extent = [1, 1]
     round_surface.grid_spacing = 0.01
-    round_surface.descretise()
+    round_surface.discretise()
     steel = C.Elastic('steel', {'E': 200e9, 'v': 0.3})
     round_surface.material = steel
     assert isinstance(round_surface.material, C._Material)
@@ -116,7 +116,7 @@ def test_elastic():
     ball = S.RoundSurface(1, 1)
     ball.extent = analytical_result['contact_radii'][0]*3
     ball.shape = (256, 256)
-    ball.descretise()
+    ball.discretise()
     displacemnets = ball-analytical_result['total_deflection']
     pass
 

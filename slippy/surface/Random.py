@@ -6,17 +6,19 @@
 
 """
 
-from .Surface_class import Surface, _Surface
-from .ACF_class import ACF
-import warnings
-import numpy as np
-from numpy.matlib import repmat
-from scipy.signal import fftconvolve
-from scipy.optimize import fsolve
-import scipy.stats
-from ._johnson_utils import _fit_johnson_by_moments, _fit_johnson_by_quantiles
 import typing
+import warnings
 from collections import defaultdict
+
+import numpy as np
+import scipy.stats
+from numpy.matlib import repmat
+from scipy.optimize import fsolve
+from scipy.signal import fftconvolve
+
+from .ACF_class import ACF
+from .Surface_class import Surface, _Surface
+from ._johnson_utils import _fit_johnson_by_moments, _fit_johnson_by_quantiles
 
 __all__ = ['RandomFilterSurface', 'RandomPerezSurface', 'surface_like']
 
@@ -155,7 +157,7 @@ class RandomPerezSurface(_Surface):
         >>>Cq = sigma**2*beta/(2*np.pi*(beta**2+Qx**2+Qy**2)**0.5) # the PSD of the surface
         >>>height_distribution = stats.norm()
         >>>my_surface = s.RandomPerezSurface(target_psd = Cq, height_distribution=height_distribution, grid_spacing=1)
-        >>>my_surface.descretise()
+        >>>my_surface.discretise()
         >>>my_surface.show()
         Zh, Zs, error = fractal_surf_generator(np.fft.ifftshift(Cq),
                                                np.random.randn(256,256),
@@ -318,7 +320,7 @@ class RandomFilterSurface(_Surface):
     dist = scipy.stats.norm(loc=0, scale=1)
     _filter_coeficents: np.ndarray = None
     target_acf: ACF = None
-    is_descrete: bool = False
+    is_discrete: bool = False
     _moments = None
     _method_keywords = None
 
@@ -398,7 +400,7 @@ class RandomFilterSurface(_Surface):
             The target ACF, the linear transfrom matrix will produce surfaces
             with this ACF.
         filter_size_n_m : 2 element sequence of int
-            The dimentions of the filter coeficent matrix to be genrated the defaultis (35, 35)
+            The dimensions of the filter coeficent matrix to be genrated the defaultis (35, 35)
         max_it : int, optional (100)
             The maximum number of iterations used
         accuracy : float, optional (1e-11)
@@ -781,7 +783,7 @@ def surface_like(target_surface: Surface, extent: typing.Union[str, tuple] = 'or
         
     extent : {'origninal' or 2 element list of ints}
         The size in each direction of the output surface, 
-        if 'original' the dimentions of the input surface are used
+        if 'original' the dimensions of the input surface are used
         
     grid_spacing : {'original' or float}
         The spacing between grid points, if 'original' the grid spacing of the 

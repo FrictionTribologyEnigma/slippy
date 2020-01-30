@@ -1,3 +1,5 @@
+scikit-image
+matplotlib
 numpy
 scipy
 name: slippy

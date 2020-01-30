@@ -561,9 +561,9 @@ class _Material(_MaterialABC):
         inf_comp = self.influence_matrix(component, *im_args, **im_kwargs)[component]
         influence_martix_span = inf_comp.shape
         if periodic:
-            # check that the surface shape is odd in both dimentions
+            # check that the surface shape is odd in both dimensions
             if not all([el % 2 for el in surface_shape]):
-                raise ValueError("Surface shape must be odd in both dimentions for periodic surfaces")
+                raise ValueError("Surface shape must be odd in both dimensions for periodic surfaces")
             # trim the influence matrix if necessary
             dif = [int((ims - ss) / 2) for ims, ss in zip(influence_martix_span, surface_shape)]
             if dif[0] > 0:
@@ -838,7 +838,7 @@ class Elastic(_Material):
         """
         if any([not s % 2 for s in span]):
             warnings.warn('Even number of values requested in influence matrix, shape has been updated to one more than'
-                          'requested along even dimentions')
+                          'requested along even dimensions')
 
         try:
             # lets just see how this changes

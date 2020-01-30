@@ -36,12 +36,12 @@ StaticNormalLoadOptions = namedtuple('StaticNormalLoadOptions',
                                      ['maxit_load_loop', 'atol_load_loop',
                                       'rtol_load_loop', 'periodic', 'interpolation_mode', 'max_it_find_contact_nodes',
                                       'material_options'],
-                                     defaults=(None, )*7)
+                                     defaults=(None,) * 7)
 
 StaticNormalInterferenceOptions = namedtuple('StaticNormalInterferenceOptions',
                                              ['periodic', 'interpolation_mode',
                                               'max_it_find_contact_nodes', 'material_options'],
-                                             defaults=(None, )*4)
+                                             defaults=(None,) * 4)
 
 
 class StaticNormalLoad(_ModelStep):
@@ -128,7 +128,7 @@ class StaticNormalLoad(_ModelStep):
 
     def data_check(self, previous_state: set):
         # check that both surfaces are defined, both materials are defined, if there is a tangential load check that
-        # there is a friction model defined, print all of this to console, update the current_state set, delete the
+        # there is a friction model defined, print all of this to console, update the previous_state set, delete the
         # previous state?
 
         current_state = {'off_set', 'loads', 'surface_1_disp', 'surface_2_disp', 'total_disp', 'undeformed_gap',
@@ -136,19 +136,42 @@ class StaticNormalLoad(_ModelStep):
 
         return current_state
 
-    def solve(self, current_state: dict, output_file):
-        # just encase the displacement finder in a scipy optimise block should be a continuous function, no special
+    def solve(self, previous_state: dict, output_file):
+        """
+        Solve this model step
+
+        Parameters
+        ----------
+        previous_state: dict
+            The previous state of the model
+        output_file: file buffer
+            The file in which the outputs will be written
+
+        Returns
+        -------
+        current_state: dict
+            The current state of the model
+
+        """
+        # just in case the displacement finder in a scipy optimise block should be a continuous function, no special
         # treatment required
+        initial_contact_nodes = previous_state['contact_nodes'] if 'contact_nodes' in previous_state else None
+
         opt = self._options
 
         if self._abs_off_set:
             off_set = self._off_set
         else:
-            off_set = tuple(current + change for current, change in zip(current_state['off_set'], self._off_set))
+            off_set = tuple(current + change for current, change in zip(previous_state['off_set'], self._off_set))
 
         # noinspection PyTypeChecker
-        gap, surf_1_pts, surf_2_pts = get_gap_from_model(self.model, interferance=0, off_set=off_set,
-                                                         mode=opt.interpolation_mode, periodic=opt.periodic)
+        just_touching_gap, surface_1_points, surface_2_points = get_gap_from_model(self.model, interferance=0,
+                                                                                   off_set=off_set,
+                                                                                   mode=opt.interpolation_mode,
+                                                                                   periodic=opt.periodic)
+
+        current_state = dict(just_touching_gap=just_touching_gap, surface_1_points=surface_1_points,
+                             surface_2_points=surface_2_points)
 
         adhesion_model = self._adhesion if self._adhesion else None
 
@@ -162,43 +185,40 @@ class StaticNormalLoad(_ModelStep):
         except AttributeError:
             uz = 1
 
-        initial_contact_nodes = current_state['contact_nodes'] if 'contact_nodes' in current_state else None
-
         print(f'uz = {uz}')
-
 
         def opt_func(height):
             nonlocal results, it
 
-            # make height non dimensional
+            # make height dimensional
             height *= uz
             it += 1
 
             # noinspection PyTypeChecker
-            loads, *disp_tup, contact_nodes = solve_normal_interference(height, gap=gap, model=self.model,
+            loads, *disp_tup, contact_nodes = solve_normal_interference(height, gap=just_touching_gap, model=self.model,
                                                                         adhesive_force=adhesion_model,
                                                                         contact_nodes=initial_contact_nodes,
                                                                         max_iter=opt.max_it_find_contact_nodes,
                                                                         material_options=opt.material_options)
 
             results['loads'] = loads
-            results['total_disp'] = disp_tup[0]
-            results['surf_1_disp'] = disp_tup[1]
-            results['surf_2_disp'] = disp_tup[2]
+            results['total_displacement'] = disp_tup[0]
+            results['surface_1_displacement'] = disp_tup[1]
+            results['surface_2_displacement'] = disp_tup[2]
             results['contact_nodes'] = contact_nodes
             print(f'Iteration {it}:')
             print(f'Interference is: {height}')
-            print(f'Percentage of nodes in contact: {sum(contact_nodes.flatten())/contact_nodes.size}')
+            print(f'Percentage of nodes in contact: {sum(contact_nodes.flatten()) / contact_nodes.size}')
             set_load = self._load.z
             print(f'Target load is: {set_load}')
 
-            total_load = np.sum(loads.z.flatten())*self.model.surface_1.grid_spacing**2
+            total_load = np.sum(loads.z.flatten()) * self.model.surface_1.grid_spacing ** 2
             print(f'Total load is: {total_load}')
 
-            return total_load-set_load
+            return total_load - set_load
 
         # need to set bounds and pick a sensible starting point
-        upper = 5*max(gap.flatten())/uz
+        upper = 5 * max(just_touching_gap.flatten()) / uz
 
         print(f'upper bound set at: {upper}')
         print(f'Interference tolerance set to {opt.atol_load_loop} A, {opt.rtol_load_loop} R')
@@ -208,19 +228,9 @@ class StaticNormalLoad(_ModelStep):
         opt_result = optimize.root_scalar(opt_func, bracket=(0, upper), rtol=opt.rtol_load_loop,
                                           xtol=opt.atol_load_loop, maxiter=opt.maxit_load_loop)
 
-        # opt_result = optimize.minimize_scalar(opt_func, bounds=(0, upper),
-        #                                      options={'maxiter': opt.maxit_load_loop, 'xatol': axtol},
-        #                                      method='bounded')  # tol = max(nd_gap.flatten())*opt.rtol_load_loop/uz
-
         current_state.update(results)
-        current_state['nd_gap'] = gap
-        # check the solution is reasonable (check not 100% contact) check that the achived load is similar to the
-        # #actual load, check that the loop converged
-        # TODO
-
-        # find the loads on surface 1, 2
-
-        current_state['interference'] = opt_result.root*uz
+        current_state['interference'] = opt_result.root * uz
+        current_state['gap'] = just_touching_gap - current_state['interference'] + results['total_displacement'].z
 
         # check out put requests/ sub models
         self.solve_sub_models(current_state)
@@ -346,16 +356,16 @@ class StaticNormalInterference(_ModelStep):
         ################################################################################################################
         # if not hasattr(np, 'ITNUM'):
         #    np.ITNUM = int(get_next_file_num(data_path))  #
-#
-#        total_load = np.sum(loads.z.flatten()) * self.model.surface_1.grid_spacing ** 2
+        #
+        #        total_load = np.sum(loads.z.flatten()) * self.model.surface_1.grid_spacing ** 2
         #        pickle.dump({b'nd_gap': nd_gap, b'height': height, b'total_load': total_load, b'interference': height,
-#                     b's1_disp': disp_tup[1].z, b's2_disp': disp_tup[2].z,  b'all_loads': loads.z,
-#                     b'props': {b'E1': self.model.surface_1.material.E, b'v1': self.model.surface_1.material.v,
-#                                b'E2': self.model.surface_2.material.E, b'v2': self.model.surface_2.material.v},
-#                     b'grid': self.model.surface_1.grid_spacing},
-#                    open(f"{data_path}\\{np.ITNUM}.pkl", "wb"))
-#
-#        np.ITNUM += 1
+        #                     b's1_disp': disp_tup[1].z, b's2_disp': disp_tup[2].z,  b'all_loads': loads.z,
+        #                     b'props': {b'E1': self.model.surface_1.material.E, b'v1': self.model.surface_1.material.v,
+        #                                b'E2': self.model.surface_2.material.E, b'v2': self.model.surface_2.material.v},
+        #                     b'grid': self.model.surface_1.grid_spacing},
+        #                    open(f"{data_path}\\{np.ITNUM}.pkl", "wb"))
+        #
+        #        np.ITNUM += 1
         ################################################################################################################
         # check out put requests, check optional extra stuff that can be truned on?????
         self.solve_sub_models(current_state)
@@ -559,7 +569,7 @@ class _StaticStep(_ModelStep):
                              " set")
         #
 
-    def _solve(self, current_state, log_file, output_file):
+    def _solve(self, previous_state, log_file, output_file):
 
         if self._surfaces_required == 1:
 
