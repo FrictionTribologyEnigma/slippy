@@ -1,19 +1,21 @@
 import abc
+import inspect
 import pickle
 import typing
 
-from slippy.abcs import _ContactModelABC, _StepABC
+from slippy.abcs import _ContactModelABC, _StepABC, _SubModelABC
+from .outputs import OutputRequest
 
 __all__ = ['step', '_ModelStep', 'InitialStep']
 
 """
-Steps including solve functions, ecah actual step is a subclass of ModelStep should provide an __init__, _solve
- and _check method. thses do all the heavy lifting  
+Steps including solve functions, each actual step is a subclass of ModelStep should provide an __init__, _solve
+ and _check method. these do all the heavy lifting  
 """
 
 
 def step(model: _ContactModelABC):
-    """ A text based inteface for generating steps
+    """ A text based interface for generating steps
 
     Returns
     -------
@@ -51,18 +53,7 @@ class _ModelStep(_StepABC):
     
     
     """
-    """
-    each sub class should provide it's own:
-        init
-        read inputs into the step dont really do anything just for setting up
-        _solve
-        takes the present state of the 2 surfaces in (lacation and meshes) and adict of output
-        adds to the output dict with the results
-        
-        _analysis_checks
-        Checks that each of the outputc can be found and other checks (each surface has a material)
-        
-    """
+
     name = None
     """The name of the step"""
     _surfaces_required = None
@@ -71,6 +62,9 @@ class _ModelStep(_StepABC):
     """A named tuple options object should be different for each step type, specifies all of the analysis options"""
     _model: _ContactModelABC = None
     _subclass_registry = []
+
+    sub_models: typing.List[_SubModelABC] = []
+    outputs: typing.List[OutputRequest] = []
 
     def __init__(self, step_name: str):
         self.name = step_name
@@ -97,23 +91,75 @@ class _ModelStep(_StepABC):
             raise ValueError("Supplied model is not a contact model or no contact model supplied")
 
     @abc.abstractmethod
-    def data_check(self, current_state: set):
+    def data_check(self, previous_state: set):
         """
-        Write potential errors and warnings to the log file, update the current state with what will be in it by the end
-        of the step (warnings will be written by printing, the standard output will be changed before running).
+        Produce errors for predicted errors during simulation
+
+        Parameters
+        ----------
+        previous_state: set
+            The model state from the last model step
+
+        Returns
+        -------
+        current_state: set
+            set of items in the current state after this step has run
+
+        Notes
+        -----
+        The methods check_sub_models and check_outputs should be called as part of this method
+        """
+        raise NotImplementedError("Data check have not been implemented for this step type!")
+
+    def check_outputs(self, current_state: set) -> set:
+        """Data check all outputs
 
         Parameters
         ----------
         current_state: set
+            The model state at the point when the outputs will be called
 
         Returns
         -------
-        errors: bool
-            True if there were no errors false if there were errors
-        previous_state: set
-            set of items in the current state afteer the step has run
+        current_state: set
+            Unmodified from the input set
+
+        Notes
+        -----
+        This should be called by each step in it's data check method
         """
-        raise NotImplementedError("Data check have not been implemented for this step type!")
+        for output in self.outputs:
+            if output.parameter not in current_state:
+                raise ValueError(f"Output request {output.name}, requires {output.parameter} but this is not in the "
+                                 "current state")
+        return current_state
+
+    def check_sub_models(self, current_state: set) -> set:
+        """ Check all the sub models of the current step
+
+        Parameters
+        ----------
+        current_state: set
+            The state of the model when the sub models are evaluated
+
+        Returns
+        -------
+        current_sate: set
+            The input set updated with all values found by the sub models
+
+        Notes
+        -----
+        This should be called by each step in it's data check method
+        """
+        for model in self.sub_models:
+            full_arg_spec = inspect.getfullargspec(model.solve)
+            args = full_arg_spec.args
+            for requirement in args:
+                if requirement not in current_state:
+                    raise ValueError(f"Model")
+                current_state.update(model.provides)
+
+        return set(current_state)
 
     @abc.abstractmethod
     def solve(self, current_state, output_file):
@@ -139,7 +185,7 @@ class _ModelStep(_StepABC):
     @abc.abstractmethod
     def new_step(cls, model):
         """
-        A helper function which provides a text based interface to making a new step of the given tyoe
+        A helper function which provides a text based interface to making a new step of the given type
 
         Returns
         -------
@@ -147,17 +193,35 @@ class _ModelStep(_StepABC):
         """
         raise NotImplementedError()
 
-    def save_outputs(self, current_state: typing.Union[dict, set], output_file=None, data_check=False):
-        # TODO should check the ouput requests to see if there are any needed in this step (memoise this result) then
-        #  save the requested ouputs if data_check is true just work like a data check (checking that the required
-        #  things are present in the set,
-        if data_check:
-            return
-        else:
-            pickle.dump(current_state, output_file)
+    def save_outputs(self, current_state: dict, output_file=None):
+        """Writes all outputs for the step into the output file
 
-    def solve_sub_models(self, current_state: typing.Union[dict, set], data_check = False):
-        # TODO this should solve the models like flash temperature, wear etc. should just update the current state dict
+        Parameters
+        ----------
+        current_state
+        output_file
+
+        Returns
+        -------
+
+        """
+        for output in self.outputs:
+            if output.slices is None:
+                pickle.dump({'step': self.name,
+                             'output': output.name,
+                             'parameter': output.parameter,
+                             'data': current_state[output.parameter]}, output_file)
+            else:
+                # noinspection PyTypeChecker
+                pickle.dump({'step': self.name,
+                             'output': output.name,
+                             'parameter': output.parameter,
+                             'data': current_state[output.parameter[output.slices]]}, output_file)
+
+    def solve_sub_models(self, current_state: typing.Union[dict, set]):
+        for model in self.sub_models:
+            found_params = model.solve(**current_state)
+            current_state.update(found_params)
         return current_state
 
 
@@ -170,9 +234,9 @@ class InitialStep(_ModelStep):
 
     @classmethod
     def new_step(cls, model):
-        raise ValueError("Cannot make a new instace of the initial step")
+        raise ValueError("Cannot make a new instance of the initial step")
 
-    # Should calculate the just touching postion of two surfaces, set inital guesses etc.
+    # Should calculate the just touching position of two surfaces, set initial guesses etc.
     separation: float = 0.0
 
     def __init__(self, step_name: str = 'initial', separation: float = None):
@@ -192,7 +256,7 @@ class InitialStep(_ModelStep):
         """
         Need to:
         find separation, initialise current state(does this mean looking through the outputs? or should that be in the
-        model solve function), ???? anthing else?
+        model solve function), ???? anteing else?
         """
         if current_state is not None:
             raise ValueError("Steps have been run out of order, the initial step should always be run first")

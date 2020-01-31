@@ -3,10 +3,10 @@ import typing
 import numpy as np
 from scipy.linalg.lapack import dgtsv
 
-from slippy.abcs import _ReynoldsSolverABC
+from slippy.abcs import _NondimentionalReynoldSolverABC
 
 
-class UnifiedReynoldsSolver(_ReynoldsSolverABC):
+class UnifiedReynoldsSolver(_NondimentionalReynoldSolverABC):
     """
     The unified reynolds solver for use in lubrication steps
 
@@ -48,7 +48,7 @@ class UnifiedReynoldsSolver(_ReynoldsSolverABC):
     lambda_bar: read only
         The lambda parameter for the problem
     rolling_speed
-        The mean speed of the surfaces
+        The mean speed of the surfaces (u1+u2)/2
     hertzian_pressure
         The non dimentionalising pressure
     hertzian_half_width
@@ -75,6 +75,8 @@ class UnifiedReynoldsSolver(_ReynoldsSolverABC):
     plastoelastohydrodynamic lubrication (PEHL) model in mixed lubrication. Tribology International,
     131(November 2018), 520–529. https://doi.org/10.1016/j.triboint.2018.11.011
     """
+    requires = {'nd_gap', 'nd_pressure', 'nd_viscosity', 'nd_density'}
+    provides = {'nd_pressure', 'previous_nd_gap', 'previous_nd_density'}
     _row_order = None  # order the rows will be solved in, controlled by the sweep direction
 
     _hertzian_pressure: float = None
@@ -198,8 +200,17 @@ class UnifiedReynoldsSolver(_ReynoldsSolverABC):
         self._radius = value
         self._lambda_bar = None
 
-    def solve(self, previous_state: dict, nd_gap: np.ndarray):
+    def data_check(self, previous_state: set):
+        for requirement in self.requires:
+            if requirement not in previous_state:
+                raise ValueError(f"Unified reynolds solver requires {requirement}, but this is not provided by the "
+                                 "step")
+        previous_state.update(self.provides)
+        return previous_state
+
+    def solve(self, previous_state: dict):
         # rumble
+        nd_gap = previous_state['nd_gap']
         width, length = nd_gap.shape
         pressure = previous_state['nd_pressure'].copy()
         current_state = dict()
@@ -284,14 +295,25 @@ class UnifiedReynoldsSolver(_ReynoldsSolverABC):
     def _get_epsilon(self, previous_state: dict, gap: np.ndarray) -> np.ndarray:
         return previous_state['nd_density'] * gap ** 3 / previous_state['nd_viscosity'] / self.lambda_bar
 
-    def dimensionalise_pressure(self, nd_pressure):
+    def dimensionalise_pressure(self, nd_pressure, un_dimentionalise: bool = False):
+        if un_dimentionalise:
+            return nd_pressure / self.hertzian_pressure
         return nd_pressure * self.hertzian_pressure
 
-    def dimensionalise_viscosity(self, nd_viscosity):
-        pass
+    def dimensionalise_viscosity(self, nd_viscosity, un_dimentionalise: bool = False):
+        if un_dimentionalise:
+            return nd_viscosity / self.dimentional_viscosity
+        return nd_viscosity * self.dimentional_viscosity
 
-    def dimensionalise_density(self, nd_density):
-        pass
+    def dimensionalise_density(self, nd_density, un_dimentionalise: bool = False):
+        if un_dimentionalise:
+            return nd_density / self.dimentional_density
+        return nd_density * self.dimentional_density
+
+    def dimensionalise_gap(self, nd_gap, un_dimentionalise: bool = False):
+        if un_dimentionalise:
+            return self.radius / self.hertzian_half_width ** 2 * nd_gap
+        return self.hertzian_half_width ** 2 / self.radius * nd_gap
 
 
 def thomas_tdma(lower_diagonal, main_diagonal, upper_diagonal, right_hand_side):

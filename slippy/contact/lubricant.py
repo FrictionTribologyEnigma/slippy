@@ -139,7 +139,7 @@ class Lubricant(_LubricantModelABC):
             full_arg_spec = inspect.getfullargspec(value)
             args = full_arg_spec.args
             for arg in args:
-                if arg not in current_state:
+                if arg not in current_state and arg != 'self':
                     raise ValueError(f"Lubricant sub model {key} will not solve, requires {arg}, current state is "
                                      f"{current_state}")
             current_state.add(key)

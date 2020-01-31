@@ -1,36 +1,41 @@
-from collections import namedtuple
+import typing
+
+__all__ = ['OutputRequest']
 
 
-__all__ = ['FieldOutputRequest', 'HistoryOutputRequest', 'FieldOutput', 'HistoryOutput',
-           'FieldOutputFrame', 'HistoryOutputFrame', 'possible_field_outpts', 'possible_history_outpts']
+class OutputRequest:
+    """An output request for a multi step contact model
 
-required_descriptions_field = ['domain', 'step', 'time_points']
-required_descriptions_history = ['step', 'time_points']
-possible_field_outpts = ['displacement', 'load', 'heat', 'temperature', 'plastic_deformation', 'wear']
+    Parameters
+    ----------
+    name: str
+        The name of the output request
+    parameter: str
+        The name of the parameter to be saved
+    slices: tuple[slice], optional (None)
+        A tuple of slice objects used to slice the parameter before saving, for example, to save the first row of an
+        array use slices = (slice(0,1), slice(None)). If not set the object will not be sliced, should not be used for
+        scalar values
+    sub_steps: tuple[int], optional (None)
+        A tuple of integers, only used if a multi step is used, the sub_steps for which this output should be active.
+        If not set it will be active for all sub steps.
 
-# in docs nt = named tuple
+    """
+    name: str
+    parameter: str
+    slices: typing.Optional[tuple]
+    sub_steps: typing.Optional[tuple]
 
-# nt used to contain requests for field outputs
-FieldOutputRequest = namedtuple('FieldOutputRequest', required_descriptions_field + possible_field_outpts,
-                                defaults=(None,)*len(possible_field_outpts))
-
-# nt used to contain actual field outputs, frames should relate to each time point (a tuple of field output frames)
-FieldOutput = namedtuple('FieldOutput', required_descriptions_field + ['frames'],
-                         defaults=(None,))
-
-# nt used to contain the actual numerical data from each frame of a field output
-FieldOutputFrame = namedtuple('FieldOutputFrame', possible_field_outpts,
-                              defaults=(None,)*len(possible_field_outpts))
-
-# nt used to contain a request for a history output
-possible_history_outpts = ['friction', 'elastic_energy', 'heat_energy', 'plastic_energy', 'load']
-HistoryOutputRequest = namedtuple('HistorOutputRequest', required_descriptions_history + possible_history_outpts,
-                                  defaults=(None,)*len(possible_history_outpts))
-
-# nt used to contain a history output with frames being a tuple of history output frames one for each time point
-HistoryOutput = namedtuple('HistoryOutput', required_descriptions_history + ['frames'],
-                           defaults=(None,))
-
-# nt used to contain the numerical data for each frame
-HistoryOutputFrame = namedtuple('HistoryOutputFrame', possible_history_outpts,
-                                defaults=(None,)*len(possible_history_outpts))
+    def __init__(self, name: str, parameter: str, slices: tuple = None, sub_steps: tuple = None):
+        assert isinstance(name, str), f"Output request name must be a string received {type(name)}"
+        self.name = name
+        assert isinstance(parameter, str), f"Output request parameter must be a string received {type(parameter)}"
+        assert parameter.isidentifier(), f"Output request parameter must be a valid variable name"
+        self.parameter = parameter
+        if slices is not None:
+            for this_slice in slices:
+                assert isinstance(this_slice, slice)
+            self.slices = tuple(slices)
+        else:
+            self.slices = None
+        self.sub_steps = sub_steps

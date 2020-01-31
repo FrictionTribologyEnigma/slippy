@@ -7,9 +7,9 @@ from numbers import Number
 
 import numpy as np
 
-from slippy.abcs import _ReynoldsSolverABC
+from slippy.abcs import _NondimentionalReynoldSolverABC
 from slippy.contact._model_utils import get_gap_from_model
-from ._material_utils import Loads
+from ._material_utils import Loads, Displacements
 from ._step_utils import OffSetOptions, solve_normal_loading
 from .steps import _ModelStep
 
@@ -23,7 +23,7 @@ class IterSemiSystemLoad(_ModelStep):
     ----------
     step_name: str
         The name of the step, used for outputs
-    reynolds_solver: _ReynoldsSolverABC
+    reynolds_solver: _NondimentionalReynoldSolverABC
         A reynolds solver object that will be used to find pressures
     load_z: float
         The normal load on the contact
@@ -78,12 +78,10 @@ class IterSemiSystemLoad(_ModelStep):
     _interferences = list()
     _load_errors = list()
 
-    _reynolds: typing.Optional[_ReynoldsSolverABC] = None
+    _reynolds: typing.Optional[_NondimentionalReynoldSolverABC] = None
     initial_guess: typing.Optional[typing.Union[typing.Callable, list, str]]
 
-    def __init__(self, step_name: str, reynolds_solver: _ReynoldsSolverABC, load_z: float,
-                 surface_1_speed: float, surface_2_speed: float,
-                 radius_in_rolling_direction: float, hertzian_half_width: float,
+    def __init__(self, step_name: str, reynolds_solver: _NondimentionalReynoldSolverABC, load_z: float,
                  relative_off_set: tuple = None, absolute_off_set: typing.Optional[tuple] = None,
                  max_pressure_it: int = 100, pressure_tol: float = 1e-7,
                  max_interference_it: int = 100, load_tol: float = 1e-7,
@@ -99,9 +97,6 @@ class IterSemiSystemLoad(_ModelStep):
         self.reynolds = reynolds_solver
 
         self._material_options = [{}, {}] or material_options
-
-        self.rolling_speed = (surface_1_speed + surface_2_speed) / 2
-        self.srr = 2 * (surface_1_speed - surface_2_speed) / (surface_1_speed + surface_2_speed)
 
         if relative_off_set is None:
             if absolute_off_set is None:
@@ -135,11 +130,12 @@ class IterSemiSystemLoad(_ModelStep):
 
     @reynolds.setter
     def reynolds(self, value):
-        if isinstance(value, _ReynoldsSolverABC):
+        if isinstance(value, _NondimentionalReynoldSolverABC):
             self._reynolds = value
         else:
             raise ValueError("Cannot set a non reynolds solver object as the reynolds solver, to use custom solvers"
-                             f"first subclass _ReynoldsSolverABC from slippy.abcs, received type was {type(value)}")
+                             f"first subclass _NondimentionalReynoldSolverABC from slippy.abcs, received "
+                             f"type was {type(value)}")
 
     @reynolds.deleter
     def reynolds(self):
@@ -148,10 +144,24 @@ class IterSemiSystemLoad(_ModelStep):
     def data_check(self, previous_state: set):
         # check if there is a lubricant defined for the model
         if self.model.lubricant_model is None:
-            print('Error: No lubricant model set for the contact model, lubrication based steps will not solve')
-        pass
+            raise ValueError('Error: No lubricant model set for the contact model, lubrication based steps will not '
+                             'solve')
+        if self.reynolds is None:
+            raise ValueError('No reynolds solver is set for the lubrication step, step will not solve')
+        current_state = {'nd_pressure', 'pressure', 'previous_nd_density', 'previous_nd_gap', 'nd_density', 'nd_gap',
+                         'just_touching_gap', 'total_displacement', 'surface_1_displacement', 'surface_2_displacement'}
+
+        current_state = self.model.lubricant_model.data_check(current_state)
+        current_state.update({'interference', 'surface_1_points', 'surface_2_points'})
+        current_state.update({'interference', 'surface_1_points', 'surface_2_points'})
+        current_state = self.check_sub_models(current_state)
+        # noinspection PyTypeChecker
+        current_state = self.check_outputs(current_state)
+        return current_state
 
     def solve(self, previous_state: dict, output_file):
+        gs = self.model.surface_1.grid_spacing
+
         if self._off_set_options.abs_off_set:
             off_set = self._off_set_options.off_set
         else:
@@ -191,42 +201,54 @@ class IterSemiSystemLoad(_ModelStep):
         else:
             raise ValueError('Unsupported type for initial guess')
 
-        previous_state = {'pressure': pressure, 'just_touching_gap': just_touching_gap}
+        previous_state = {'nd_pressure': self.reynolds.dimensionalise_pressure(pressure, True),
+                          'just_touching_gap': just_touching_gap,
+                          'interference': interference}
 
         # we have the interference, and the pressure initial guesses
-        # initiate all sub models
-        gs = self.model.surface_1.grid_spacing
 
-        if not all(previous_state['pressure'] == 0):
+        if 'total_displacement' in previous_state:
+            pass
+        elif not all(previous_state['pressure'] == 0):
             disp = solve_normal_loading(loads=Loads(z=previous_state['pressure'], x=None, y=None), model=self.model,
                                         deflections='z', material_options=self._material_options)
-            previous_state['displacement'] = disp
+            previous_state['total_displacement'] = disp[0]
+
         else:
-            previous_state['displacement'] = (np.zeros_like(just_touching_gap),  # total
-                                              np.zeros_like(just_touching_gap),  # surface_1
-                                              np.zeros_like(just_touching_gap))  # surface_2
+            previous_state['total_displacement'] = Displacements(np.zeros_like(just_touching_gap),
+                                                                 np.zeros_like(just_touching_gap),
+                                                                 np.zeros_like(just_touching_gap))
         previous_state = self.model.lubricant_model.solve_sub_models(previous_state)
         # main loops
         it_num = 0
+
         while True:
-            gap_array = just_touching_gap + previous_state['displacement'][0].z - interference
+            # Find the gap and non denationalise it
+            nd_gap = self.reynolds.dimentionalise_gap(just_touching_gap + previous_state['total_displacement'].z -
+                                                      previous_state['interference'], False)
 
             # solve reynolds
-            current_state = self.reynolds.solve(previous_state, gap_array)
-
+            previous_state['nd_gap'] = nd_gap
+            current_state = self.reynolds.solve(previous_state)
+            # add just touching gap, needed for sub models
+            current_state['just_touching_gap'] = just_touching_gap
             # check for pressure convergence
-            change_in_pressures = current_state['pressure'] - previous_state['pressure']
-            pressure_relative_error = np.sum(np.abs(change_in_pressures) / current_state['pressure'])
+            change_in_pressures = current_state['nd_pressure'] - previous_state['nd_pressure']
+            pressure_relative_error = np.sum(np.abs(change_in_pressures) / current_state['nd_pressure'])
             pressure_converged = pressure_relative_error < self._solver_options.pressure_rtol
 
             # apply the relaxation factor to the pressure result
-            current_state['pressure'] = (previous_state['pressure'] +
-                                         self._solver_options.relaxation_factor * change_in_pressures)
+            current_state['nd_pressure'] = (previous_state['nd_pressure'] +
+                                            self._solver_options.relaxation_factor * change_in_pressures)
 
             # solve contact geometry
-            disp = solve_normal_loading(current_state['pressure'], self.model)
-            current_state['displacement'] = disp
-            current_state['nd_gap'] = just_touching_gap - current_state['interference'] - disp[0].z
+            current_state['pressure'] = self.reynolds.dimensionalise_pressure(current_state['nd_pressure'])
+            total_displacement, surface_1_displacement, surface_2_displacement = \
+                solve_normal_loading(current_state['pressure'], self.model)
+
+            current_state['total_displacement'] = total_displacement
+            current_state['surface_1_displacement'] = surface_1_displacement
+            current_state['surface_2_displacement'] = surface_2_displacement
 
             # solve lubricant sub models
             current_state = self.model.lubricant_model.solve_sub_models(current_state)
@@ -236,15 +258,18 @@ class IterSemiSystemLoad(_ModelStep):
             load_relative_error = (total_load / self.load - 1)
             load_converged = abs(load_relative_error) < self._solver_options.load_rtol
 
+            # update the interference, this is overwritten if loop continues but should be in if loop exits here
+            current_state['interference'] = previous_state['interference']
+
             # escape the loop if it converged
             if pressure_converged and load_converged:
-                print(f"step {self.name} converged successfully after {it_num} iterations.\n")
+                print(f"Step {self.name} converged successfully after {it_num} iterations.\n")
                 print(f"Converged load is {total_load}, last change in pressure was {pressure_relative_error}")
                 break
 
             # escape the loop it if failed
             if it_num > self._solver_options.pressure_it:  # this logic has changed used to just check the error
-                print(f"step {self.name} failed to converge after {it_num} iterations.\n")
+                print(f"Step {self.name} failed to converge after {it_num} iterations.\n")
                 print("Consider increasing the maximum number of iterations or reducing the relaxation factor")
                 print(f"Converged load is {total_load}, last change in pressure was {pressure_relative_error}")
                 break
@@ -268,8 +293,12 @@ class IterSemiSystemLoad(_ModelStep):
             it_num += 1
             previous_state = current_state
 
-        self.solve_sub_models(current_state)
+        current_state['surface_1_points'] = surf_1_pts
+        current_state['surface_2_points'] = surf_2_pts
+
+        current_state = self.solve_sub_models(current_state)
         self.save_outputs(current_state, output_file)
+
         return current_state
 
     def __repr__(self):
@@ -302,7 +331,7 @@ class IterSemiSystemLoad(_ModelStep):
         This method is quite basic at the moment and can definitely be improved, if executed on every loop, the height
         is just updated by a fixed proportion of the minimum nd_gap size
 
-        If updated only when the solver converges, the regula falsi method is used
+        If updated only when the solver converges, the Regula-Falsi method is used
         """
         if self.adjust_height_every_step:
             if not it_num % 15:
@@ -334,7 +363,6 @@ class IterSemiSystemLoad(_ModelStep):
 
         return (self._interferences[0] - self._load_errors[0] * (self._interferences[1] - self._interferences[0]) /
                 (self._load_errors[1] - self._load_errors[0]))
-
 
     @classmethod
     def new_step(cls, model):

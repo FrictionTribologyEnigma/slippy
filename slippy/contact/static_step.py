@@ -132,7 +132,7 @@ class StaticNormalLoad(_ModelStep):
         # previous state?
 
         current_state = {'off_set', 'loads', 'surface_1_disp', 'surface_2_disp', 'total_disp', 'undeformed_gap',
-                         'interference'}
+                         'interference'}  # TODO
 
         return current_state
 
