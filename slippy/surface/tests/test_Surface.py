@@ -57,15 +57,15 @@ def test_fill_holes():
 
 def test_mask():
     profile = np.zeros((10, 10))
-    positions = [1, 4, 7, 44, 75, 99]
+    positions = [0, 1, 2, 3]
     values = [float('nan'), float('inf'), float('-inf'), 1.1]
 
     for i in range(len(values)):
         profile[positions[i]] = values[i]
-        A = S.Surface(profile=profile)
-        A.mask = values[i]
-        assert A.mask[positions[i]] == True
-        assert np.sum(A.mask.flatten()) == 1
+        my_surface = S.Surface(profile=profile)
+        my_surface.mask = values[i]
+        assert my_surface.mask[positions[i]].all()
+        assert np.sum(my_surface.mask.flatten()) == 10
 
 
 def test_combinations():

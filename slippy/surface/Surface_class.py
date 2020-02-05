@@ -189,20 +189,28 @@ class _Surface(_SurfaceABC):
 
     @mask.setter
     def mask(self, value: typing.Union[float, np.ndarray]):
-        if value is None:
-            self._mask = None
 
-        elif type(value) is float:
+        if type(value) is float:
             if np.isnan(value):
-                mask = ~np.isnan(self.profile)
+                mask = np.isnan(self.profile)
             else:
-                mask = ~self.profile == value
-        else:
+                mask = self.profile == value
+        elif isinstance(value, np.ndarray):
             mask = np.asarray(value, dtype=bool)
             if not mask.shape == self.shape:
                 msg = ("profile and mask shapes do not match: profile is"
                        "{profile.shape}, mask is {mask.shape}".format(**locals()))
                 raise TypeError(msg)
+        elif isinstance(value, str):
+            raise TypeError('Mask cannot be a string')
+        elif isinstance(value, collections.Sequence):
+            mask = np.zeros_like(self.profile, dtype=bool)
+            for item in value:
+                self.mask = item
+                mask = np.logical_and(self._mask, mask)
+        else:
+            raise TypeError("Mask type is not recognised")
+        self._mask = mask
 
     @mask.deleter
     def mask(self):
