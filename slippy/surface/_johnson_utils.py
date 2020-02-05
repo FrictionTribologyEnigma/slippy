@@ -5,10 +5,12 @@ johnson fit by quantiles
 johnson sl distribution
 """
 
-import scipy.stats
-import numpy as np
-import warnings
 import math
+import typing
+import warnings
+
+import numpy as np
+import scipy.stats
 
 __all__ = ['_johnsonsl', '_fit_johnson_by_moments', '_fit_johnson_by_quantiles']
 
@@ -41,8 +43,8 @@ def _johnsonsl(a, b, loc=0, scale=1):
     return scipy.stats.lognorm(a_log, loc=loc, scale=scale_log)
 
 
-def _fit_johnson_by_moments(mean: float, sd: float, root_beta_1: float, beta_2: float, return_rv=True)\
-        -> scipy.stats.rv_continuous:
+def _fit_johnson_by_moments(mean: float, sd: float, root_beta_1: float, beta_2: float, return_rv=True) \
+        -> typing.Union[scipy.stats.rv_continuous, typing.Tuple[int, float, float, float, float]]:
     """
     Fits a johnson family distribution to the specified moments
     
@@ -57,13 +59,13 @@ def _fit_johnson_by_moments(mean: float, sd: float, root_beta_1: float, beta_2: 
     beta_2 : float
         The kurtosis of the distribution (not normalised)
     return_rv: bool, optional (True)
-        If flase the descriptive parameters found in the reference will be returned, else a scipy.stats.rv_continuous
-        object fitted to the desired parametes will be returned
+        If False the descriptive parameters found in the reference will be returned, else a scipy.stats.rv_continuous
+        object fitted to the desired parameter will be returned
     
     Returns
     -------
     rv: scipy.stats.rv_continuous
-        fitted distribtuion
+        fitted distribution
 
     Notes
     -----
@@ -155,7 +157,7 @@ def _fit_johnson_by_moments(mean: float, sd: float, root_beta_1: float, beta_2: 
             return dist_type, xi, xlam, gamma, delta
 
     # 80
-    # find critical beta_2 (lies on lognormal line)
+    # find critical beta_2 (lies on log normal line)
     x = 0.5 * beta_1 + 1
     y = root_beta_1 * math.sqrt(0.25 * beta_1 + 1)
     omega = (x + y) ** (1 / 3) + (x - y) ** (1 / 3) - 1
@@ -286,7 +288,7 @@ def _fit_johnson_by_moments(mean: float, sd: float, root_beta_1: float, beta_2: 
         # end of outer loop
         return moments
 
-    def sb_fit(mean, sd, root_beta_1, beta_2, tollerance, max_it=1000):
+    def sb_fit(mean, sd, root_beta_1, beta_2, tolerance, max_it=1000):
         dist_type = 3
 
         beta_1 = root_beta_1 ** 2
@@ -301,7 +303,7 @@ def _fit_johnson_by_moments(mean: float, sd: float, root_beta_1: float, beta_2: 
         w = (x + y) ** u + (x - y) ** u - 1
         f = w ** 2 * (3 + w * (2 + w)) - 3
         e = (beta_2 - e) / (f - e)
-        if abs(root_beta_1) < tollerance:
+        if abs(root_beta_1) < tolerance:
             f = 2
         else:
             d = 1 / math.sqrt(math.log(w))
@@ -319,7 +321,7 @@ def _fit_johnson_by_moments(mean: float, sd: float, root_beta_1: float, beta_2: 
         # get g as a first estimate of gamma
 
         g = 0  # 30
-        if beta_1 > tollerance ** 2:
+        if beta_1 > tolerance ** 2:
             if d <= 1:
                 g = (0.7466 * d ** 1.7973 + 0.5955) * beta_1 ** 0.485
             else:
@@ -340,7 +342,7 @@ def _fit_johnson_by_moments(mean: float, sd: float, root_beta_1: float, beta_2: 
         dd = [0] * 4
         deriv = [0] * 4
 
-        while abs(u) > tollerance ** 2 or abs(y) > tollerance ** 2:
+        while abs(u) > tolerance ** 2 or abs(y) > tolerance ** 2:
             m += 1
             if m > max_it:
                 raise ValueError('solution failed to converge error greater than'
@@ -444,7 +446,7 @@ def _fit_johnson_by_moments(mean: float, sd: float, root_beta_1: float, beta_2: 
         z = y ** 2
         x = sd / math.sqrt(0.5 * (w - 1) * (0.5 * w * (z + 1 / z) + 1))
         xlam = x
-        xi = (0.5 * math.sqrt(w) * (y - 1 / y)) * x * mean
+        xi = mean + xlam * np.exp(delta ** -2 / 2) * np.sinh(gamma / delta)
 
         return dist_type, xi, xlam, gamma, delta
 
