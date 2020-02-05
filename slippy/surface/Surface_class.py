@@ -1447,32 +1447,53 @@ class Surface(_Surface):
             good = [False] * 4
 
             start_r = 0
-            end_r = len(profile) - 1
+            end_r = None  # len(profile)
             start_c = 0
-            end_c = len(profile[0]) - 1
+            end_c = None  # len(profile[0])
 
-            while not (all(good)):
-                # start row
-                if 1 - sum(holes[start_r, start_c:end_c]) / (end_c - start_c) < b_thresh:
+            # iterate ove removing cols and rows if they have too many holes
+            while not all(good):
+                if np.mean(holes[start_r, start_c:end_c]) > b_thresh:
                     start_r += 1
                 else:
                     good[0] = True
 
-                # end row
-                if 1 - sum(holes[end_r, start_c:end_c]) / (end_c - start_c) < b_thresh:
-                    end_r -= 1
+                if np.mean(holes[-1 if end_r is None else end_r - 1, start_c:end_c]) > b_thresh:
+                    end_r = -1 if end_r is None else end_r - 1
                 else:
                     good[1] = True
 
-                if 1 - sum(holes[start_r:end_r, start_c]) / (end_r - start_r) < b_thresh:
+                if np.mean(holes[start_r:end_r, start_c]) > b_thresh:
                     start_c += 1
                 else:
                     good[2] = True
 
-                if 1 - sum(holes[start_r:end_r, end_c]) / (end_r - start_r) < b_thresh:
-                    end_c -= 1
+                if np.mean(holes[start_r:end_r, -1 if end_c is None else end_c - 1]) > b_thresh:
+                    end_c = -1 if end_c is None else end_c - 1
                 else:
                     good[3] = True
+
+            # add back in if they are ok
+            while any(good):
+                if start_r > 0 and not np.mean(holes[start_r - 1, start_c:end_c]) > b_thresh:
+                    start_r -= 1
+                else:
+                    good[0] = False
+
+                if end_r is not None and not np.mean(holes[end_r, start_c:end_c]) > b_thresh:
+                    end_r = end_r + 1 if end_r + 1 < 0 else None
+                else:
+                    good[1] = False
+
+                if start_c > 0 and not np.mean(holes[start_r:end_r, start_c - 1]) > b_thresh:
+                    start_c -= 1
+                else:
+                    good[2] = False
+
+                if end_c is not None and not np.mean(holes[start_r:end_r, end_c]) > b_thresh:
+                    end_c = end_c + 1 if end_c + 1 < 0 else None
+                else:
+                    good[3] = False
 
             profile = profile[start_r:end_r, start_c:end_c]
             holes = holes[start_r:end_r, start_c:end_c]

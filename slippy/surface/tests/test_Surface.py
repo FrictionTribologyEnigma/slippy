@@ -35,18 +35,24 @@ def test_roughness():
     my_surface = S.assurface(profile, 1)
     actual = my_surface.roughness(['sq', 'ssk', 'sku'])
     expected = [1, 0, 3]
-    npt.assert_allclose(actual, expected, rtol=1e-2)
+    npt.assert_allclose(actual, expected, rtol=1e-2, atol=0.01)
 
 
 def test_fill_holes():
+    pads = [2,
+            [[0, 2], [2, 0]],
+            [[0, 0], [0, 0]],
+            [[2, 1], [1, 3]],
+            [[0, 0], [3, 3]]]
     x = np.arange(12, dtype=float)
     y = np.arange(12, dtype=float)
     x_mesh, y_mesh = np.meshgrid(x, y)
-    x_mesh_pad = np.pad(x_mesh, 2, 'constant', constant_values=float('nan'))
-    x_mesh_pad[6, 6] = float('nan')
-    my_surface = S.Surface(profile=x_mesh_pad)
-    my_surface.fill_holes()
-    npt.assert_array_almost_equal(x_mesh, my_surface.profile)
+    for pad in pads:
+        x_mesh_pad = np.pad(x_mesh, pad, 'constant', constant_values=float('nan'))
+        x_mesh_pad[6, 6] = float('nan')
+        my_surface = S.Surface(profile=x_mesh_pad)
+        my_surface.fill_holes()
+        npt.assert_array_almost_equal(x_mesh, my_surface.profile)
 
 
 def test_mask():
