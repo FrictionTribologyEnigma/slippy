@@ -45,6 +45,7 @@ nosetests.xml
 coverage.xml
 *.cover
 .hypothesis/
+.pytest_cache/
 
 # Translations
 *.mo
@@ -63,6 +64,7 @@ instance/
 
 # Sphinx documentation
 doc/_build/
+
 
 # PyBuilder
 target/
@@ -105,3 +107,4 @@ ENV/
 
 # slippy results
 *.sdb
+
