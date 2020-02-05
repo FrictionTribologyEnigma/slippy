@@ -5,45 +5,8 @@ Common sub models for lubricants
 
 import numpy as np
 
-__all__ = ['constant_property']
-
-
-def constant_property(value: float):
-    """ Produce a closure that returns an indexable constant value
-
-    Parameters
-    ----------
-    value: float
-        The value of the constant
-
-    Returns
-    -------
-    inner: closure
-        A closure that returns an instance of a constant class, this is indexable but returns the same value for any
-        index
-
-    Notes
-    -----
-    Using this closure means that lubrication steps can be writen for the general case, using indexing on fluid
-    properties. As numpy arrays automatically multiply each item of an array with a constant, this should work for most
-    cases. If a full array is needed use constant_array_property
-
-    See Also
-    --------
-    constant_array_property
-
-    Examples
-    --------
-    >>> closure = constant_property(1.23)
-    >>> constant = closure()
-    >>> constant[:,:,1,2,4]
-    >>> 1.23
-    """
-
-    def inner(**kwargs):
-        return Constant(value)
-
-    return inner
+__all__ = ['constant_array_property', 'roelands', 'barus', 'nd_barus', 'nd_roelands', 'dowson_higginson',
+           'nd_dowson_higginson']
 
 
 def constant_array_property(value: float):
@@ -257,18 +220,3 @@ def nd_dowson_higginson(pressure_hertzian: float):
     return inner
 
 
-class Constant:
-    """
-    An indexable constant class, returns the same constant no matter the index passed
-
-    Parameters
-    ----------
-    value: float
-        The value of the constant to be returned
-    """
-
-    def __init__(self, value: float):
-        self.value = value
-
-    def __getitem__(self, item):
-        return self.value

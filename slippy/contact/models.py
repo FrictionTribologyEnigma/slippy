@@ -8,8 +8,6 @@ from contextlib import redirect_stdout, ExitStack
 from datetime import datetime
 
 from slippy.abcs import _SurfaceABC, _LubricantModelABC, _ContactModelABC
-from slippy.contact.outputs import FieldOutputRequest, HistoryOutputRequest, possible_field_outpts, \
-    possible_history_outpts
 from slippy.contact.steps import _ModelStep, InitialStep, step
 
 __all__ = ["ContactModel"]
@@ -139,105 +137,6 @@ class ContactModel(_ContactModelABC):
             for k, v in zip(keys, values):
                 self.steps[k] = v
 
-    def add_field_output(self, name: str, domain: typing.Union[str, typing.Sequence], step_name: str,
-                         time_points: typing.Sequence,
-                         output: typing.Sequence[str]):
-        f"""
-        Adds a field output request to the model
-
-        Parameters
-        ----------
-        name : str
-            The name of the output request
-        domain : {{str, Sequence}}
-            The name of the node set or the node set to be used, node sets for 'all', 'surface_1' and 'surface_2' are
-            created automatically
-        step_name : str
-            The name of the step that the field output is to be taken from, ues 'all' for all steps
-        time_points : Sequence
-            The time points for the field output. If the output is only required at the start of the step use (0,) if it
-            is only required at the end of the step used (None,), otherwise pass a sequence of time points or a slice
-            object.
-        output : Sequence[str]
-            Names of output parameters to be included in the request, for more information see the documentation of
-            FieldOutputRequest
-
-        See Also
-        --------
-        FieldOutputRequest
-
-        Notes
-        -----
-        Valid output request are {', '.join(possible_field_outpts)}
-        """
-        # check that domain exists
-        if domain not in self._domains:
-            model_domains = ', '.join(self._domains.keys())
-            raise ValueError(f"Unrecognised domain :{domain}, model domains are: {model_domains}")
-        # check that name is str (doesn't start with _)
-        if type(name) is not str:
-            raise TypeError(f"Field output name should be string, not {type(name)}")
-        elif name.startswith('_'):
-            raise ValueError("Field output names cannot start with _")
-        # check that step exists
-        if step_name not in self.steps and step_name != 'all':
-            raise ValueError(f"Step name {step_name} not found.")
-        # check that all outputs are valid
-        out_in = [o in possible_field_outpts for o in output]
-        if not all(out_in):
-            raise ValueError(f"Unrecognised output request: {output[out_in.index(False)]}, valid outputs are: "
-                             f"{', '.join(possible_field_outpts)}")
-
-        output_dict = {key: True for key in output}
-
-        self.field_outputs[name] = FieldOutputRequest(domain=domain, step=step_name, time_points=time_points,
-                                                      **output_dict)
-
-    def add_history_output(self, name: str, step_name: str, time_points: typing.Sequence, output: typing.Sequence[str]):
-        f"""
-        Adds a field output request to the model
-
-        Parameters
-        ----------
-        name : str
-            The name of the output request
-        step_name : str
-            The name of the step that the field output is to be taken from, ues 'all' for all steps
-        time_points : Sequence
-            The time points for the field output. If the output is only required at the start of the step use (0,) if it
-            is only required at the end of the step used (None,), otherwise pass a sequence of time points or a slice
-            object.
-        output : Sequence[str]
-            Names of output parameters to be included in the request, for more information see the documentation of
-            HistoryOutputRequest
-
-        See Also
-        --------
-        HistoryOutputRequest
-
-        Notes
-        -----
-        Valid outputs are {', '.join(possible_history_outpts)}
-        """
-        # check that name is str (doesn't start with _)
-        if type(name) is not str:
-            raise TypeError(f"History output name should be string, not {type(name)}")
-        elif name.startswith('_'):
-            raise ValueError("History output names cannot start with _")
-        # check that step exists
-        if step_name not in self.steps and step_name != 'all':
-            raise ValueError(f"Step name {step_name} not found.")
-        # check that all outputs are valid
-        out_in = [o in possible_history_outpts for o in output]
-        if not all(out_in):
-            raise ValueError(f"Unrecognised output request: {output[out_in.index(False)]}, valid outputs are: "
-                             f"{', '.join(possible_history_outpts)}")
-
-        output_dict = {key: True for key in output}
-
-        self.history_outputs[name] = HistoryOutputRequest(step=step_name, time_points=time_points,
-                                                          **output_dict)
-
     def data_check(self):
         with open(self.log_file_name, 'a+') as file:
             with redirect_stdout(file):
@@ -250,7 +149,6 @@ class ContactModel(_ContactModelABC):
 
                 for this_step in self.steps:
                     print(f"Checking step: {this_step}")
-                    # noinspection PyProtectedMember
                     current_state = self.steps[this_step].data_check(current_state)
 
     def _model_check(self):
@@ -307,7 +205,6 @@ class ContactModel(_ContactModelABC):
 
             for this_step in self.steps:
                 print(f"Solving step {this_step}")
-                # noinspection PyProtectedMember
                 current_state = self.steps[this_step].solve(current_state, output_file)
 
             now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')

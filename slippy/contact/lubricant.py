@@ -9,7 +9,7 @@ from collections import OrderedDict
 
 from slippy.abcs import _LubricantModelABC
 from .lubricant_models import __all__ as built_in_models
-from .lubricant_models import constant_property
+from .lubricant_models import constant_array_property
 
 __all__ = ['Lubricant']
 
@@ -46,20 +46,21 @@ class Lubricant(_LubricantModelABC):
     Examples
     --------
     """
-    sub_models = OrderedDict()
+
     built_in_models = tuple(built_in_models)
 
     def __init__(self, name: str, models: OrderedDict = None,
                  constant_viscosity: float = None, constant_density: float = None):
-        """should be able to set the newtonian properties and solver to be used"""
+
         self.name = name
+        self.sub_models = OrderedDict()
 
         if constant_viscosity is not None:
-            self.add_sub_model('viscosity', constant_property(constant_viscosity))
-            self.add_sub_model('nd_viscosity', constant_property(1.0))
+            self.add_sub_model('viscosity', constant_array_property(constant_viscosity))
+            self.add_sub_model('nd_viscosity', constant_array_property(1.0))
         if constant_density is not None:
-            self.add_sub_model('density', constant_property(constant_density))
-            self.add_sub_model('nd_density', constant_property(1.0))
+            self.add_sub_model('density', constant_array_property(constant_density))
+            self.add_sub_model('nd_density', constant_array_property(1.0))
 
         if models is not None:
             try:
@@ -69,8 +70,6 @@ class Lubricant(_LubricantModelABC):
                 raise TypeError('Models should be ordered dict of callable objects')
             except TypeError:
                 raise TypeError('Models should be ordered dict of callable objects')
-            except AssertionError:
-                raise TypeError('All keys in models dict must be stings, all values must be callable')
 
     def add_sub_model(self, parameter: str, function: typing.Callable):
         """

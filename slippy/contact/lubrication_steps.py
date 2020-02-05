@@ -7,11 +7,13 @@ from numbers import Number
 
 import numpy as np
 
-from slippy.abcs import _NondimentionalReynoldSolverABC
+from slippy.abcs import _NonDimensionalReynoldSolverABC
 from slippy.contact._model_utils import get_gap_from_model
 from ._material_utils import Loads, Displacements
 from ._step_utils import OffSetOptions, solve_normal_loading
 from .steps import _ModelStep
+
+__all__ = ['IterSemiSystemLoad']
 
 IterSemiSystemOptions = namedtuple('IterSemiSystemOptions', ['pressure_it', 'pressure_rtol', 'load_it', 'load_rtol',
                                                              'relaxation_factor'])
@@ -23,7 +25,7 @@ class IterSemiSystemLoad(_ModelStep):
     ----------
     step_name: str
         The name of the step, used for outputs
-    reynolds_solver: _NondimentionalReynoldSolverABC
+    reynolds_solver: _NonDimensionalReynoldSolverABC
         A reynolds solver object that will be used to find pressures
     load_z: float
         The normal load on the contact
@@ -78,14 +80,14 @@ class IterSemiSystemLoad(_ModelStep):
     _interferences = list()
     _load_errors = list()
 
-    _reynolds: typing.Optional[_NondimentionalReynoldSolverABC] = None
+    _reynolds: typing.Optional[_NonDimensionalReynoldSolverABC] = None
     initial_guess: typing.Optional[typing.Union[typing.Callable, list, str]]
 
-    def __init__(self, step_name: str, reynolds_solver: _NondimentionalReynoldSolverABC, load_z: float,
+    def __init__(self, step_name: str, reynolds_solver: _NonDimensionalReynoldSolverABC, load_z: float,
                  relative_off_set: tuple = None, absolute_off_set: typing.Optional[tuple] = None,
                  max_pressure_it: int = 100, pressure_tol: float = 1e-7,
                  max_interference_it: int = 100, load_tol: float = 1e-7,
-                 relaxation_factor: float = 0.5,
+                 relaxation_factor: float = 0.2,
                  interpolation_mode: str = 'nearest', periodic: bool = False,
                  material_options: list = None,
                  initial_guess: typing.Union[typing.Callable, list, str] = None):
@@ -130,11 +132,11 @@ class IterSemiSystemLoad(_ModelStep):
 
     @reynolds.setter
     def reynolds(self, value):
-        if isinstance(value, _NondimentionalReynoldSolverABC):
+        if isinstance(value, _NonDimensionalReynoldSolverABC):
             self._reynolds = value
         else:
             raise ValueError("Cannot set a non reynolds solver object as the reynolds solver, to use custom solvers"
-                             f"first subclass _NondimentionalReynoldSolverABC from slippy.abcs, received "
+                             f"first subclass _NonDimensionalReynoldSolverABC from slippy.abcs, received "
                              f"type was {type(value)}")
 
     @reynolds.deleter
@@ -152,7 +154,11 @@ class IterSemiSystemLoad(_ModelStep):
                          'just_touching_gap', 'total_displacement', 'surface_1_displacement', 'surface_2_displacement'}
 
         current_state = self.model.lubricant_model.data_check(current_state)
-        current_state.update({'interference', 'surface_1_points', 'surface_2_points'})
+
+        current_state = self.reynolds.data_check(current_state)
+
+        current_state = self.model.lubricant_model.data_check(current_state)
+
         current_state.update({'interference', 'surface_1_points', 'surface_2_points'})
         current_state = self.check_sub_models(current_state)
         # noinspection PyTypeChecker
@@ -168,7 +174,7 @@ class IterSemiSystemLoad(_ModelStep):
             off_set = tuple(current + change for current, change in zip(previous_state['off_set'],
                                                                         self._off_set_options.off_set))
 
-        just_touching_gap, surf_1_pts, surf_2_pts = get_gap_from_model(self.model, interferance=0,
+        just_touching_gap, surf_1_pts, surf_2_pts = get_gap_from_model(self.model, interference=0,
                                                                        off_set=off_set,
                                                                        mode=self._off_set_options.interpolation_mode,
                                                                        periodic=self._off_set_options.periodic)
@@ -209,8 +215,9 @@ class IterSemiSystemLoad(_ModelStep):
 
         if 'total_displacement' in previous_state:
             pass
-        elif not all(previous_state['pressure'] == 0):
-            disp = solve_normal_loading(loads=Loads(z=previous_state['pressure'], x=None, y=None), model=self.model,
+        elif not (previous_state['nd_pressure'] == 0).all():
+            disp = solve_normal_loading(loads=Loads(z=self.reynolds.dimensionalise_pressure(previous_state['pressure']),
+                                                    x=None, y=None), model=self.model,
                                         deflections='z', material_options=self._material_options)
             previous_state['total_displacement'] = disp[0]
 
@@ -221,12 +228,15 @@ class IterSemiSystemLoad(_ModelStep):
         previous_state = self.model.lubricant_model.solve_sub_models(previous_state)
         # main loops
         it_num = 0
+        large_num = 1e20
 
         while True:
+            print(f'Iteration: {it_num}')
             # Find the gap and non denationalise it
-            nd_gap = self.reynolds.dimentionalise_gap(just_touching_gap + previous_state['total_displacement'].z -
-                                                      previous_state['interference'], False)
-
+            gap = just_touching_gap + previous_state['total_displacement'].z - previous_state['interference']
+            nd_gap = self.reynolds.dimensionalise_gap(gap, True)
+            print(f'Min gap (raw): {np.min(gap)}, Max gap (raw) = {np.max(gap)}')
+            nd_gap = np.clip(nd_gap, 0, large_num)
             # solve reynolds
             previous_state['nd_gap'] = nd_gap
             current_state = self.reynolds.solve(previous_state)
@@ -234,18 +244,26 @@ class IterSemiSystemLoad(_ModelStep):
             current_state['just_touching_gap'] = just_touching_gap
             # check for pressure convergence
             change_in_pressures = current_state['nd_pressure'] - previous_state['nd_pressure']
-            pressure_relative_error = np.sum(np.abs(change_in_pressures) / current_state['nd_pressure'])
-            pressure_converged = pressure_relative_error < self._solver_options.pressure_rtol
-
-            # apply the relaxation factor to the pressure result
-            current_state['nd_pressure'] = (previous_state['nd_pressure'] +
-                                            self._solver_options.relaxation_factor * change_in_pressures)
+            total_nd_pressure = np.sum(previous_state['nd_pressure'])
+            if total_nd_pressure > 0:
+                pressure_relative_error = np.sum(change_in_pressures / change_in_pressures.size) / total_nd_pressure
+            else:
+                pressure_relative_error = 1
+            pressure_converged = abs(pressure_relative_error) < self._solver_options.pressure_rtol
+            print(f'Pressure relative error: {pressure_relative_error}, '
+                  f'convergence criteria {self._solver_options.pressure_rtol}')
+            # apply the relaxation factor to the pressure result and apply the no cavitation condition
+            current_state['nd_pressure'] = np.clip(previous_state['nd_pressure'] +
+                                                   self._solver_options.relaxation_factor * change_in_pressures, 0,
+                                                   large_num)
 
             # solve contact geometry
             current_state['pressure'] = self.reynolds.dimensionalise_pressure(current_state['nd_pressure'])
             total_displacement, surface_1_displacement, surface_2_displacement = \
-                solve_normal_loading(current_state['pressure'], self.model)
-
+                solve_normal_loading(Loads(z=current_state['pressure']), self.model)
+            max_p = np.max(current_state['pressure'])
+            print(f'Max pressure: {max_p}')
+            print(f'Max displacement: {np.max(total_displacement.z)}')
             current_state['total_displacement'] = total_displacement
             current_state['surface_1_displacement'] = surface_1_displacement
             current_state['surface_2_displacement'] = surface_2_displacement
@@ -257,14 +275,15 @@ class IterSemiSystemLoad(_ModelStep):
             total_load = np.sum(current_state['pressure']) * gs ** 2
             load_relative_error = (total_load / self.load - 1)
             load_converged = abs(load_relative_error) < self._solver_options.load_rtol
-
+            print(f'Load relative error: {load_relative_error}, '
+                  f'convergence criteria {self._solver_options.load_rtol}')
             # update the interference, this is overwritten if loop continues but should be in if loop exits here
             current_state['interference'] = previous_state['interference']
 
             # escape the loop if it converged
             if pressure_converged and load_converged:
-                print(f"Step {self.name} converged successfully after {it_num} iterations.\n")
-                print(f"Converged load is {total_load}, last change in pressure was {pressure_relative_error}")
+                print(f"Step {self.name} converged successfully after {it_num} iterations.")
+                print(f"Converged load is {total_load}, last change in pressure was {pressure_relative_error}\n")
                 break
 
             # escape the loop it if failed
@@ -302,7 +321,7 @@ class IterSemiSystemLoad(_ModelStep):
         return current_state
 
     def __repr__(self):
-        pass
+        return "Lubrication step"
 
     def update_interference(self, it_num, pressure_error_rel, load_error_rel, current_interference, mean_gap, min_gap):
         """This method updates the interference between the 2 surfaces during solution
@@ -333,19 +352,24 @@ class IterSemiSystemLoad(_ModelStep):
 
         If updated only when the solver converges, the Regula-Falsi method is used
         """
+        return current_interference
         if self.adjust_height_every_step:
             if not it_num % 15:
                 self._dh = abs(min_gap) * 0.004
             else:
                 self._dh *= 0.9
-            return current_interference + self._dh * -np.sign(load_error_rel)  # if the error is negative-> more overlap
+            new_interference = current_interference + self._dh * -np.sign(load_error_rel)
+            print(f'Adjusting interference, new interference is {new_interference}')
+            return new_interference
 
         # else:  # height only adjusted when the load has converged, in this case use the Regula-Falsi method
         self._interferences.append(current_interference)
         self._load_errors.append(load_error_rel)
 
         if len(self._interferences) == 1:  # if this is the first guess give a value that will probably bound it
-            return current_interference + abs(mean_gap) * -np.sign(load_error_rel)
+            new_interference = current_interference + abs(mean_gap) * -np.sign(load_error_rel)
+            print(f'Adjusting interference, new interference is {new_interference}')
+            return new_interference
 
         if len(self._interferences) > 2 and abs(sum(np.sign(self._load_errors))) == 1:
             # if this is true we must have bound a root
@@ -361,8 +385,13 @@ class IterSemiSystemLoad(_ModelStep):
             del (self._interferences[0])
             del (self._load_errors[0])
 
-        return (self._interferences[0] - self._load_errors[0] * (self._interferences[1] - self._interferences[0]) /
-                (self._load_errors[1] - self._load_errors[0]))
+        new_interference = (self._interferences[0] - self._load_errors[0] * (self._interferences[1] -
+                                                                             self._interferences[0]) /
+                            (self._load_errors[1] - self._load_errors[0]))
+
+        print(f'Adjusting interference, new interference is {new_interference}')
+
+        return new_interference
 
     @classmethod
     def new_step(cls, model):

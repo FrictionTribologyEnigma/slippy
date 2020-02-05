@@ -1,5 +1,7 @@
 import typing
+
 import numpy as np
+
 from slippy.abcs import _ContactModelABC
 
 __all__ = ['get_gap_from_model', 'non_dimentional_height']
@@ -14,13 +16,13 @@ def non_dimentional_height(height: float, youngs: float, v: float, load: float, 
     height: float
         The height to be dimentionalised
     youngs: float
-        The youngs modulus of the material
+        The Young's modulus of the material
     v: float
-        The poission's ratio of the material
+        The Poisson's ratio of the material
     load: float
         The total load on the contact
     gs_x: float
-        The grid spacing of the descretiation grid in the x direction
+        The grid spacing of the discrete grid in the x direction
     gs_y: float, optional (None)
         The grid spacing of the descretisation grid in the y direction, if None it is assumed that the grid is square
     inverse: bool, optional (False)
@@ -31,13 +33,13 @@ def non_dimentional_height(height: float, youngs: float, v: float, load: float, 
     Returns
     -------
     non_dimentional_height: float
-        or the dimentioalised height if inverse is set to True
+        or the dimentionalised height if inverse is set to True
 
     Notes
     -----
-    The hegiht is non dimentionalised by dividing by the displacement caused by a the load on a single grid square:
+    The height is non dimentionalised by dividing by the displacement caused by a the load on a single grid square:
     H = h/u_z
-    u_z found according to equation 3.25 in the referance
+    u_z found according to equation 3.25 in the reference
 
     References
     ----------
@@ -56,7 +58,7 @@ def non_dimentional_height(height: float, youngs: float, v: float, load: float, 
 
 
 # noinspection PyUnresolvedReferences
-def get_gap_from_model(model: _ContactModelABC, interferance: float,
+def get_gap_from_model(model: _ContactModelABC, interference: float,
                        off_set: typing.Sequence = (0, 0), mode: str = 'nearest',
                        periodic: bool = False):
     """
@@ -65,26 +67,26 @@ def get_gap_from_model(model: _ContactModelABC, interferance: float,
     ----------
     model : ContactModel
         An instance of a contact model containing two surfaces
-    interferance :
+    interference :
         The interference between the surfaces, from the point of first contact, positive is into the surface
     off_set
         The off set in the x and y directions between the origin of the first and second surface
     mode : str {'nearest', 'linear', 'cubic'} optional, 'nearest'
-        The mode of interpolaion used to generate the points on the second surface, see surface.interpolate for more
+        The mode of interpolation used to generate the points on the second surface, see surface.interpolate for more
         information
-    periodic : bool, optioanl (False)
+    periodic : bool, optional (False)
         If True the second surface is considered periodic, the result will be the same shape and size as the first
         surface
 
     Returns
     -------
-    point_wise_interferance : np.ndarray
-        pointwise interference between the surfaces with the same grid spacing as the first surface in the contact
+    point_wise_interference : np.ndarray
+        point wise interference between the surfaces with the same grid spacing as the first surface in the contact
         model
     contact_points_1 : tuple[np.ndarray, np.ndarray]
         The x and y locations of the interference array in the same coordinates as the first surface
     contact_points_2 : tuple[np.ndarray, np.ndarray]
-        The x and y loactions of the interference array in the same coordinates as the first surface
+        The x and y locations of the interference array in the same coordinates as the first surface
 
     See Also
     --------
@@ -97,10 +99,10 @@ def get_gap_from_model(model: _ContactModelABC, interferance: float,
         raise ValueError("off_set should be a two element sequence")
     if model.surface_2 is None:
         raise ValueError("Second surface must be set for this contact type")
-    if not model.surface_1.is_descrete:
-        raise ValueError("The master surface (surface 1) must be descretised to find the interference")
+    if not model.surface_1.is_discrete:
+        raise ValueError("The master surface (surface 1) must be discrete to find the interference")
 
-    if model.surface_2.is_descrete:
+    if model.surface_2.is_discrete:
         # find overlap
         if periodic:
             contact_points_1 = model.surface_1.get_points_from_extent()
@@ -125,8 +127,8 @@ def get_gap_from_model(model: _ContactModelABC, interferance: float,
             assert sub_1.shape == contact_points_1.shape == contact_points_2.shape
         # interpolate using the required technique
         sub_2 = model.surface_2.interpolate(*contact_points_2, mode=mode)
-        point_wise_interferance = sub_2 - sub_1
-        point_wise_interferance -= min(point_wise_interferance.flatten()) + interferance
+        point_wise_interference = sub_2 - sub_1
+        point_wise_interference -= min(point_wise_interference.flatten()) + interference
 
     else:  # model.surface_2 is not descrete
         if not model.surface_2.is_analytic:
@@ -136,7 +138,7 @@ def get_gap_from_model(model: _ContactModelABC, interferance: float,
         contact_points_1 = model.surface_1.get_points_from_extent()
         contact_points_2 = contact_points_1[0] - off_set[0], contact_points_1[1] - off_set[1]
         # call the height function on the second surface
-        point_wise_interferance = model.surface_2.height(*contact_points_2) - model.surface_1.profile
-        point_wise_interferance -= min(point_wise_interferance.flatten()) + interferance
+        point_wise_interference = model.surface_2.height(*contact_points_2) - model.surface_1.profile
+        point_wise_interference -= min(point_wise_interference.flatten()) + interference
 
-    return point_wise_interferance, contact_points_1, contact_points_2
+    return point_wise_interference, contact_points_1, contact_points_2

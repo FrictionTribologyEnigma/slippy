@@ -67,9 +67,8 @@ class _ModelStep(_StepABC):
     outputs: typing.List[OutputRequest] = []
 
     def __init__(self, step_name: str):
+        assert isinstance(step_name, str), 'Step name must be string, this is used for all outputs related to this step'
         self.name = step_name
-        if self._options is None or self.name is None:
-            raise ValueError("Step has not been instantiated correctly")
 
     @classmethod
     def __init_subclass__(cls, is_abstract=False, **kwargs):

@@ -165,7 +165,7 @@ class StaticNormalLoad(_ModelStep):
             off_set = tuple(current + change for current, change in zip(previous_state['off_set'], self._off_set))
 
         # noinspection PyTypeChecker
-        just_touching_gap, surface_1_points, surface_2_points = get_gap_from_model(self.model, interferance=0,
+        just_touching_gap, surface_1_points, surface_2_points = get_gap_from_model(self.model, interference=0,
                                                                                    off_set=off_set,
                                                                                    mode=opt.interpolation_mode,
                                                                                    periodic=opt.periodic)
@@ -330,7 +330,7 @@ class StaticNormalInterference(_ModelStep):
 
     def solve(self, current_state, output_file):
         height = current_state['interference'] * self.relative_interference + self.interference
-        gap, surf_1_pts, surf_2_pts = get_gap_from_model(self.model, interferance=0, off_set=self._off_set,
+        gap, surf_1_pts, surf_2_pts = get_gap_from_model(self.model, interference=0, off_set=self._off_set,
                                                          mode=self._options.interpolation_mode,
                                                          periodic=self._options.periodic)
         adhesion_model = self.model._adhesion if self._adhesion else None

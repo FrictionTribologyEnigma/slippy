@@ -13,7 +13,7 @@ from ._material_utils import _get_properties, Loads, Displacements, memoize_comp
 __all__ = ["Elastic", "_Material", "rigid"]
 
 
-# The base class for materials contains all the itteration functionality for contacts
+# The base class for materials contains all the iteration functionality for contacts
 class _Material(_MaterialABC):
     """ A class for describing material behaviour, the materials do the heavy lifting for the contact mechanics analysis
     """
@@ -35,7 +35,7 @@ class _Material(_MaterialABC):
     # Each material must define an influence matrix method that given the grid spacing and the span returns the
     # influence matrix
 
-    # should memoize the results so that the defleciton from loads method can be called directly
+    # should memoize the results so that the deflection from loads method can be called directly
     @abc.abstractmethod
     def influence_matrix(self, span: typing.Sequence[int], grid_spacing: typing.Sequence[float],
                          components: typing.Sequence[str]):
@@ -70,8 +70,8 @@ class _Material(_MaterialABC):
     def displacement_from_surface_loads(self, loads: {dict, Loads, typing.Sequence[np.ndarray]},
                                         grid_spacing: {typing.Sequence[float], float},
                                         deflections: str = 'xyz', span: typing.Optional[typing.Sequence[int]] = None,
-                                        simple: bool = False):
-        """Find surface displacments from a set of loads on an elastic half-space
+                                        simple: bool = False) -> Displacements:
+        """Find surface displacements from a set of loads on an elastic half-space
 
         Parameters
         ----------
@@ -87,7 +87,7 @@ class _Material(_MaterialABC):
             The grid spacing in each direction, if float it is assumed to be the same in each direction
         simple: bool optional (False)
             If true only deflections in the directions of the loads are calculated,
-            only the Cxx, Cyy and Czz components of the influcence matrix are used
+            only the Cxx, Cyy and Czz components of the influence matrix are used
 
         Returns
         -------
@@ -104,7 +104,7 @@ class _Material(_MaterialABC):
         If the other material is supplied and is elastic the problem will be solved using the combined influence matrix,
         the displacements that are returned are the total displacements for both surfaces.
 
-        For custom materials that do not use influence matricies this method should be over ridden
+        For custom materials that do not use influence matrices this method should be over ridden
 
         Examples
         --------
@@ -217,7 +217,7 @@ class _Material(_MaterialABC):
                                         simple: bool = True,
                                         max_it: int = 100):
         """
-        Find surface loading from surface displacements for an influence matrix based material by the conjigate gradient
+        Find surface loading from surface displacements for an influence matrix based material by the conjugate gradient
         decent technique
 
         Parameters
@@ -231,22 +231,22 @@ class _Material(_MaterialABC):
             The grid spacing only needed if surface is an array
         simple : bool, optional (True)
             If true only deflections in the directions of the loads are calculated, only the Cxx, Cyy and Czz components
-            of the influcence matrix are used
+            of the influence matrix are used
         max_it : int, optional (100)
-            The maximum number of itterations before aborting the loop
+            The maximum number of iterations before aborting the loop
         tol : float
-            The tolerance on the itterations, the loop is ended when the norm of the residual is below tol
+            The tolerance on the iterations, the loop is ended when the norm of the residual is below tol
         other : _Material, optional (None)
             If supplied the problem will be solved on the combined material, the results will then be split by material
 
         Returns
         -------
         Loads : Loads (namedtuple)
-            Loads object of arrays of surface loads with fileds 'x' 'y' and 'z', if simple is True loads will only be
+            Loads object of arrays of surface loads with fields' 'y' and 'z', if simple is True loads will only be
             defined in the same direction as the displacements were specified, in other directions the filed will be
             None
         displacements : tuple
-            Tuple of Displacement namedtuples the first element is the total deflection, the remaining 2 are for this
+            Tuple of Displacement named tuples the first element is the total deflection, the remaining 2 are for this
             surface and the other surface (if the other surface is given)
 
         See Also
@@ -515,26 +515,6 @@ class _Material(_MaterialABC):
         calc_displacements = self._solve_im_loading(loads, components)
 
         return loads, calc_displacements
-
-    def jacobian_influence_matrix(self, components: typing.Sequence[str], surface_shape: tuple, periodic: bool,
-                                  *im_args, contact_nodes=None, **im_kwargs):
-        """ Find the jacobian of the displacement wrt the loading of each node (for influence matrix based materials)
-
-        Parameters
-        ----------
-        components: Sequence[str]
-        surface_shape
-        contact_nodes
-
-        Returns
-        -------
-
-        """
-        # for each component (check to see if it has been memoised)
-        comps = {comp: self._jac_im_getter(comp, surface_shape, periodic, *im_args, **im_kwargs) for comp in components}
-
-        # reduce the combined jacobian to the contact nodes
-        # return a callable that gives this
 
     @memoize_components(False)
     def _jac_im_getter(self, component: str, surface_shape: tuple, periodic: bool, *im_args, **im_kwargs):

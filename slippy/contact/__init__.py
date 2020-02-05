@@ -59,11 +59,15 @@ https://github.com/FrictionTribologyEnigma/SlipPY/tree/master/examples
 
 from ._material_utils import Loads, Displacements
 from .adhesion_models import *
-from .friciton_models import *
 from .hertz import *
+from .lubricant import *
+from .lubricant_models import *
+from .lubrication_steps import *
 from .materials import *
 from .models import *
+from .outputs import *
 from .static_step import *
 from .steps import *
+from .unified_reynolds_solver import *
 
 __all__ = [s for s in dir() if not s.startswith("_")]

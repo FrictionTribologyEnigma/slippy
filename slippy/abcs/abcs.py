@@ -8,7 +8,7 @@ import inspect
 
 __all__ = ['_SurfaceABC', '_AdhesionModelABC', '_MaterialABC', '_StepABC', '_FrictionModelABC', '_WearModelABC',
            '_ACFABC', '_LubricantModelABC', '_ContactModelABC', '_ReynoldsSolverABC',
-           '_NondimentionalReynoldSolverABC', '_SubModelABC']
+           '_NonDimensionalReynoldSolverABC', '_SubModelABC']
 
 
 class _LubricantModelABC(abc.ABC):
@@ -94,21 +94,21 @@ class _ReynoldsSolverABC(abc.ABC):
         pass
 
 
-class _NondimentionalReynoldSolverABC(_ReynoldsSolverABC):
+class _NonDimensionalReynoldSolverABC(_ReynoldsSolverABC):
     @abc.abstractmethod
-    def dimensionalise_pressure(self, nd_pressure, un_dimentionalise: bool = False):
+    def dimensionalise_pressure(self, nd_pressure, un_dimensionalise: bool = False):
         pass
 
     @abc.abstractmethod
-    def dimensionalise_viscosity(self, nd_viscosity, un_dimentionalise: bool = False):
+    def dimensionalise_viscosity(self, nd_viscosity, un_dimensionalise: bool = False):
         pass
 
     @abc.abstractmethod
-    def dimensionalise_density(self, nd_density, un_dimentionalise: bool = False):
+    def dimensionalise_density(self, nd_density, un_dimensionalise: bool = False):
         pass
 
     @abc.abstractmethod
-    def dimensionalise_gap(self, nd_gap, un_dimentionalise: bool = False):
+    def dimensionalise_gap(self, nd_gap, un_dimensionalise: bool = False):
         pass
 
 

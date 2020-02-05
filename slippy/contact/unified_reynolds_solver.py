@@ -3,78 +3,81 @@ import typing
 import numpy as np
 from scipy.linalg.lapack import dgtsv
 
-from slippy.abcs import _NondimentionalReynoldSolverABC
+from slippy.abcs import _NonDimensionalReynoldSolverABC
+
+__all__ = ['UnifiedReynoldsSolver']
 
 
-class UnifiedReynoldsSolver(_NondimentionalReynoldSolverABC):
+class UnifiedReynoldsSolver(_NonDimensionalReynoldSolverABC):
+    # noinspection SpellCheckingInspection
     """
-    The unified reynolds solver for use in lubrication steps
+        The unified reynolds solver for use in lubrication steps
 
-    Parameters
-    ----------
-    time_step: float
-        The dimentional time step for the calculation in seconds, minutes ... etc.
-    grid_spacing: float
-        The dimentional grid spacing of the master surface
-    hertzian_pressure: float
-        The static hertzian pressure of the contact, or any other representative pressure, this is used only to
-        non-dimentionalise the problem
-    radius_in_rolling_direction: float
-        The radius of the ball or dic in the rolling direction, again this is just used to non-dimentionalise the
-        problem, if it is not known a different representative length can be used
-    hertzian_half_width: float
-        The hertzian half width of the contact, this is used to non-dimentionalise the problem, if this is not known
-        another representative length can be used
-    dimentional_viscosity:float
-        The viscosity used to non-dimentionalise the problem, usually the viscosity when the pressure is 0.
-    dimentional_density: float
-        The density used to non-dimentionalise the problem, usually the density when the pressure is 0.
-    rolling_speed: float, optional (None)
-        The dimentional mean speed of the surfaces (u1+u2)/2, this is normally set by the step
-    sweep_direction: str {'forward', 'backward'}, optional ('forward')
-        The direction which the reynolds solver moves through the pressure array.
+        Parameters
+        ----------
+        time_step: float
+            The dimentional time step for the calculation in seconds, minutes ... etc.
+        grid_spacing: float
+            The dimentional grid spacing of the master surface
+        hertzian_pressure: float
+            The static hertzian pressure of the contact, or any other representative pressure, this is used only to
+            non-dimentionalise the problem
+        radius_in_rolling_direction: float
+            The radius of the ball or dic in the rolling direction, again this is just used to non-dimentionalise the
+            problem, if it is not known a different representative length can be used
+        hertzian_half_width: float
+            The hertzian half width of the contact, this is used to non-dimentionalise the problem, if this is not known
+            another representative length can be used
+        dimentional_viscosity:float
+            The viscosity used to non-dimentionalise the problem, usually the viscosity when the pressure is 0.
+        dimentional_density: float
+            The density used to non-dimentionalise the problem, usually the density when the pressure is 0.
+        rolling_speed: float, optional (None)
+            The dimentional mean speed of the surfaces (u1+u2)/2, this is normally set by the step
+        sweep_direction: str {'forward', 'backward'}, optional ('forward')
+            The direction which the reynolds solver moves through the pressure array.
 
-    Attributes
-    ----------
+        Attributes
+        ----------
 
-    time_step
-        The dimentionalised time step
-    nd_time_step: read only
-        The non dimentionalised time step
-    grid_spacing: read only
-        The dimentionalised grid spacing
-    nd_grid_spacing: read only
-        The non dimentionalised grid spacing
-    lambda_bar: read only
-        The lambda parameter for the problem
-    rolling_speed
-        The mean speed of the surfaces (u1+u2)/2
-    hertzian_pressure
-        The non dimentionalising pressure
-    hertzian_half_width
-        The non dimentionalising length
+        time_step
+            The dimentionalised time step
+        nd_time_step: read only
+            The non dimentionalised time step
+        grid_spacing: read only
+            The dimentionalised grid spacing
+        nd_grid_spacing: read only
+            The non dimentionalised grid spacing
+        lambda_bar: read only
+            The lambda parameter for the problem
+        rolling_speed
+            The mean speed of the surfaces (u1+u2)/2
+        hertzian_pressure
+            The non dimentionalising pressure
+        hertzian_half_width
+            The non dimentionalising length
 
-    See Also
-    --------
-    IterSemiSystemLoad - semi system iteration lubrication step
+        See Also
+        --------
+        IterSemiSystemLoad - semi system iteration lubrication step
 
-    Notes
-    -----
-    The units used for the input values do not matter but they must be consistent. eg if the time step is in seconds and
-    the hertzian half width is in meters the rolling speed must be in meters/second
+        Notes
+        -----
+        The units used for the input values do not matter but they must be consistent. eg if the time step is in seconds
+        and the hertzian half width is in meters the rolling speed must be in meters/second
 
-    Values for rolling speed and non dimentionalising values can be updated by the user or the step
+        Values for rolling speed and non dimentionalising values can be updated by the user or the step
 
-    Examples
-    --------
-    #TODO
+        Examples
+        --------
+        #TODO
 
-    References
-    ----------
-    Azam, A., Dorgham, A., Morina, A., Neville, A., & Wilson, M. C. T. (2019). A simple deterministic
-    plastoelastohydrodynamic lubrication (PEHL) model in mixed lubrication. Tribology International,
-    131(November 2018), 520–529. https://doi.org/10.1016/j.triboint.2018.11.011
-    """
+        References
+        ----------
+        Azam, A., Dorgham, A., Morina, A., Neville, A., & Wilson, M. C. T. (2019). A simple deterministic
+        plastoelastohydrodynamic lubrication (PEHL) model in mixed lubrication. Tribology International,
+        131(November 2018), 520–529. https://doi.org/10.1016/j.triboint.2018.11.011
+        """
     requires = {'nd_gap', 'nd_pressure', 'nd_viscosity', 'nd_density'}
     provides = {'nd_pressure', 'previous_nd_gap', 'previous_nd_density'}
     _row_order = None  # order the rows will be solved in, controlled by the sweep direction
@@ -125,9 +128,9 @@ class UnifiedReynoldsSolver(_NondimentionalReynoldSolverABC):
             a4 = stencil(xp, yp) / stencil(xm, yp)
             ak[i] = xp * np.log(a1) + ym * np.log(a2) + xm * np.log(a3) + yp * np.log(a4)
 
-        self.ak00 = 2 / np.pi ** 2 * ak[0, 0]
-        self.ak10 = 2 / np.pi ** 2 * ak[1, 0]
-        self.ak20 = 2 / np.pi ** 2 * ak[2, 0]
+        self.ak00 = 2 / np.pi ** 2 * ak[0]
+        self.ak10 = 2 / np.pi ** 2 * ak[1]
+        self.ak20 = 2 / np.pi ** 2 * ak[2]
 
         # set lambda bar here
 
@@ -153,6 +156,7 @@ class UnifiedReynoldsSolver(_NondimentionalReynoldSolverABC):
         else:
             self._lambda_bar = (12 * self.rolling_speed * self.dimentional_viscosity * self.radius ** 2 /
                                 (self.hertzian_half_width ** 3 * self.hertzian_pressure))
+            return self._lambda_bar
 
     # properties for everything that would change lambda bar if it changed
     @property
@@ -231,12 +235,15 @@ class UnifiedReynoldsSolver(_NondimentionalReynoldSolverABC):
         recip_dt = 1 / self.nd_time_step if self.nd_time_step else 0.0
 
         epsilon = self._get_epsilon(previous_state, nd_gap)
-
+        print(f'Epsilon min:{np.min(epsilon)}, max:{np.max(epsilon)}')
         # sort out the row order
         if not self._row_order:
             self._row_order = [1, length - 1]
             if self._step == -1:
                 self._row_order = list(reversed(self._row_order))
+
+        a_all, c_all = np.zeros_like(epsilon[:-1, 0]), np.zeros_like(epsilon[:-1, 0])
+        b_all, f_all = np.zeros_like(epsilon[:, 0]), np.zeros_like(epsilon[:, 0])
 
         # solve line by line
         for row in range(self._row_order[0], self._row_order[1], self._step):
@@ -273,18 +280,19 @@ class UnifiedReynoldsSolver(_NondimentionalReynoldSolverABC):
                                                previous_state['nd_density'][1:-1, row]) *
                    previous_state['previous_nd_gap'][1: -1, row]) * recip_dt
 
-            a_all = a_p + a_s + a_w
-            b_all = b_p + b_s + b_w
-            c_all = c_p + c_s + c_w
-            f_all = f_p + f_s + f_w
+            # add and apply boundary conditions here (a[-1] = b[0 and -1] = c[0] = f[0 and -1] = 0)
+            a_all[0:-1] = a_p + a_s + a_w
+            b_all[1:-1] = b_p + b_s + b_w
+            c_all[1:] = c_p + c_s + c_w
+            f_all[1:-1] = f_p + f_s + f_w
 
-            # apply boundary conditions
-            b_all[0] = 1.0
-            b_all[-1] = 1.0
-            a_all[-1] = 0.0
-            c_all[0] = 0.0
-            f_all[0] = 0.0
-            f_all[-1] = 0.0
+            # # apply boundary conditions
+            # b_all[0] = 1.0
+            # b_all[-1] = 1.0
+            # a_all[-1] = 0.0
+            # c_all[0] = 0.0
+            # f_all[0] = 0.0
+            # f_all[-1] = 0.0
 
             pressure[:, row] = thomas_tdma(a_all, b_all, c_all, f_all)
 
@@ -292,26 +300,28 @@ class UnifiedReynoldsSolver(_NondimentionalReynoldSolverABC):
 
         return current_state
 
-    def _get_epsilon(self, previous_state: dict, gap: np.ndarray) -> np.ndarray:
-        return previous_state['nd_density'] * gap ** 3 / previous_state['nd_viscosity'] / self.lambda_bar
+    def _get_epsilon(self, previous_state: dict, nd_gap: np.ndarray) -> np.ndarray:
+        epsilon = previous_state['nd_density'] * nd_gap ** 3 / previous_state['nd_viscosity'] / self.lambda_bar
+        epsilon[nd_gap < self.dimensionalise_gap(0.47e-9, True)] = 0
+        return epsilon
 
-    def dimensionalise_pressure(self, nd_pressure, un_dimentionalise: bool = False):
-        if un_dimentionalise:
+    def dimensionalise_pressure(self, nd_pressure, un_dimensionalise: bool = False):
+        if un_dimensionalise:
             return nd_pressure / self.hertzian_pressure
         return nd_pressure * self.hertzian_pressure
 
-    def dimensionalise_viscosity(self, nd_viscosity, un_dimentionalise: bool = False):
-        if un_dimentionalise:
+    def dimensionalise_viscosity(self, nd_viscosity, un_dimensionalise: bool = False):
+        if un_dimensionalise:
             return nd_viscosity / self.dimentional_viscosity
         return nd_viscosity * self.dimentional_viscosity
 
-    def dimensionalise_density(self, nd_density, un_dimentionalise: bool = False):
-        if un_dimentionalise:
+    def dimensionalise_density(self, nd_density, un_dimensionalise: bool = False):
+        if un_dimensionalise:
             return nd_density / self.dimentional_density
         return nd_density * self.dimentional_density
 
-    def dimensionalise_gap(self, nd_gap, un_dimentionalise: bool = False):
-        if un_dimentionalise:
+    def dimensionalise_gap(self, nd_gap, un_dimensionalise: bool = False):
+        if un_dimensionalise:
             return self.radius / self.hertzian_half_width ** 2 * nd_gap
         return self.hertzian_half_width ** 2 / self.radius * nd_gap
 

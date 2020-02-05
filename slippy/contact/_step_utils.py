@@ -35,7 +35,7 @@ def solve_normal_loading(loads: Loads, model: _ContactModelABC, deflections: str
         list of Dicts of options to be passed to the displacement_from_surface_loads method of the surface
     reverse_loads_on_second_surface: str, optional ('')
         string containing the components of the loads to be reversed for the second surface for example 'x' will reverse
-        loads in the x direction
+        loads in the x direction only
 
     Returns
     -------
@@ -69,7 +69,7 @@ def solve_normal_loading(loads: Loads, model: _ContactModelABC, deflections: str
                                                                              grid_spacing=surf_1.grid_spacing,
                                                                              deflections=deflections,
                                                                              **material_options[1])
-    total_displacement = [s1 + s2 for s1, s2 in zip(surface_1_displacement, surface_2_displacement)]
+    total_displacement = Displacements(*(s1 + s2 for s1, s2 in zip(surface_1_displacement, surface_2_displacement)))
 
     return total_displacement, surface_1_displacement, surface_2_displacement
 
