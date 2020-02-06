@@ -23,9 +23,10 @@ from collections import namedtuple
 import numpy as np
 import scipy.optimize as optimize
 
-from slippy.contact import Loads, _ModelStep
-from slippy.contact._model_utils import get_gap_from_model, non_dimentional_height
-from slippy.contact._step_utils import solve_normal_interference  # , get_next_file_num
+from ._material_utils import Loads
+from ._model_utils import get_gap_from_model, non_dimentional_height
+from ._step_utils import solve_normal_interference  # , get_next_file_num
+from .steps import _ModelStep
 
 __all__ = ['StaticNormalLoad', 'StaticNormalInterference', 'ClosurePlot', 'PullOff', 'SurfaceDisplacement',
            'SurfaceLoading']
