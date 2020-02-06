@@ -1,4 +1,5 @@
 import numpy.testing as npt
+
 from slippy.contact.hertz import solve_hertz_point, solve_hertz_line
 
 
@@ -10,11 +11,13 @@ def test_solve_hertz_point():
 
     derived_params = [key for key in point_solution._asdict() if key not in set_params]
     derived_params.remove('e_star')
+    derived_params.remove('max_von_mises')
 
     for set_p in set_params:
         psd = point_solution._asdict()
         del psd[set_p]
         del psd['e_star']
+        del psd['max_von_mises']
 
         for der_p in derived_params:
             del psd[der_p]
@@ -43,11 +46,13 @@ def test_solve_hertz_line():
 
     derived_params = [key for key in line_solution._asdict() if key not in set_params]
     derived_params.remove('e_star')
+    derived_params.remove('max_von_mises')
 
     for set_p in set_params:
         psd = line_solution._asdict()
         del psd[set_p]
         del psd['e_star']
+        del psd['max_von_mises']
 
         for der_p in derived_params:
             del psd[der_p]

@@ -1,16 +1,16 @@
 # hertz.py
 
 # TODO stresses in elliptical contacts
-# TODO simple function that will find the remaining parameter given a set
 
-import numpy as np
-import scipy.special as special
-import scipy.integrate as integrate
-import scipy.optimize as optimize
-import sympy as sp
+import typing
 from collections import abc
 from collections import namedtuple
-import typing
+
+import numpy as np
+import scipy.integrate as integrate
+import scipy.optimize as optimize
+import scipy.special as special
+import sympy as sp
 
 __all__ = ['hertz_full', 'solve_hertz_line', 'solve_hertz_point', 'HertzLineSolution', 'HertzPointSolution']
 
@@ -786,7 +786,7 @@ def _displacement_elliptical(a, b, p0, alpha, beta, v, modulus):
     """
     Gives a closure for the surface z displacement for an elliptical contact
     """
-
+    # memoize the elliptical integrals
     l_johnson = None
     m_johnson = None
     n_johnson = None
@@ -1144,8 +1144,8 @@ def _displacement_spherical_contact(young_modulus, v, a, p0):
                        (young_modulus * 2 * a) * ((2 * a ** 2 - r_out ** 2) * np.arcsin(a / r_out) +
                                                   r_out * a * np.sqrt((1 - a ** 2) / r_out ** 2))
         with np.errstate(divide='ignore', invalid='ignore'):
-            radial[r <= a] = -1 * ((1 - 2 * v) * (1 + v) * a ** 2 * p0 / (3 * young_modulus * r_in) *
-                                   (1 - (1 - r_in ** 2 / a ** 2) ** (3 / 2)))
+            radial[r <= a] = ((1 - 2 * v) * (1 + v) * a ** 2 * p0 / (3 * young_modulus * r_in) *
+                              (1 - (1 - r_in ** 2 / a ** 2) ** (3 / 2)))
 
         radial[np.isnan(radial)] = 0
 

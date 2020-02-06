@@ -1,14 +1,16 @@
-import slippy.surface as s
-import slippy.contact as c
 import numpy as np
 import numpy.testing as npt
+
+import slippy.contact as c
+import slippy.surface as s
+
 
 # ['convert_array', 'convert_dict', 'elastic_displacement', '_solve_ed',
 #         'elastic_loading', '_solve_el', 'elastic_im'
 
 
 def test_hertz_agreement_static_load():
-    """ Test that the load controled static step gives approximately the same answer as the
+    """ Test that the load controlled static step gives approximately the same answer as the
     analytical hertz solver
 
     """
@@ -85,5 +87,5 @@ def test_hertz_agreement_static_interference():
 
 
 if __name__ == '__main__':
-    #test_hertz_agreement_static_load()
+    test_hertz_agreement_static_load()
     test_hertz_agreement_static_interference()

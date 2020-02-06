@@ -64,6 +64,7 @@ class ContactModel(_ContactModelABC):
     steps: OrderedDict
     log_file_name: str = None
     output_file_name: str = None
+    _adhesion = None
 
     def __init__(self, name: str, surface_1: _SurfaceABC, surface_2: _SurfaceABC = None,
                  lubricant: _LubricantModelABC = None, log_file_name: str = None,
@@ -207,7 +208,7 @@ class ContactModel(_ContactModelABC):
                 print(f"Solving step {this_step}")
                 current_state = self.steps[this_step].solve(current_state, output_file)
 
-            now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            now = datetime.now().strftime('%H:%M:%S %d-%m-%Y')
             print(f"Analysis completed successfully at: {now}")
 
         return current_state

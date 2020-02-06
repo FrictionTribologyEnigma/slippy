@@ -10,7 +10,7 @@ from scipy.signal import fftconvolve
 from slippy.abcs import _MaterialABC
 from ._material_utils import _get_properties, Loads, Displacements, memoize_components
 
-__all__ = ["Elastic", "_Material", "rigid"]
+__all__ = ["Elastic", "_Material", "Rigid", 'rigid']
 
 
 # The base class for materials contains all the iteration functionality for contacts
@@ -304,7 +304,7 @@ class _Material(_MaterialABC):
             comp_names = list(product(displacements, valid_directions))
             comp_names = [a + b for a, b in comp_names]
 
-        # get componets of the influence matrix
+        # get components of the influence matrix
         if other is None:
             components = self.influence_matrix(grid_spacing=grid_spacing, span=span, components=comp_names)
             initial_guess = self.guess_loads_from_displacement(displacements, grid_spacing, components)
@@ -402,15 +402,15 @@ class _Material(_MaterialABC):
 
     def _solve_im_displacement(self, displacements: Displacements, components: dict, max_it: int,
                                tol: float, initial_guess: Loads) -> typing.Tuple[Loads, Displacements]:
-        """ Given displacements find the loads needed to cause then for an influecnce matrix based material
+        """ Given displacements find the loads needed to cause then for an influence matrix based material
 
-        Split away from the main function to allow for faster compuation avoiding
-        calculating the influence matrix for each itteration
+        Split away from the main function to allow for faster computation avoiding
+        calculating the influence matrix for each iteration
 
         Parameters
         ----------
         displacements : Displacements
-            The deflections at the surface with fileds 'x', 'y', 'z', use float('nan') to signify free points (eg points
+            The deflections at the surface with fields 'x', 'y', 'z', use float('nan') to signify free points (eg points
             out of the contact)
         components : dict
             Components of the influence matrix keys are 'xx', 'xy' ... 'zz' for
@@ -418,9 +418,9 @@ class _Material(_MaterialABC):
             second represents the load, eg. 'xy' is the deflection in the x
             direction caused by a load in the y direction
         max_it : int
-            The maximum number of itterations before breaking the loop
+            The maximum number of iterations before breaking the loop
         tol : float
-            The tolerance on the itterations, the loop is ended when the norm of
+            The tolerance on the iterations, the loop is ended when the norm of
             the residual is below tol
         initial_guess : Loads
             The initial guess of the surface loads
@@ -441,7 +441,7 @@ class _Material(_MaterialABC):
         References
         ----------
 
-        Complete boundry element formulation for normal and tangential contact
+        Complete boundary element formulation for normal and tangential contact
         problems
 
         """
@@ -597,6 +597,7 @@ class Rigid(_Material):
     name: str
         The name of the material
     """
+    material_type = 'Rigid'
 
     E = None
     v = None
@@ -663,6 +664,8 @@ class Elastic(_Material):
     >>> # Find the speeds of sound:
     >>> sos = steel.speed_of_sound()
     """
+    material_type = 'Elastic'
+
     _properties = {'E': None,
                    'v': None,
                    'G': None,

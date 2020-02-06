@@ -173,7 +173,7 @@ class StaticNormalLoad(_ModelStep):
         current_state = dict(just_touching_gap=just_touching_gap, surface_1_points=surface_1_points,
                              surface_2_points=surface_2_points)
 
-        adhesion_model = self._adhesion if self._adhesion else None
+        adhesion_model = self._adhesion if self._adhesion else self.model._adhesion
 
         results = dict()
         it = 0
@@ -333,7 +333,9 @@ class StaticNormalInterference(_ModelStep):
         gap, surf_1_pts, surf_2_pts = get_gap_from_model(self.model, interference=0, off_set=self._off_set,
                                                          mode=self._options.interpolation_mode,
                                                          periodic=self._options.periodic)
-        adhesion_model = self.model._adhesion if self._adhesion else None
+
+        adhesion_model = self._adhesion if self._adhesion else self.model._adhesion
+
         initial_contact_nodes = current_state['contact_nodes'] if 'contact_nodes' in current_state else None
 
         loads, *disp_tup, contact_nodes = solve_normal_interference(height, gap=gap, model=self.model,
@@ -348,10 +350,6 @@ class StaticNormalInterference(_ModelStep):
         current_state['surf_2_disp'] = disp_tup[2]
         current_state['contact_nodes'] = contact_nodes
         current_state['nd_gap'] = gap
-        # check the solution is reasnoble (check not 100% contact) check that the achived load is similar to the
-        # actual load, check that the loop converged
-        # TODO
-        # find the loads on surface 1, 2
         current_state['interference'] = height
         ################################################################################################################
         # if not hasattr(np, 'ITNUM'):
@@ -367,7 +365,7 @@ class StaticNormalInterference(_ModelStep):
         #
         #        np.ITNUM += 1
         ################################################################################################################
-        # check out put requests, check optional extra stuff that can be truned on?????
+
         self.solve_sub_models(current_state)
         self.save_outputs(current_state, output_file)
         return current_state

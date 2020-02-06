@@ -2,7 +2,8 @@
 Model steps for lubricated contacts
 """
 import typing
-from collections import namedtuple, Sequence
+from collections import namedtuple
+from collections.abc import Sequence
 from numbers import Number
 
 import numpy as np
@@ -352,7 +353,6 @@ class IterSemiSystemLoad(_ModelStep):
 
         If updated only when the solver converges, the Regula-Falsi method is used
         """
-        return current_interference
         if self.adjust_height_every_step:
             if not it_num % 15:
                 self._dh = abs(min_gap) * 0.004

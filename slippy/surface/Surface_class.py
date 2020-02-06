@@ -44,7 +44,7 @@ def assurface(profile, grid_spacing=None):
     
     Returns
     -------
-    S : Surface object
+    surface : Surface object
         A surface object with the specified profile and grid size
     
     See Also
@@ -245,6 +245,9 @@ class _Surface(_SurfaceABC):
             if self.grid_spacing is not None:
                 self._shape = tuple([int(v / self.grid_spacing) for v in value])
                 self._size = np.product(self._shape)
+            if self._shape is not None:
+                self._grid_spacing = self._extent[0] / self._shape[0]
+                self._extent = tuple([sz * self._grid_spacing for sz in self._shape])
         return
 
     @extent.deleter
@@ -274,14 +277,8 @@ class _Surface(_SurfaceABC):
         if self.grid_spacing is not None:
             self._extent = tuple([v * self.grid_spacing for v in value])
         elif self.extent is not None:
-            e_aspect = self.extent[0] / self.extent[1]
-            p_aspect = value[0] / value[1]
-            if abs(e_aspect - p_aspect) < 0.0001:
-                self._grid_spacing = (self.extent[0] / self.shape[0])
-            else:
-                warnings.warn("Global size does not match profile size,"
-                              "global size has been deleted")
-                self._extent = None
+            self._grid_spacing = self._extent[0] / self._shape[0]
+            self._extent = tuple([sz * self.grid_spacing for sz in self.shape])
 
     @shape.deleter
     def shape(self):
@@ -383,6 +380,7 @@ class _Surface(_SurfaceABC):
             if self.extent is not None:
                 self._shape = tuple([int(sz / grid_spacing) for sz in self.extent])
                 self._size = np.product(self._shape)
+                self._extent = tuple([sz * grid_spacing for sz in self._shape])
             elif self.shape is not None:
                 self._extent = tuple([grid_spacing * pt for pt in self.shape])
         else:

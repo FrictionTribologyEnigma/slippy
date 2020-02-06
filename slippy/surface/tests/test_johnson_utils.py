@@ -15,7 +15,7 @@ fit_params = [['norm', (0, 1, 0, 3)],
               ['johnsonsb', (5, 2, np.sqrt(2), 4)],
               ['johnsonsu', (0, 2, 1, 6)],
               [False, (5, 2, np.sqrt(2), 3)],
-              ['lognorm', (5, 2, np.sqrt(2),)]]
+              ['lognorm', (5, 2, np.sqrt(2), -4)]]
 
 
 def test_johnson_fit():
