@@ -98,7 +98,7 @@ class UnifiedReynoldsSolver(_NonDimensionalReynoldSolverABC):
                  dimentional_viscosity: float,
                  dimentional_density: float,
                  rolling_speed: float = None,
-                 sweep_direction: str = 'forward'):
+                 sweep_direction: str = 'backward'):
         # these automatically calculate the non dimentional versions
         self.grid_spacing = grid_spacing
         self.time_step = time_step
@@ -131,8 +131,6 @@ class UnifiedReynoldsSolver(_NonDimensionalReynoldSolverABC):
         self.ak00 = 2 / np.pi ** 2 * ak[0]
         self.ak10 = 2 / np.pi ** 2 * ak[1]
         self.ak20 = 2 / np.pi ** 2 * ak[2]
-
-        # set lambda bar here
 
         if sweep_direction == 'forward':
             self._step = 1
@@ -204,46 +202,47 @@ class UnifiedReynoldsSolver(_NonDimensionalReynoldSolverABC):
         self._radius = value
         self._lambda_bar = None
 
-    def data_check(self, previous_state: set):
+    def data_check(self, previous_state: set) -> set:
         for requirement in self.requires:
             if requirement not in previous_state:
                 raise ValueError(f"Unified reynolds solver requires {requirement}, but this is not provided by the "
                                  "step")
-        previous_state.update(self.provides)
+        previous_state = set(self.provides)
         return previous_state
 
-    def solve(self, previous_state: dict):
+    def solve(self, previous_state: dict) -> dict:
         # rumble
         nd_gap = previous_state['nd_gap']
         width, length = nd_gap.shape
         pressure = previous_state['nd_pressure'].copy()
         current_state = dict()
 
-        # sort out previous state to contain last but one nd_gap and last by one nd_density
-        current_state['previous_nd_density'] = previous_state['nd_density']
-        current_state['previous_nd_gap'] = previous_state['nd_gap']
-        current_state['nd_gap'] = nd_gap
-        if 'previous_nd_density' not in previous_state:
+        if 'previous_nd_density' not in previous_state:  # first time step
             previous_state['previous_nd_density'] = previous_state['nd_density']
             previous_state['previous_nd_gap'] = previous_state['nd_gap']
 
+        # These values are from the last time step not the last iteration
+        current_state['previous_nd_density'] = previous_state['previous_nd_density']
+        current_state['previous_nd_gap'] = previous_state['previous_nd_gap']
+
         # pre calculate some values to save time
-        recip_dx_squared_rho = self.nd_grid_spacing ** 2 * previous_state['nd_density']
-        # dx_squared = self.grid_spacing ** 2
-        # recip_dx_squared = 1 / dx_squared
+        recip_dx_squared_rho = 1 / (self.nd_grid_spacing ** 2 * previous_state['nd_density'])
         recip_dx = 1 / self.nd_grid_spacing
         recip_dt = 1 / self.nd_time_step if self.nd_time_step else 0.0
 
-        epsilon = self._get_epsilon(previous_state, nd_gap)
-        print(f'Epsilon min:{np.min(epsilon)}, max:{np.max(epsilon)}')
+        epsilon = self._get_epsilon(previous_state)
+
         # sort out the row order
         if not self._row_order:
-            self._row_order = [1, length - 1]
-            if self._step == -1:
-                self._row_order = list(reversed(self._row_order))
+            if self._step == 1:
+                self._row_order = [1, length - 1]
+            elif self._step == -1:
+                self._row_order = [length - 2, 0]
+            else:
+                raise ValueError("Row step must be -1 or 1")
 
         a_all, c_all = np.zeros_like(epsilon[:-1, 0]), np.zeros_like(epsilon[:-1, 0])
-        b_all, f_all = np.zeros_like(epsilon[:, 0]), np.zeros_like(epsilon[:, 0])
+        b_all, f_all = np.ones_like(epsilon[:, 0]), np.zeros_like(epsilon[:, 0])
 
         # solve line by line
         for row in range(self._row_order[0], self._row_order[1], self._step):
@@ -260,19 +259,18 @@ class UnifiedReynoldsSolver(_NonDimensionalReynoldSolverABC):
             a_p = d1 * recip_dx_squared_rho[1:-1, row]
             b_p = -d3 * recip_dx_squared_rho[1:-1, row]
             c_p = d2 * recip_dx_squared_rho[1:-1, row]
-            f_p = -1 * (d5 * pressure[1:-1, row + 1]) + d4 * pressure[1:-1, row - 1] * recip_dx_squared_rho[1:-1, row]
+            f_p = -(d5 * pressure[1:-1, row + 1]) + d4 * pressure[1:-1, row - 1] * recip_dx_squared_rho[1:-1, row]
 
             # Wedge flow terms
             a_w = (self.ak00 - self.ak10) * recip_dx
             b_w = (self.ak10 - self.ak00) * recip_dx
             c_w = (self.ak20 - self.ak10) * recip_dx
             f_w = (((nd_gap[1:-1, row] - q1) - (nd_gap[0:-2, row] - q2)) * recip_dx +
-                   nd_gap[1:-1, row] * (1 - (previous_state['nd_density'][0:-2, row] /
-                                             previous_state['nd_density'][1:-1, row])) * self.grid_spacing +
-                   recip_dx * (nd_gap[1:-1, row] - nd_gap[0:-2, row]))  # these two gaps were roughness in fortran code?
+                   nd_gap[1:-1, row] * (1 - (previous_state['nd_density'][0:-2, row] /  #
+                                             previous_state['nd_density'][1:-1, row])) * recip_dx)  # +
+            # recip_dx * (nd_gap[1:-1, row] - nd_gap[0:-2, row]))  # these two gaps were roughness in fortran code
 
             # squeeze flow terms
-
             a_s = -1 * self.ak10 * recip_dt
             b_s = -1 * self.ak00 * recip_dt
             c_s = -1 * self.ak10 * recip_dt
@@ -280,27 +278,25 @@ class UnifiedReynoldsSolver(_NonDimensionalReynoldSolverABC):
                                                previous_state['nd_density'][1:-1, row]) *
                    previous_state['previous_nd_gap'][1: -1, row]) * recip_dt
 
-            # add and apply boundary conditions here (a[-1] = b[0 and -1] = c[0] = f[0 and -1] = 0)
-            a_all[0:-1] = a_p + a_s + a_w
+            # add and apply boundary conditions here (a[-1] = c[0] = f[0 and -1] = 0, b[0 and -1] = 1)
+            a_all[:-1] = a_p + a_s + a_w
             b_all[1:-1] = b_p + b_s + b_w
             c_all[1:] = c_p + c_s + c_w
             f_all[1:-1] = f_p + f_s + f_w
 
-            # # apply boundary conditions
-            # b_all[0] = 1.0
-            # b_all[-1] = 1.0
-            # a_all[-1] = 0.0
-            # c_all[0] = 0.0
-            # f_all[0] = 0.0
-            # f_all[-1] = 0.0
+            p1d = np.clip(thomas_tdma(a_all, b_all, c_all, f_all), 0, np.inf)
 
-            pressure[:, row] = thomas_tdma(a_all, b_all, c_all, f_all)
+            pressure[:, row] = p1d
+            if True:
+                return locals()
 
         current_state['nd_pressure'] = pressure
+        current_state['epsilon'] = epsilon
 
         return current_state
 
-    def _get_epsilon(self, previous_state: dict, nd_gap: np.ndarray) -> np.ndarray:
+    def _get_epsilon(self, previous_state: dict) -> np.ndarray:
+        nd_gap = previous_state['nd_gap']
         epsilon = previous_state['nd_density'] * nd_gap ** 3 / previous_state['nd_viscosity'] / self.lambda_bar
         epsilon[nd_gap < self.dimensionalise_gap(0.47e-9, True)] = 0
         return epsilon
@@ -324,6 +320,11 @@ class UnifiedReynoldsSolver(_NonDimensionalReynoldSolverABC):
         if un_dimensionalise:
             return self.radius / self.hertzian_half_width ** 2 * nd_gap
         return self.hertzian_half_width ** 2 / self.radius * nd_gap
+
+    def dimensionalise_length(self, nd_length, un_dimensionalise: bool = False):
+        if un_dimensionalise:
+            return nd_length / self.hertzian_half_width
+        return nd_length * self.hertzian_half_width
 
 
 def thomas_tdma(lower_diagonal, main_diagonal, upper_diagonal, right_hand_side):
@@ -352,3 +353,44 @@ def thomas_tdma(lower_diagonal, main_diagonal, upper_diagonal, right_hand_side):
     """
     _, _, _, x, _ = dgtsv(lower_diagonal, main_diagonal, upper_diagonal, right_hand_side)
     return x
+
+
+if __name__ == '__main__':
+    import slippy.surface as S
+    import slippy.contact as C
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+
+    def plot_surf(var):
+        x = range(var.shape[0])
+        y = range(var.shape[1])
+        X, Y = np.meshgrid(x, y)
+        fig = plt.figure()
+        ax = fig.gca(projection='3d')
+        ax.plot_trisurf(X.flatten(), Y.flatten(), var.flatten(), cmap=plt.cm.viridis, linewidth=0.2)
+        plt.show()
+
+
+    radius = 0.01905
+    hertz_result = C.hertz_full([radius, radius], [float('inf'), float('inf')], [200e9, 200e9], [0.3, 0.3], 800)
+    ph = hertz_result['max_pressure']
+    a = hertz_result['contact_radii'][0]
+    ball = S.RoundSurface((radius,) * 3, shape=(65, 65), extent=(a * 4, a * 4), generate=True)
+    flat = S.FlatSurface()
+    steel = C.Elastic('steel', {'E': 200e9, 'v': 0.3})
+    ball.material = steel
+    flat.material = steel
+    oil = C.Lubricant('oil')
+    oil.add_sub_model('nd_viscosity', C.nd_roelands(0.0246, 1 / 5.1e-9, ph, 0.68))
+    oil.add_sub_model('nd_density', C.nd_dowson_higginson(ph))
+    my_model = C.ContactModel('lubrication_test', ball, flat, oil)
+    reynolds = C.UnifiedReynoldsSolver(0, ball.grid_spacing, hertz_result['max_pressure'],
+                                       1, hertz_result['contact_radii'][0], 0.0246, 872, 0.1)
+    X, Y = ball.get_points_from_extent()
+    X, Y = X + ball._total_shift[0], Y + ball._total_shift[1]
+    hertzian_pressure_dist = hertz_result['pressure_f'](X, Y)
+    step = C.IterSemiSystemLoad('main', reynolds, 800, initial_guess=[hertz_result['total_deflection'],
+                                                                      hertzian_pressure_dist])
+    my_model.add_step(step)
+    state = my_model.solve()

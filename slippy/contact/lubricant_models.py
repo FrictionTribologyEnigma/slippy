@@ -104,7 +104,7 @@ def nd_roelands(eta_0: float, pressure_0: float, pressure_hertzian: float, z: fl
     p_all = pressure_hertzian / pressure_0
 
     def inner(nd_pressure: np.ndarray, **kwargs):
-        return np.exp(ln_eta_0 * (-1 * (1 + p_all * nd_pressure) ** z))
+        return np.exp(ln_eta_0 * (-1 + (1 + p_all * nd_pressure) ** z))
 
     return inner
 
@@ -213,9 +213,10 @@ def nd_dowson_higginson(pressure_hertzian: float):
     In which p_h is the hertzian pressure used to non denationalise the pressure and rho_0 is a parameter of the
     dimentional form of the dowson higginson equation. Here the value rho(p)/rho_0 is returned
     """
+    constant = 5.9e8 / pressure_hertzian
 
     def inner(nd_pressure: np.ndarray, **kwargs):
-        return (5.9e8 + 1.34 * pressure_hertzian * nd_pressure) / (5.9e8 + pressure_hertzian * nd_pressure)
+        return (constant + 1.34 * nd_pressure) / (constant + nd_pressure)
 
     return inner
 

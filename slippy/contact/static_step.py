@@ -6,16 +6,14 @@ Static Modelling steps
 Steps for modelling static or quasi static situations:
 should include:
 specified global interference
-specified gloabal loading
+specified global loading
 specified surface loading
 specified surface displacement
-closure plot generator
-pull off test (for testing adhesion models)
-friciton limited tangential loading (should work generically with friction models
+closure plot generator/ adhesive pull of tester (the same but backwards)
 
 No models should have to do wear or other time varying stuff.
 
-All should return a current state dict...?
+All should return a current state dict
 """
 import typing
 from collections import namedtuple

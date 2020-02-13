@@ -111,6 +111,10 @@ class _NonDimensionalReynoldSolverABC(_ReynoldsSolverABC):
     def dimensionalise_gap(self, nd_gap, un_dimensionalise: bool = False):
         pass
 
+    @abc.abstractmethod
+    def dimensionalise_length(self, nd_length, un_dimensionalise: bool = False):
+        pass
+
 
 class _SubModelABC(abc.ABC):
     name: str
