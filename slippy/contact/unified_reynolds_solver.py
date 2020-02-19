@@ -243,7 +243,6 @@ class UnifiedReynoldsSolver(_NonDimensionalReynoldSolverABC):
 
         a_all, c_all = np.zeros_like(epsilon[:-1, 0]), np.zeros_like(epsilon[:-1, 0])
         b_all, f_all = np.ones_like(epsilon[:, 0]), np.zeros_like(epsilon[:, 0])
-
         # solve line by line
         for row in range(self._row_order[0], self._row_order[1], self._step):
             d1 = 0.5 * (epsilon[1:-1, row] + epsilon[0:-2, row])
@@ -259,7 +258,7 @@ class UnifiedReynoldsSolver(_NonDimensionalReynoldSolverABC):
             a_p = d1 * recip_dx_squared_rho[1:-1, row]
             b_p = -d3 * recip_dx_squared_rho[1:-1, row]
             c_p = d2 * recip_dx_squared_rho[1:-1, row]
-            f_p = -(d5 * pressure[1:-1, row + 1]) + d4 * pressure[1:-1, row - 1] * recip_dx_squared_rho[1:-1, row]
+            f_p = -(d5 * pressure[1:-1, row + 1] + d4 * pressure[1:-1, row - 1]) * recip_dx_squared_rho[1:-1, row]
 
             # Wedge flow terms
             a_w = (self.ak00 - self.ak10) * recip_dx
@@ -286,12 +285,9 @@ class UnifiedReynoldsSolver(_NonDimensionalReynoldSolverABC):
 
             p1d = np.clip(thomas_tdma(a_all, b_all, c_all, f_all), 0, np.inf)
 
-            pressure[:, row] = p1d
-            if True:
-                return locals()
+            pressure[1:-1, row] = p1d[1:-1]
 
         current_state['nd_pressure'] = pressure
-        current_state['epsilon'] = epsilon
 
         return current_state
 
