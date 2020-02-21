@@ -34,10 +34,10 @@ class RandomPerezSurface(_Surface):
     height_distribution: {scipy.stats.rv_continuous, sequence}
         Either a scipy.stats distribution or a sequence of the same size as the required output
     accuracy: float, optional (1e-3)
-        The accuracy required for the solution to be considered converged, see the notes of the descretise mathod for
+        The accuracy required for the solution to be considered converged, see the notes of the discretise method for
         more information
     max_it: int, optional (100)
-        The maximum number of iterations used to descretise a realisation
+        The maximum number of iterations used to discretise a realisation
     min_speed: float, optional (1e-10)
         The minimum speed of the iterations, if the iterations are converging slower than this they are deemed not to
         converge
@@ -49,7 +49,7 @@ class RandomPerezSurface(_Surface):
     Notes
     -----
     This method iterates between a surface with the exact right height distribution and one with the exact right PSD
-    this method is not garanteed to converge for all surfaces, for more details see the reference.
+    this method is not guaranteed to converge for all surfaces, for more details see the reference.
 
     Examples
     --------
@@ -63,8 +63,10 @@ class RandomPerezSurface(_Surface):
     >>>qy = np.arange(-128,128)
     >>>Qx, Qy = np.meshgrid(qx,qy)
     >>>Cq = sigma**2*beta/(2*np.pi*(beta**2+Qx**2+Qy**2)**0.5) # the PSD of the surface
+    >>>Cq = np.fft.fftshift(Cq)
     >>>height_distribution = stats.norm()
-    >>>my_surface = s.RandomPerezSurface(target_psd = Cq, height_distribution=height_distribution, grid_spacing=1
+    >>>my_surface = s.RandomPerezSurface(target_psd = Cq, height_distribution=height_distribution,
+    >>>                                  grid_spacing=1,
     >>>                                  generate=True)
     >>>my_surface.show()
 
@@ -107,21 +109,21 @@ class RandomPerezSurface(_Surface):
         self._max_it = max_it
         self._min_speed = min_speed
         if generate:
-            self.descretise()
+            self.discretise()
 
     def __repr__(self):
         pass
 
-    def descretise(self, return_new: bool = False, accuracy: float = None, max_it: int = None, min_speed: float = None,
-                   supress_errors: bool = False, return_original: bool = False):
-        """Descretise the surface with a realisiation
+    def discretise(self, return_new: bool = False, accuracy: float = None, max_it: int = None, min_speed: float = None,
+                   suppress_errors: bool = False, return_original: bool = False):
+        """Discretise the surface with a realisation
 
         Parameters
         ----------
         return_new: bool, optional (False)
             If True a new surface is returned else Nothing is returned and the profile property of the surface is set
         accuracy: float, optional (None)
-            The tollerance used to detect convergence of the psd and height distribution, if not set defaults to the
+            The tolerance used to detect convergence of the psd and height distribution, if not set defaults to the
             value set on initialisation
         max_it: int, optional (None)
             The maximum number of iterations used to fit the PSD and height spectra, if not set defaults to the value
@@ -129,12 +131,12 @@ class RandomPerezSurface(_Surface):
         min_speed: float, optional (None)
             The minimum speed which the iterations can be converging before they are stopped (assumed to be not
             converging), if not set defaults to the value set on initialisation
-        supress_errors: bool, optional (False)
-            If True convergence errors are supressed and the profile realisation is made even if the solution has not
+        suppress_errors: bool, optional (False)
+            If True convergence errors are suppressed and the profile realisation is made even if the solution has not
             converged, warnings are produced
         return_original: bool, optional (False)
             If True the variables returned by the original code given in the paper are returned, these are: the
-            estimated surface with the correct height distribution, the esitmatied surface with the correct PSD and a
+            estimated surface with the correct height distribution, the estimated surface with the correct PSD and a
             dict of errors with each element being a list of error values with one value for each iteration.
 
         Returns
@@ -165,7 +167,7 @@ class RandomPerezSurface(_Surface):
 
         Notes
         -----
-        Durring iteration of this solution two surfaces are maintained, one which has the correct PSD and one which has
+        During iteration of this solution two surfaces are maintained, one which has the correct PSD and one which has
         the correct height distribution, the one returned is the one which was first deemed to have converged. To over
         ride this behaviour set return original to True
 
@@ -265,7 +267,7 @@ class RandomPerezSurface(_Surface):
                 break  # soltuon converged
 
         if msg:
-            if supress_errors:
+            if suppress_errors:
                 warnings.warn(msg)
             else:
                 raise StopIteration(msg)
@@ -290,7 +292,7 @@ class RandomFilterSurface(_Surface):
     Attributes
     ----------
     dist : scipy distribution
-        The statistical distribution which the random sequenc is drawn from
+        The statistical distribution which the random sequence is drawn from
     
     Methods
     -------
@@ -318,7 +320,7 @@ class RandomFilterSurface(_Surface):
 
     surface_type = 'Random'
     dist = scipy.stats.norm(loc=0, scale=1)
-    _filter_coeficents: np.ndarray = None
+    _filter_coefficients: np.ndarray = None
     target_acf: ACF = None
     is_discrete: bool = False
     _moments = None
@@ -365,7 +367,7 @@ class RandomFilterSurface(_Surface):
             self.set_quantiles(quantiles)
 
         if generate:
-            self.descretise()
+            self.discretise()
 
     def __repr__(self):
         string = 'RandomSurface('
@@ -378,7 +380,7 @@ class RandomFilterSurface(_Surface):
             string += f'moments = {self._moments}, '
         if self.shape is not None:
             string += f'shape = {self.shape}, '
-        if self.is_descrete:
+        if self.is_discrete:
             string += f'generate = True, '
         string = string[:-2]
         return string + ')'
@@ -389,31 +391,31 @@ class RandomFilterSurface(_Surface):
         Generates a linear transform matrix
         
         Solves the non linear optimisation problem to generate a 
-        moving average filter that when convoloved with a set of normally
+        moving average filter that when convolved with a set of normally
         distributed random numbers will generate a surface profile with the 
-        sepcified ACF
+        specified ACF
         
         Parameters
         ----------
         
         target_acf : ACF object or description
-            The target ACF, the linear transfrom matrix will produce surfaces
+            The target ACF, the linear transform matrix will produce surfaces
             with this ACF.
-        filter_size_n_m : 2 element sequence of int
-            The dimensions of the filter coeficent matrix to be genrated the defaultis (35, 35)
+        filter_size_n_m : 2 element sequence of int, optional (35, 35)
+            The dimensions of the filter coefficient matrix to be generated the default is (35, 35)
         max_it : int, optional (100)
             The maximum number of iterations used
         accuracy : float, optional (1e-11)
-            The accuracy of the itterated solution
+            The accuracy of the iterated solution
         no_large_filter_error: bool, optional (False
-            If Ture the program allows large filters to be used, large filters do not converge to physical solutions
+            If True the program allows large filters to be used, large filters do not converge to physical solutions
             with this method
         
         Returns
         -------
         
         None
-        Sets the filter_coeficents property of the instance
+        Sets the filter_coefficients property of the instance
         
         Other parameters
         ----------------
@@ -432,12 +434,12 @@ class RandomFilterSurface(_Surface):
         This problem has a unique solution for each grid spacing. This should 
         be set before running this method, else it is assumed to be 1.
         
-        The itteration procedure used if newtonian is selected is not strictly 
+        The iteration procedure used if newtonian is selected is not strictly
         newtonian. As it is much more time consuming to invert the jacobian 
-        martix than multiply the result a modified newtonian is used. If the 
-        next itteration is not an imporovement on the previous itteration the 
-        'distance moved' is halved. This halving is repeted until the 
-        itteration results in an improvement. The minimum disctance that will 
+        matrix than to multiply the result a modified newtonian is used. If the
+        next iteration is not an improvement on the previous iteration the
+        'distance moved' is halved. This halving is repeated until the
+        iteration results in an improvement. The minimum distance that will
         be tried can be set by setting the min_relax key word. This defaults to 
         10e-6. This is a deviation from the method described by [1]
         
@@ -462,7 +464,7 @@ class RandomFilterSurface(_Surface):
             self.target_acf = target_acf
 
         if self.target_acf is None:
-            raise ValueError("No target ACF given, a target ACF must be given before the filter coeficents can be "
+            raise ValueError("No target ACF given, a target ACF must be given before the filter coefficients can be "
                              "found")
 
         # n by m ACF
@@ -473,11 +475,11 @@ class RandomFilterSurface(_Surface):
             warnings.warn("Warning large filter sizes often do not converge")
         if n * m > 400 and not no_large_filter_error:
             raise ValueError("Large filter size used, this will not converge, for large surfaces it is best to "
-                             "resample a lower resolution surface. To supress this error set the "
+                             "resample a lower resolution surface. To suppress this error set the "
                              "no_large_filter_error to True, please check the result if this is done")
 
         if self.grid_spacing is None:
-            msg = ("Grid spacing is not set assuming grid grid_spacing is 1, the soultion is unique for each grid "
+            msg = ("Grid spacing is not set assuming grid grid_spacing is 1, the solution is unique for each grid "
                    "spacing")
             warnings.warn(msg)
             self.grid_spacing = 1
@@ -488,25 +490,25 @@ class RandomFilterSurface(_Surface):
         [k_mesh, l_mesh] = np.meshgrid(k, l)
         acf_array = self.target_acf(k, l)
 
-        # initial guess (n by m guess of filter coefficents)
+        # initial guess (n by m guess of filter coefficients)
         x0 = _initial_guess(acf_array)
 
         alpha, *optional_out = fsolve(_opt_func, x0, args=(acf_array,), fprime=_jac, xtol=accuracy, maxfev=max_it)
 
-        self._filter_coeficents = alpha
+        self._filter_coefficients = alpha
 
         if optional_out[-2] != 1:
-            warnings.warn("Iterations for the filter coefficents failed to converge, processexited with error: " +
+            warnings.warn("Iterations for the filter coefficients failed to converge, process exited with error: " +
                           optional_out[-1])
 
     def set_moments(self, skew=0, kurtosis=3):
         r"""
         Sets the skew and kurtosis of the output surface
         
-        If a filter coeficents matrix is present, this method changes the dist
+        If a filter coefficients matrix is present, this method changes the dist
         property of this instance to a distribution that produces a series of 
         johnson or normally distributed random numbers that will have the 
-        set skew and kurtosis when convolved with the filter coeficents matrix.
+        set skew and kurtosis when convolved with the filter coefficients matrix.
         
         Parameters
         ----------
@@ -551,13 +553,13 @@ class RandomFilterSurface(_Surface):
         """
         self._moments = (skew, kurtosis)
 
-        if not hasattr(self, '_filter_coeficents'):
-            msg = ("filter coeficents matrix not found, this must be found by"
+        if not hasattr(self, '_filter_coefficients'):
+            msg = ("filter coefficients matrix not found, this must be found by"
                    " the linear_transforms or FIR_filter methods before this "
                    "method can be used")
             raise AttributeError(msg)
 
-        alpha = self._filter_coeficents
+        alpha = self._filter_coefficients
 
         alpha = alpha.flatten()
         alpha2 = alpha ** 2  # alpha squared
@@ -572,7 +574,7 @@ class RandomFilterSurface(_Surface):
         ai = repmat(alpha2[:-1], len(alpha2) - 1, 1)
 
         index_x_mesh, index_y_mesh = np.meshgrid(np.arange(len(alpha2) - 1), np.arange(len(alpha2) - 1))
-        index = index_x_mesh + index_y_mesh + 1  # diagonally increaing matrix
+        index = index_x_mesh + index_y_mesh + 1  # diagonally increasing matrix
         aj = alphapad2[index]
 
         quad_term = sum(ai.flatten() * aj.flatten())
@@ -584,7 +586,7 @@ class RandomFilterSurface(_Surface):
         self.dist = _fit_johnson_by_moments(0, 1, seq_skew, seq_kurt, True)
 
     def set_quantiles(self, quantiles: typing.Sequence):
-        """ Fit a johnson districution to give a resulting surface with the supplied quantiles
+        """ Fit a johnson distribution to give a resulting surface with the supplied quantiles
 
         Parameters
         ----------
@@ -594,7 +596,7 @@ class RandomFilterSurface(_Surface):
 
         Notes
         -----
-        The quantiles suplied should relate to the quantiles in the final surface not the distribution that will be
+        The quantiles supplied should relate to the quantiles in the final surface not the distribution that will be
         filtered.
 
         See Also
@@ -634,10 +636,10 @@ class RandomFilterSurface(_Surface):
         Notes
         -----
         
-        1 For this function to work the grid_spacing ofthe final surface
+        1 For this function to work the grid_spacing of the final surface
             must be set.
-        2 After runing this method surface realisations can be generated by the 
-            descretise method
+        2 After running this method surface realisations can be generated by the
+            discretise method
         3 Uses the method defined here:
             Hu, Y. Z., & Tonder, K. (1992). Simulation of 3-D random rough 
             surface by 2-D digital filter and Fourier analysis. 
@@ -670,38 +672,38 @@ class RandomFilterSurface(_Surface):
         if filter_span is None:
             if self.shape is None:
                 raise ValueError('Either the shape and grid_spacing of the surface or the filter span and the '
-                                 'grid_spacing must be set before the filter coeficents can be found by this method')
+                                 'grid_spacing must be set before the filter coefficients can be found by this method')
             filter_span = self.shape
 
-        # genreate ACF object if input is not ACF object
+        # generate ACF object if input is not ACF object
         if type(target_acf) is ACF:
             self.target_acf = target_acf
         if self.target_acf is None:
-            raise ValueError("Target ACF must be set before the filter coeficents can be found")
+            raise ValueError("Target ACF must be set before the filter coefficients can be found")
 
         # Generate array of ACF
         l = self.grid_spacing * np.arange(filter_span[0])
         k = self.grid_spacing * np.arange(filter_span[1])
         acf_array = self.target_acf(k, l)
 
-        # Find FIR filter coeficents
-        self._filter_coeficents = np.sqrt(np.fft.fft2(acf_array))
+        # Find FIR filter coefficients
+        self._filter_coefficients = np.sqrt(np.fft.fft2(acf_array))
 
-    def descretise(self, output_shape: typing.Sequence = None, periodic: bool = False,
+    def discretise(self, output_shape: typing.Sequence = None, periodic: bool = False,
                    create_new: bool = False):
         """
-        Create a random surface realisation based on preset paramters
+        Create a random surface realisation based on preset parameters
         
         Parameters
         ----------
         
-        output_shape : 2 elemeent list of ints, defaults to [512, 512]
+        output_shape : 2 element list of ints, defaults to [512, 512]
             The size of the output in points, the grid_spacing of these points 
-            is set when the filter coefficents matrix is genreated, see 
+            is set when the filter coefficients matrix is generated, see
             linear_transform for more information
         periodic : bool, (False)
             If true the resulting surface will be periodic in geometry, for 
-            this to work the filter coefficents matrix must have odd order in 
+            this to work the filter coefficients matrix must have odd order in
             both directions 
         create_new : bool, optional (False)
             If set to true the method will return a new surface object with the
@@ -731,10 +733,10 @@ class RandomFilterSurface(_Surface):
         
         """
 
-        if self._filter_coeficents is None:
-            raise AttributeError('The filter coeficents matrix must be found by either the linear_transform or '
+        if self._filter_coefficients is None:
+            raise AttributeError('The filter coefficients matrix must be found by either the linear_transform or '
                                  'fir_filter method before surface realisations can be generated')
-        (n, m) = self._filter_coeficents.shape
+        (n, m) = self._filter_coefficients.shape
         if output_shape is None:
             output_shape = self.shape
 
@@ -745,8 +747,8 @@ class RandomFilterSurface(_Surface):
 
         if periodic:
             if n % 2 == 0 or m % 2 == 0:
-                msg = ('For a periodic surface the filter coeficents matrix must'
-                       'have an odd number of elements in every dimention, '
+                msg = ('For a periodic surface the filter coefficients matrix must'
+                       'have an odd number of elements in every dimension, '
                        'output profile will not be the expected size')
                 warnings.warn(msg)
             pad_rows = int(np.floor(n / 2))
@@ -755,13 +757,13 @@ class RandomFilterSurface(_Surface):
         else:
             eta = self.dist.rvs(size=[output_n + n - 1, output_m + m - 1])
 
-        profile = fftconvolve(eta, self._filter_coeficents, 'valid')
+        profile = fftconvolve(eta, self._filter_coefficients, 'valid')
 
         if create_new:
             return Surface(grid_spacing=self.grid_spacing, profile=profile)
         else:
             self.profile = profile
-            self.is_descrete = True
+            self.is_discrete = True
         return
 
 
@@ -781,7 +783,7 @@ def surface_like(target_surface: Surface, extent: typing.Union[str, tuple] = 'or
     target_surface : Surface
         A surface object to be 'copied'
         
-    extent : {'origninal' or 2 element list of ints}
+    extent : {'original' or 2 element list of ints}
         The size in each direction of the output surface, 
         if 'original' the dimensions of the input surface are used
         
@@ -814,7 +816,7 @@ def surface_like(target_surface: Surface, extent: typing.Union[str, tuple] = 'or
         
     filter_kwargs : dict
         Keyword arguments that are passed to RandomSurface.linear_transforms 
-        see that for more infromation
+        see that for more information
         
     dist_type: {'johnson', 'kernel'}
         Defaults to johnson, the distribution that will be used to draw random
@@ -895,13 +897,13 @@ def surface_like(target_surface: Surface, extent: typing.Union[str, tuple] = 'or
 
     pts_each_dir = [int(sz / grid_spacing) for sz in extent]
 
-    surf_out.descretise(pts_each_dir, periodic, False)
+    surf_out.discretise(pts_each_dir, periodic, False)
 
     return surf_out
 
 
 def _initial_guess(target_acf):
-    """Find the initial guess for the filter coeficent matrix in the linear transforms method
+    """Find the initial guess for the filter coefficient matrix in the linear transforms method
 
     Parameters
     ----------
@@ -909,7 +911,7 @@ def _initial_guess(target_acf):
 
     Returns
     -------
-    np.ndarray, initial guess of filter coefficents
+    np.ndarray, initial guess of filter coefficients
     """
     n, m = target_acf.shape
     c = np.zeros_like(target_acf)
@@ -921,12 +923,12 @@ def _initial_guess(target_acf):
 
 
 def _jac(alpha: np.ndarray, target_acf: np.ndarray):
-    """Jacobian of the filter coeficents matrix
+    """Jacobian of the filter coefficients matrix
 
     Parameters
     ----------
     alpha: np.array
-        Filter coefficents matrix
+        Filter coefficients matrix
     target_acf: np.array
         The target acf
 
@@ -953,7 +955,7 @@ def _opt_func(alpha: np.ndarray, target_acf: np.ndarray):
     Parameters
     ----------
     alpha: np.ndarray
-        The current filter coefficent matrix
+        The current filter coefficient matrix
     target_acf: np.ndarray
         The target acf array (same shape as alpha)
 
