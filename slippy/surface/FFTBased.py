@@ -207,14 +207,14 @@ class HurstFractalSurface(Surface):
         The RSM roughness of the surface
     hurst_exponent: float
         The hurst exponent, must be between 0 and 1, related to the fractal dimension by D = 3-H
-    roll_off_frequency: float, opotional (0.0)
+    roll_off_frequency: float, optional (0.0)
     generate: bool, optional (False)
         If true the surface profile is generated on instantiation, two of: grid_spacing, extent or shape must be set
     grid_spacing: float, optional (None)
         The grid spacing of the surface profile
     extent: tuple, optional (None)
-        The overall surface dimensions in the x and y direcitons
-    shape: tuple, otional (None)
+        The overall surface dimensions in the x and y directions
+    shape: tuple, optional (None)
         The number of grid points in the x and y directions, computation is faster for powers of 2
 
     See Also
@@ -227,18 +227,18 @@ class HurstFractalSurface(Surface):
     Notes
     -----
 
-    generates a hurst fratal surface with frequency components from q0 to
+    generates a hurst fractal surface with frequency components from q0 to
     cut off frequency in even steps of q0.
 
-    amptitudes are given by:
+    amplitudes are given by:
 
-    q0 amptitude\*\*2 \*((h\*\*2+k\*\*2)/2)\*\*(1-Hurst parameter)
+    q0 amplitude\*\*2 \*((h\*\*2+k\*\*2)/2)\*\*(1-Hurst parameter)
 
     where h,k = \-N...N
     where N=cut off frequency/ q0
     phases are randomly generated on construction of the surface object,
-    repeted calls to the descretise function will descretise on the same surface
-    but repeted calls to this class will generate diferent realisations
+    repeated calls to the discretise function will discretise on the same surface
+    but repeated calls to this class will generate different realisations
 
     References
     ----------
@@ -249,7 +249,7 @@ class HurstFractalSurface(Surface):
     Examples
     --------
 
-    >>> #create the surface object with the specified fractal prameters
+    >>> #create the surface object with the specified fractal parameters
     >>> my_surface=HurstFractalSurface(1,0.2,1000, shape=(128, 128), grid_spacing=0.01)
     >>> #descrtise the surface over a grid 1 unit by 1 unit with a grid_spacing of 0.01
     >>> my_surface.discretise()
@@ -273,9 +273,9 @@ class HurstFractalSurface(Surface):
         super().__init__(grid_spacing=grid_spacing, extent=extent, shape=shape)
 
         if generate:
-            self.descretise()
+            self.discretise()
 
-    def descretise(self, return_new: bool = False):
+    def discretise(self, return_new: bool = False):
         """Generate a new profile realisation, return a new surface if needed
 
         Parameters
@@ -291,7 +291,7 @@ class HurstFractalSurface(Surface):
 
         Notes
         -----
-        As a side effect this will set the FFT and PSD properties of the descretised surface.
+        As a side effect this will set the FFT and PSD properties of the discretised surface.
 
         Copyright (c) 2016, Mona Mahboob Kanafi
         All rights reserved.
@@ -325,7 +325,7 @@ class HurstFractalSurface(Surface):
         https://uk.mathworks.com/matlabcentral/fileexchange/60817-surface-generator-artificial-randomly-rough-surfaces?s_tid=mwa_osa_a
         """
         if self.profile is not None and not return_new:
-            raise ValueError('Profile is already set, set the return_new argument to true to retrun a new surface '
+            raise ValueError('Profile is already set, set the return_new argument to true to return a new surface '
                              'instance with the same fractal properties')
 
         if self.shape is None or self.grid_spacing is None:
@@ -434,11 +434,11 @@ def check_coords_are_simple(x_mesh, y_mesh):
 
 
 def _conj_sym(matrix: np.ndarray, in_place=True, neg=False):
-    """ apply conjigate symmetry to a matrix
+    """ apply conjugate symmetry to a matrix
     """
     try:
         n, m = matrix.shape
-    except:
+    except AttributeError:
         raise ValueError(f'Input matrix must be a 2d numpy array, got {type(matrix)}')
 
     mult = -1 if neg else 1
@@ -451,7 +451,7 @@ def _conj_sym(matrix: np.ndarray, in_place=True, neg=False):
     matrix[n // 2, m // 2] = 0.0
 
     matrix[1:, 1:m // 2] = mult * np.rot90(matrix[1:, m // 2 + 1:], 2)
-    matrix[0, 1:m // 2] = mult * np.flip(matrix[0, m // 2 + 1:])  # actually just needs to flip it
+    matrix[0, 1:m // 2] = mult * np.flip(matrix[0, m // 2 + 1:])  # just needs to flip it
     matrix[n // 2 + 1:, 0] = mult * np.flip(matrix[1:n // 2, 0])  # also just needs to flip it
     matrix[n // 2 + 1:, m // 2] = mult * np.flip(matrix[1:n // 2, m // 2])
 
