@@ -63,8 +63,7 @@ instance/
 .scrapy
 
 # Sphinx documentation
-doc/_build/
-
+docs/_build/
 
 # PyBuilder
 target/
@@ -102,9 +101,11 @@ ENV/
 # mypy
 .mypy_cache/
 
+# IDE settings
+.vscode/
+
 # pycharm project settings
 .idea/
 
 # slippy results
 *.sdb
-
