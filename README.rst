@@ -6,8 +6,8 @@ SlipPY
 .. image:: https://img.shields.io/pypi/v/slippy.svg
         :target: https://pypi.python.org/pypi/slippy
 
-.. image:: https://img.shields.io/travis/mikeWShef/slippy.svg
-        :target: https://travis-ci.com/mikeWShef/slippy
+.. image:: https://img.shields.io/travis/FrictionTribologyEnigma/slippy.svg
+        :target: https://travis-ci.com/FrictionTribologyEnigma/slippy
 
 .. image:: https://readthedocs.org/projects/slippy/badge/?version=latest
         :target: https://slippy.readthedocs.io/en/latest/?badge=latest
