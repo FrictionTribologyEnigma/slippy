@@ -1,7 +1,7 @@
 """
 Tests for the surface class
 
-tests for fft, psd and acf are done in test for frequency and random surface 
+tests for fft, psd and acf are done in test for frequency and random surface
 classes
 
 roughness functions are tested in more detail in their own tests
@@ -10,10 +10,7 @@ roughness functions are tested in more detail in their own tests
 import numpy as np
 import numpy.testing as npt
 
-import slippy.data
 import slippy.surface as surface
-
-data_path = slippy.data.__path__[0]
 
 
 def test_assurface():
@@ -21,13 +18,6 @@ def test_assurface():
     ms = surface.assurface(profile, grid_spacing=0.1)
     npt.assert_equal(ms.profile, profile)
     npt.assert_equal(ms.extent, (1, 1))
-
-
-def test_read_surface():
-    ms = surface.read_surface(data_path + '\\AFM.txt', csv_delimiter=' ')
-    npt.assert_equal(ms.shape, (512, 512))
-    ms = surface.read_surface(data_path + '\\Alicona.al3d')
-    npt.assert_equal(ms.shape, (7556, 2048))
 
 
 def test_roughness():
@@ -121,7 +111,7 @@ def test_dimensions():
     npt.assert_allclose(ms.extent, [1, 1])
     assert ms.is_discrete is True
 
-    # deleting 
+    # deleting
 
     del ms.profile
 

@@ -5,23 +5,17 @@
 # TODO make list of all functionality
 
 import abc
-import collections
 import copy
 import csv
 import os
 import typing
 import warnings
 from numbers import Number
+from collections.abc import Sequence
 
-import matplotlib.pyplot as plt
 import numpy as np
 import scipy.interpolate
 import scipy.signal
-# noinspection PyUnresolvedReferences
-from mpl_toolkits.mplot3d import Axes3D
-from scipy.io import loadmat
-from scipy.stats import probplot
-from skimage.restoration import inpaint
 
 from slippy.abcs import _MaterialABC, _SurfaceABC
 from .ACF_class import ACF
@@ -34,87 +28,87 @@ __all__ = ['Surface', 'assurface', 'read_surface', '_Surface', '_AnalyticalSurfa
 
 def assurface(profile, grid_spacing=None):
     """ make a surface from a profile
-    
+
     Parameters
     ----------
     profile : array-like
         The surface profile
     grid_spacing : float optional (None)
         The spacing between grid points on the surface
-    
+
     Returns
     -------
     surface : Surface object
         A surface object with the specified profile and grid size
-    
+
     See Also
     --------
     Surface
     read_surface
-    
+
     Notes
     -----
-    
-    
+
+
     Examples
     --------
-    
+
     >>> profile=np.random.normal(size=[10,10])
     >>> my_surface=assurface(profile, 0.1)
     >>> my_surface.extent
     [1,1]
-    
+
     """
     return Surface(profile=profile, grid_spacing=grid_spacing)
 
 
 def read_surface(file_name, **kwargs):
     """ Read a surface from a file
-    
+
     Parameters
     ----------
     file_name : str
         The full path to the data file
-    
+
     Other Parameters
     ----------------
-    
+
     delim : str optional (',')
         The delimiter used in the data file, only needed for csv or txt files
     p_name : str optional ('profile')
-        The name of the variable containing the profile data, needed if a .mat 
+        The name of the variable containing the profile data, needed if a .mat
         file is given
     gs_name : str optional ('grid_spacing')
-        The name of the variable containing the grid_spacing, needed if a .mat 
+        The name of the variable containing the grid_spacing, needed if a .mat
         file is given
-    
+
     Returns
     -------
     A surface object generated from the file
-    
+
     See Also
     --------
     Surface
     alicona_read
     scipy.io.loadmat
-    
+
     Notes
     -----
-    This function directly invokes the surface class, any other keywords that 
+    This function directly invokes the surface class, any other keywords that
     can be passed to that class can be passed to this function
-    
+
     Examples
     --------
-    
+
     >>> # Read a csv file with tab delimiters
     >>> my_surface=read_surface('data.csv', delim='\t')
-    
+
     >>> # Read a .al3d file
     >>> my_surface=read_surface('data.al3d')
-    
+
     >>> # Read a .mat file with variables called prof and gs
     >>> my_surface=read_surface('data.mat', p_name='prof', gs_name='gs')
-    
+
     """
     return Surface(file_name=file_name, **kwargs)
 
@@ -203,7 +197,7 @@ class _Surface(_SurfaceABC):
                 raise TypeError(msg)
         elif isinstance(value, str):
             raise TypeError('Mask cannot be a string')
-        elif isinstance(value, collections.Sequence):
+        elif isinstance(value, Sequence):
             mask = np.zeros_like(self.profile, dtype=bool)
             for item in value:
                 self.mask = item
@@ -224,7 +218,7 @@ class _Surface(_SurfaceABC):
 
     @extent.setter
     def extent(self, value: typing.Sequence[float]):
-        if not isinstance(value, collections.Sequence):
+        if not isinstance(value, Sequence):
             msg = "Extent must be a Sequence, got {}".format(type(value))
             raise TypeError(msg)
         if len(value) > 2:
@@ -266,7 +260,7 @@ class _Surface(_SurfaceABC):
 
     @shape.setter
     def shape(self, value: typing.Sequence[int]):
-        if not isinstance(value, collections.Sequence):
+        if not isinstance(value, Sequence):
             raise ValueError(f"Shape should be a Sequence type, got: {type(value)}")
 
         if self._profile is not None:
@@ -749,7 +743,7 @@ class _Surface(_SurfaceABC):
             self.profile = new_profile
             if not gs_changed:
                 self.grid_spacing = new_grid_spacing
-    
+
     def __add__(self, other):
         if not isinstance(other, _Surface):
             return Surface(profile=self.profile+other, grid_spacing=self.grid_spacing)
@@ -888,6 +882,10 @@ class _Surface(_SurfaceABC):
         >>> my_surface.show(['fft2D','fft2D','fft2D'], ['mesh', 'image', 'default'])
 
         """
+        import matplotlib.pyplot as plt
+        # noinspection PyUnresolvedReferences
+        from mpl_toolkits.mplot3d import Axes3D
+        from scipy.stats import probplot
 
         if self.profile is None:
             raise AttributeError('The profile of the surface must be set before it can be shown')
@@ -1362,6 +1360,7 @@ class Surface(_Surface):
         an error is raised
 
         """
+        from scipy.io import loadmat
         # load file
         mat = loadmat(path)
         keys = [key for key in mat if not key.startswith('_')]
@@ -1436,6 +1435,7 @@ class Surface(_Surface):
         >>> my_surface.profile[6,6]
         6.0
         """
+        from skimage.restoration import inpaint
 
         profile = self.profile
 
@@ -1776,8 +1776,3 @@ class SurfaceCombination(_AnalyticalSurface):
     def _height(self, x_mesh, y_mesh):
         """This will be overwritten on init"""
         pass
-
-
-if __name__ == '__main__':
-    A = Surface(file_name='C:\\Users\\44779\\code\\SlipPY\\data\\image1_no header_units in nm.txt', csv_delimiter=' ',
-                grid_spacing=0.001)
