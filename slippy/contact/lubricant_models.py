@@ -10,7 +10,7 @@ __all__ = ['constant_array_property', 'roelands', 'barus', 'nd_barus', 'nd_roela
 
 
 def constant_array_property(value: float):
-    """ Produce a closure that returns an indexable constant value
+    """ Produce a closure that returns an index able constant value
 
     Parameters
     ----------
@@ -219,5 +219,3 @@ def nd_dowson_higginson(pressure_hertzian: float):
         return (constant + 1.34 * nd_pressure) / (constant + nd_pressure)
 
     return inner
-
-

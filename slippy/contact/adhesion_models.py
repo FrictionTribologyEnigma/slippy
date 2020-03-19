@@ -1,4 +1,3 @@
-from abc import abstractmethod
 from slippy.abcs import _AdhesionModelABC
 
 __all__ = ['_AdhesionModel']
