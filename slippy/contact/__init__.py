@@ -58,16 +58,18 @@ https://github.com/FrictionTribologyEnigma/SlipPY/tree/master/examples
 """
 
 from ._material_utils import Loads, Displacements
-from .adhesion_models import *
-from .hertz import *
-from .lubricant import *
-from .lubricant_models import *
-from .lubrication_steps import *
-from .materials import *
-from .models import *
-from .outputs import *
-from .static_step import *
-from .steps import *
-from .unified_reynolds_solver import *
+# from .adhesion_models import *
+from .hertz import hertz_full, solve_hertz_line, solve_hertz_point
+from .lubricant import Lubricant
+from .lubrication_steps import IterSemiSystemLoad
+from .materials import Elastic, Rigid, rigid
+from .models import ContactModel
+from .outputs import OutputRequest
+from .static_step import StaticNormalLoad, StaticNormalInterference, SurfaceDisplacement, SurfaceLoading
+# from .steps import InitialStep
+from .unified_reynolds_solver import UnifiedReynoldsSolver
 
-__all__ = [s for s in dir() if not s.startswith("_")]
+__all__ = ['Loads', 'Displacements', 'hertz_full', 'solve_hertz_line', 'solve_hertz_point', 'Lubricant',
+           'lubricant_models', 'IterSemiSystemLoad', 'Elastic', 'Rigid', 'rigid', 'ContactModel', 'OutputRequest',
+           'StaticNormalLoad', 'StaticNormalInterference', 'SurfaceDisplacement', 'SurfaceLoading',
+           'UnifiedReynoldsSolver']
