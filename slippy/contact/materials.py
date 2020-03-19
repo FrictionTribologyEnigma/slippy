@@ -1,5 +1,5 @@
 import abc
-import collections
+from collections.abc import Sequence
 import typing
 import warnings
 from itertools import product
@@ -118,7 +118,7 @@ class _Material(_MaterialABC):
                 except TypeError:
                     raise ValueError("Unrecognised keys in loads dict, allowed keys are x,y,z found keys are: "
                                      f"{', '.join(loads.keys())}")
-            elif isinstance(loads, collections.Sequence):
+            elif isinstance(loads, Sequence):
                 try:
                     loads = Loads(*[np.array(ld, dtype=float) if ld is not None else None for ld in loads])
                 except TypeError:
@@ -135,7 +135,7 @@ class _Material(_MaterialABC):
         if span is None:
             span = shapes[0]
 
-        if not isinstance(grid_spacing, collections.Sequence):
+        if not isinstance(grid_spacing, Sequence):
             grid_spacing = (grid_spacing,) * 2
         elif len(grid_spacing) == 1:
             grid_spacing *= 2
@@ -275,7 +275,7 @@ class _Material(_MaterialABC):
                     raise ValueError(
                         f'Unexpected key in displacements dict, valid keys are "x", "y", "z", found keys are: '
                         f'{", ".join(displacements.keys())}')
-            elif isinstance(displacements, collections.Sequence):
+            elif isinstance(displacements, Sequence):
                 if len(displacements) != 3:
                     raise ValueError(f"Deflections sequence must be length 3, length is: {len(displacements)}")
                 displacements = Displacements(*[np.array(de, dtype=float) for de in displacements if de is not None])
@@ -290,7 +290,7 @@ class _Material(_MaterialABC):
         if span is None:
             span = shapes[0]
 
-        if not isinstance(grid_spacing, collections.Sequence):
+        if not isinstance(grid_spacing, Sequence):
             grid_spacing = (grid_spacing,) * 2
 
         if len(grid_spacing) == 1:
@@ -626,37 +626,37 @@ rigid = Rigid('rigid')
 # noinspection PyPep8Naming
 class Elastic(_Material):
     """ A Class for defining elastic materials
-    
+
     Parameters
     ----------
     name: str
         The name of the material
     properties: dict
-        dict of properties, dicts must have exactly 2 items. 
+        dict of properties, dicts must have exactly 2 items.
         Allowed keys are : 'E', 'v', 'G', 'K', 'M', 'Lam'
         See notes for definitions
-    
+
     Methods
     -------
     speed_of_sound
-    
+
     See Also
     --------
-    
+
     Notes
     -----
-    
+
     Keys refer to:
         - E   - Young's modulus
         - v   - Poission's ratio
         - K   - Bulk Modulus
         - Lam - Lame's first parameter
         - G   - Shear modulus
-        - M   - P wave modulus 
-    
+        - M   - P wave modulus
+
     Examples
     --------
-    >>> # Make a material model for elastic steel on a rigid substarte with a 
+    >>> # Make a material model for elastic steel on a rigid substarte with a
     >>> # thickness of 1mm
     >>> steel = Elastic({'E': 200e9, 'v': 0.3}, density=7850)
     >>> # Find it's pwave modulus:
@@ -1009,35 +1009,35 @@ class Elastic(_Material):
 
     def speed_of_sound(self, density: float = None):
         """find the speed of sound in the material
-        
+
         Parameters
         ----------
         density : float optional (None)
             The density of the material
-        
+
         Returns
         -------
-        
+
         speeds : dict
             With keys 's' and 'p' giving the s and p wave speeds
-            
+
         Notes
         -----
-        
+
         Finds speeds according to the following equations:
-        
+
         Vs=sqrt(G/rho)
         Vp=sqrt(M/rho)
-        
+
         Where rho is the density, G is the shear modulus and M is the p wave
         modulus
-        
+
         Examples
         --------
         >>> # Find the speed of sound in steel
         >>> my_material = Elastic({'E': 200e9, 'v': 0.3})
         >>> my_material.speed_of_sound(7850)
-        
+
         """
         if density is not None:
             self.density = density

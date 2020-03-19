@@ -43,4 +43,20 @@ If you are interested in contributing to SlipPy start here:
 .. toctree::
    :maxdepth: 1
 
-   development
+   contributing
+
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
+
+   readme
+   usage
+   authors
+   history
+
+Indices and tables
+==================
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`
