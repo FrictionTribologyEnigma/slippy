@@ -474,7 +474,7 @@ class RandomFilterSurface(_Surface):
             warnings.warn("Warning large filter sizes often do not converge")
         if n * m > 400 and not no_large_filter_error:
             raise ValueError("Large filter size used, this will not converge, for large surfaces it is best to "
-                             "resample a lower resolution surface. To suppress this error set the "
+                             "re sample a lower resolution surface. To suppress this error set the "
                              "no_large_filter_error to True, please check the result if this is done")
 
         if self.grid_spacing is None:
@@ -484,10 +484,10 @@ class RandomFilterSurface(_Surface):
             self.grid_spacing = 1
 
         # generate the acf array form the ACF object
-        l = self.grid_spacing * np.arange(n)
+        el = self.grid_spacing * np.arange(n)
         k = self.grid_spacing * np.arange(m)
-        [k_mesh, l_mesh] = np.meshgrid(k, l)
-        acf_array = self.target_acf(k, l)
+        [k_mesh, l_mesh] = np.meshgrid(k, el)
+        acf_array = self.target_acf(k, el)
 
         # initial guess (n by m guess of filter coefficients)
         x0 = _initial_guess(acf_array)
@@ -540,7 +540,8 @@ class RandomFilterSurface(_Surface):
         by [1]:
 
         ..math:
-            K_z= \frac{K_\eta \sum_{i=0}^q \alpha_i^2 + 6 \sum_{i=0}^{q-1}\sum_{j=i+1}^q \alpha_i^2 \alpha_j^2}{(\sum_{i=0}^q \alpha_i^2)^2}\\
+            K_z= \frac{K_\eta \sum_{i=0}^q \alpha_i^2 + 6 \sum_{i=0}^{q-1}\sum_{j=i+1}^q
+            \alpha_i^2 \alpha_j^2}{(\sum_{i=0}^q \alpha_i^2)^2}\\
 
         References
         ----------
@@ -681,9 +682,9 @@ class RandomFilterSurface(_Surface):
             raise ValueError("Target ACF must be set before the filter coefficients can be found")
 
         # Generate array of ACF
-        l = self.grid_spacing * np.arange(filter_span[0])
+        el = self.grid_spacing * np.arange(filter_span[0])
         k = self.grid_spacing * np.arange(filter_span[1])
-        acf_array = self.target_acf(k, l)
+        acf_array = self.target_acf(k, el)
 
         # Find FIR filter coefficients
         self._filter_coefficients = np.sqrt(np.fft.fft2(acf_array))
@@ -863,7 +864,7 @@ def surface_like(target_surface: Surface, extent: typing.Union[str, tuple] = 'or
         msg = "input must be of surface type"
         raise ValueError(msg)
 
-    if grid_spacing is 'original':
+    if grid_spacing == 'original':
         if target_surface.grid_spacing is None:
             warnings.warn("Grid spacing of the original surface is not set "
                           "assuming it is 1")
@@ -872,7 +873,7 @@ def surface_like(target_surface: Surface, extent: typing.Union[str, tuple] = 'or
         else:
             grid_spacing = target_surface.grid_spacing
 
-    if extent is 'original':
+    if extent == 'original':
         if target_surface.extent is not None:
             extent = target_surface.extent
         else:
