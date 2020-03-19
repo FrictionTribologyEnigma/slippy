@@ -23,5 +23,5 @@ deploy:
     secure: PLEASE_REPLACE_ME
   on:
     tags: true
-    repo: mikeWShef/slippy
+    repo: mike12523/slippy
     python: 3.8
