@@ -488,7 +488,7 @@ class _StaticStep(_ModelStep):
         The span in number of grid points of the influence matrix, this defaults to the same size as the first surface
         in the model.
 
-    
+
     _load = None
     _displacement = None
     options: StaticStepOptions = None
