@@ -37,7 +37,7 @@ def memoize_components(static_method=True):
         The other arguments passed to the callable (if any of these change the cache is cleared)
     """
     if not isinstance(static_method, bool):
-        raise ValueError('Memoise components is a decorator factory, it cannot be appled as a decorator directly.'
+        raise ValueError('memoize_components is a decorator factory, it cannot be applied as a decorator directly.'
                          ' static_method argument must be a bool')
 
     def outer(fn):
@@ -123,7 +123,7 @@ def convert_array(loads_or_displacements: np.array, name: str):
     Parameters
     ----------
     loads_or_displacements: numpy.array
-            Loads or displacemnts (3 by N by M array)
+            Loads or displacements (3 by N by M array)
     name : str {'l', 'd'}
         or any string which starts with l or d if 'l' a loads named tuple is returned if a 'd' a displacement named
         tuple is returned
@@ -154,29 +154,29 @@ def convert_array(loads_or_displacements: np.array, name: str):
 
 def _get_properties(set_props: dict):
     """Get all elastic properties from any pair
-    
+
     Parameters
     ----------
     set_props : dict
-        dict of properties must have exactly 2 members valid keys are: 'K', 
+        dict of properties must have exactly 2 members valid keys are: 'K',
         'E', 'v', 'Lam', 'M', 'G'
-    
+
     Returns
     -------
     out : dict
         dict of all material properties keys are: 'K', 'E', 'v', 'Lam', 'M', 'G'
-    
+
     Notes
     -----
-    
+
     Keys refer to:
         - E - Young's modulus
         - v - Poission's ratio
         - K - Bulk Modulus
         - Lam - Lame's first parameter
         - G - Shear modulus
-        - M - P wave modulus 
-    
+        - M - P wave modulus
+
     """
     if len(set_props) != 2:
         raise ValueError("Exactly 2 properties must be set,"
