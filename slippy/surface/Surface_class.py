@@ -884,7 +884,7 @@ class _Surface(_SurfaceABC):
         """
         import matplotlib.pyplot as plt
         # noinspection PyUnresolvedReferences
-        from mpl_toolkits.mplot3d import Axes3D
+        from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
         from scipy.stats import probplot
 
         if self.profile is None:
