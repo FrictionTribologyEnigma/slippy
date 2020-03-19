@@ -10,11 +10,11 @@ with open('README.rst') as readme_file:
 with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
-requirements = ['sympy', 
-                'pytest', 
-                'scikit-image', 
-                'matplotlib', 
-                'numpy', 
+requirements = ['sympy',
+                'pytest',
+                'scikit-image',
+                'matplotlib',
+                'numpy',
                 'scipy', ]
 
 setup_requirements = ['pytest-runner', ]
@@ -24,13 +24,12 @@ test_requirements = ['pytest>=3', ]
 setup(
     author="Michael Watson",
     author_email='mike.watson@sheffield.ac.uk',
-    python_requires='>=3.6',
+    python_requires='>=3.7',
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
         'Intended Audience :: Science/Research',
         'Natural Language :: English',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         "Topic :: Scientific/Engineering :: Physics",

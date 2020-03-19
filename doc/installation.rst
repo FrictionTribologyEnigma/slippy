@@ -10,7 +10,7 @@ Installing python
 
 It is recomended to install python by installing anaconda, this is a popular scientific python distribution. The latest version of anaconda can be found at: https://www.anaconda.com/distribution/. 
 
-SlipPy requires that the 3.X version should be installed. 
+SlipPY requires that the >=3.6 version should be installed. 
 
 Making a virtual environment
 ----------------------------
@@ -25,7 +25,7 @@ To make a new virtual environment called 'slippy', type the following into this 
 
 	conda create --name slippy
 
-When this environment is 'activated' any packages installed will be installed only for this environment. The environment can be activated by typing the following::
+When this environment is activated any packages installed will be installed only for this environment. The environment can be activated by typing the following::
 
 	conda activate slippy
 
@@ -49,4 +49,4 @@ spyder: Probably the most popular open source IDE for python, can be installed b
 
 pycharm: An advance IDE with many extremely useful features
 
-jupyter: An alternative development set up. Sets up a local server and runs in a browser, allows the user to mix code, text and inline plots. Installed by typing: 'conda install jupyter', run by typing: 'jupyter'
+jupyter: An alternative development set up. Sets up a local server and runs in a browser, allows the user to mix code, text and inline plots. Installed by typing: 'conda install jupyter', run by typing: 'jupyter notebook'

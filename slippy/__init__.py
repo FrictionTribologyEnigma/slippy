@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Nov  7 11:32:31 2018
+"""Top-level package for SlipPY."""
 
-@author: 44779
-"""
+__author__ = """Michael Watson"""
+__email__ = 'mike.watson@sheffield.ac.uk'
+__version__ = '0.1.0'
