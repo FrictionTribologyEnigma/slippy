@@ -57,6 +57,6 @@ def test_johnson_quantile_fit():
                                     f'quartiles {quantiles_in}')
 
 
-if __name__ is '__main__':
+if __name__ == '__main__':
     test_johnson_fit()
     test_johnson_quantile_fit()

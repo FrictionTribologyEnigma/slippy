@@ -12,7 +12,7 @@ The Surface class for experimental surfaces
 ===========================================
 
 The Surface class contains methods for reading surfaces from files including .mat, .txt, .csv and .al3d files. It also
-contains methods for analysing surface rougness and other parameters.
+contains methods for analysing surface roughness and other parameters.
 
 .. autosummary::
    :toctree: generated
@@ -28,7 +28,7 @@ resolution.
 
 .. autosummary::
    :toctree: generated
-   
+
    FlatSurface         -- Flat or sloping surface.
    RoundSurface        -- Round surfaces
    PyramidSurface      -- Square based pyramid surfaces
@@ -39,13 +39,13 @@ resolution.
 Random Surfaces
 ===============
 
-Surfaces based on transformations of random surfaces or probabilistic discriptions of the FFT.
+Surfaces based on transformations of random surfaces or probabilistic descriptions of the FFT.
 
 .. autosummary::
    :toctree: generated
 
    RandomSurface     -- Surfaces from transformations of random sequences
-   ProbFreqSurface   -- Surfaces based on a probablistic description of the FFT
+   ProbFreqSurface   -- Surfaces based on a probabilistic description of the FFT
    surface_like      -- random surfaces with similar properties to the input surface
 
 Functions
@@ -62,7 +62,7 @@ Functional interfaces for common tasks, these are all aliased by class methods, 
    read_tst_file          -- Read a bruker umt tst file
    roughness              -- Find 2d roughness parameters
    surface_like           -- Generate a random surface 'like' another surface
-   find_summits           -- Get summit loactions
+   find_summits           -- Get summit locations
    get_height_of_mat_vr   -- Find the height of a specified material or void volume ratio
    get_mat_vr             -- Find the material or void volume ratio at a particular height
    get_summit_curvatures  -- Fine the summit curvatures
@@ -72,12 +72,15 @@ Functional interfaces for common tasks, these are all aliased by class methods, 
 
 
 from .ACF_class import ACF
-from .Surface_class import *
-from .Geometric import *
-from .Random import *
-from .FFTBased import *
-from .alicona import *
-from .roughness_funcs import *
-from .read_tst_file import *
+from .Surface_class import Surface, assurface, read_surface
+from .Geometric import FlatSurface, RoundSurface, PyramidSurface
+from .Random import RandomFilterSurface, RandomPerezSurface, surface_like
+from .FFTBased import ProbFreqSurface, DiscFreqSurface, HurstFractalSurface
+from .alicona import alicona_read
+from .roughness_funcs import roughness, subtract_polynomial, get_mat_vr, get_height_of_mat_vr
+from .read_tst_file import read_tst_file
 
-__all__ = [s for s in dir() if not s.startswith("_")]
+__all__ = ['Surface', 'assurface', 'read_surface', 'ACF', 'FlatSurface', 'RoundSurface', 'PyramidSurface',
+           'RandomFilterSurface', 'RandomPerezSurface', 'ProbFreqSurface', 'DiscFreqSurface', 'HurstFractalSurface',
+           'alicona_read', 'roughness', 'subtract_polynomial', 'get_mat_vr', 'get_height_of_mat_vr',
+           'read_tst_file', 'surface_like']
