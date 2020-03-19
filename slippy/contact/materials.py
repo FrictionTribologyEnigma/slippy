@@ -836,7 +836,7 @@ class Elastic(_Material):
             raise TypeError(msg)
 
         k = mesh_idmi + 0.5
-        l = mesh_idmi - 0.5
+        el = mesh_idmi - 0.5
         m = mesh_jdmj + 0.5
         n = mesh_jdmj - 0.5
 
@@ -853,45 +853,45 @@ class Elastic(_Material):
 
         if comp == 'zz':
             c_zz = (hx * (k * np.log((m + np.sqrt(k ** 2 + m ** 2)) / (n + np.sqrt(k ** 2 + n ** 2))) +
-                          l * np.log((n + np.sqrt(l ** 2 + n ** 2)) / (m + np.sqrt(l ** 2 + m ** 2)))) +
-                    hy * (m * np.log((k + np.sqrt(k ** 2 + m ** 2)) / (l + np.sqrt(l ** 2 + m ** 2))) +
-                          n * np.log((l + np.sqrt(l ** 2 + n ** 2)) / (k + np.sqrt(k ** 2 + n ** 2)))))
+                          el * np.log((n + np.sqrt(el ** 2 + n ** 2)) / (m + np.sqrt(el ** 2 + m ** 2)))) +
+                    hy * (m * np.log((k + np.sqrt(k ** 2 + m ** 2)) / (el + np.sqrt(el ** 2 + m ** 2))) +
+                          n * np.log((el + np.sqrt(el ** 2 + n ** 2)) / (k + np.sqrt(k ** 2 + n ** 2)))))
 
             const = (1 - v) / (2 * np.pi * shear_mod) + second_surface * ((1 - v_2) / (2 * np.pi * shear_mod_2))
             return const * c_zz
         elif comp == 'xx':
             c_xx = (hx * (1 - v) * (k * np.log((m + np.sqrt(k ** 2 + m ** 2)) / (n + np.sqrt(k ** 2 + n ** 2))) +
-                                    l * np.log((n + np.sqrt(l ** 2 + n ** 2)) / (m + np.sqrt(l ** 2 + m ** 2)))) +
-                    hy * (m * np.log((k + np.sqrt(k ** 2 + m ** 2)) / (l + np.sqrt(l ** 2 + m ** 2))) +
-                          n * np.log((l + np.sqrt(l ** 2 + n ** 2)) / (k + np.sqrt(k ** 2 + n ** 2)))))
+                                    el * np.log((n + np.sqrt(el ** 2 + n ** 2)) / (m + np.sqrt(el ** 2 + m ** 2)))) +
+                    hy * (m * np.log((k + np.sqrt(k ** 2 + m ** 2)) / (el + np.sqrt(el ** 2 + m ** 2))) +
+                          n * np.log((el + np.sqrt(el ** 2 + n ** 2)) / (k + np.sqrt(k ** 2 + n ** 2)))))
             const = 1 / (2 * np.pi * shear_mod) + second_surface * (1 / (2 * np.pi * shear_mod_2))
             return const * c_xx
         elif comp == 'yy':
             c_yy = (hx * (k * np.log((m + np.sqrt(k ** 2 + m ** 2)) / (n + np.sqrt(k ** 2 + n ** 2))) +
-                          l * np.log((n + np.sqrt(l ** 2 + n ** 2)) / (m + np.sqrt(l ** 2 + m ** 2)))) +
-                    hy * (1 - v) * (m * np.log((k + np.sqrt(k ** 2 + m ** 2)) / (l + np.sqrt(l ** 2 + m ** 2))) +
-                                    n * np.log((l + np.sqrt(l ** 2 + n ** 2)) / (k + np.sqrt(k ** 2 + n ** 2)))))
+                          el * np.log((n + np.sqrt(el ** 2 + n ** 2)) / (m + np.sqrt(el ** 2 + m ** 2)))) +
+                    hy * (1 - v) * (m * np.log((k + np.sqrt(k ** 2 + m ** 2)) / (el + np.sqrt(el ** 2 + m ** 2))) +
+                                    n * np.log((el + np.sqrt(el ** 2 + n ** 2)) / (k + np.sqrt(k ** 2 + n ** 2)))))
             const = 1 / (2 * np.pi * shear_mod) + second_surface * (1 / (2 * np.pi * shear_mod_2))
             return const * c_yy
         elif comp in ['xz', 'zx']:
-            c_xz = (hy / 2 * (m * np.log((k ** 2 + m ** 2) / (l ** 2 + m ** 2)) +
-                              n * np.log((l ** 2 + n ** 2) / (k ** 2 + n ** 2))) +
+            c_xz = (hy / 2 * (m * np.log((k ** 2 + m ** 2) / (el ** 2 + m ** 2)) +
+                              n * np.log((el ** 2 + n ** 2) / (k ** 2 + n ** 2))) +
                     hx * (k * (np.arctan(m / k) - np.arctan(n / k)) +
-                          l * (np.arctan(n / l) - np.arctan(m / l))))
+                          el * (np.arctan(n / el) - np.arctan(m / el))))
             const = (2 * v - 1) / (4 * np.pi * shear_mod) + second_surface * ((2 * v_2 - 1) / (4 * np.pi * shear_mod_2))
             return const * c_xz
         elif comp in ['yx', 'xy']:
             c_yx = (np.sqrt(hy ** 2 * n ** 2 + hx ** 2 * k ** 2) -
                     np.sqrt(hy ** 2 * m ** 2 + hx ** 2 * k ** 2) +
-                    np.sqrt(hy ** 2 * m ** 2 + hx ** 2 * l ** 2) -
-                    np.sqrt(hy ** 2 * n ** 2 + hx ** 2 * l ** 2))
+                    np.sqrt(hy ** 2 * m ** 2 + hx ** 2 * el ** 2) -
+                    np.sqrt(hy ** 2 * n ** 2 + hx ** 2 * el ** 2))
             const = v / (2 * np.pi * shear_mod) + second_surface * (v_2 / (2 * np.pi * shear_mod_2))
             return const * c_yx
         elif comp in ['zy', 'yz']:
             c_zy = (hx / 2 * (k * np.log((k ** 2 + m ** 2) / (n ** 2 + k ** 2)) +
-                              l * np.log((l ** 2 + n ** 2) / (m ** 2 + l ** 2))) +
-                    hy * (m * (np.arctan(k / m) - np.arctan(l / m)) +
-                          n * (np.arctan(l / n) - np.arctan(k / n))))
+                              el * np.log((el ** 2 + n ** 2) / (m ** 2 + el ** 2))) +
+                    hy * (m * (np.arctan(k / m) - np.arctan(el / m)) +
+                          n * (np.arctan(el / n) - np.arctan(k / n))))
             const = (1 - 2 * v) / (4 * np.pi * shear_mod) + second_surface * (1 - 2 * v_2) / (4 * np.pi * shear_mod_2)
             return const * c_zy
         else:
