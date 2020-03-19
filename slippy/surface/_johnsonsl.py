@@ -19,9 +19,9 @@ class johnsonsl_gen(scipy.stats.rv_continuous):
     for ``0 < x < 1`` and ``a, b > 0``, and ``phi`` is the normal pdf.
     %(example)s
     """
-    def _argcheck(self, a, b): # a is gamma b is delta
+    def _argcheck(self, a, b):  # a is gamma b is delta
         return a == a
-        
+
     def _pdf(self, x, a, b):
         trm = scipy.stats.norm.pdf(a+b*log(x))
         return x*trm
