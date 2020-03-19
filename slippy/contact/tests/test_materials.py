@@ -1,11 +1,11 @@
 import numpy as np
 import numpy.testing as npt
 
-import slippy.contact as C
+import slippy.contact as contact
 
 """
-If you add a material you need to add the properties that it will be tested with to the material_parameters dict, 
-the key should be the name of the class (what ever it is declared as after the class key word). 
+If you add a material you need to add the properties that it will be tested with to the material_parameters dict,
+the key should be the name of the class (what ever it is declared as after the class key word).
 The value should be a tuple of dicts:
 The first dict in the tuple will be unpacked to instantiate the class,
 The second will be used with the displacement from loads method
@@ -24,12 +24,12 @@ material_parameters = {
     'Rigid': ({}, {}, {})
 }
 
-exceptions = [C.Rigid]
+exceptions = [contact.Rigid]
 
 
 def test_materials_basic():
     # check that one of influence matrix or displacement from loading is given
-    for material in C._Material._subclass_registry:
+    for material in contact._Material._subclass_registry:
         if material in exceptions:
             continue
         try:
@@ -45,11 +45,11 @@ def test_materials_basic():
 
         # check that the loads and displacement functions are inverse of each other
         for direction in {'x', 'y', 'z'}:
-            load_in_direction = C.Loads(**{direction: loads})
+            load_in_direction = contact.Loads(**{direction: loads})
             displacement = mat_instance.displacement_from_surface_loads(loads=load_in_direction, **mat_params[1])
 
             set_disp = np.pad(displacement.__getattribute__(direction)[8:24, 8:24], 8, constant_values=float('nan'))
-            set_displacement = C.Displacements(**{direction: set_disp})
+            set_displacement = contact.Displacements(**{direction: set_disp})
 
             loads_calc, displacement_calc = mat_instance.loads_from_surface_displacement(displacements=set_displacement,
                                                                                          **mat_params[2])
