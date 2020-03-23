@@ -29,7 +29,7 @@ exceptions = [contact.Rigid]
 
 def test_materials_basic():
     # check that one of influence matrix or displacement from loading is given
-    for material in contact._Material._subclass_registry:
+    for material in contact.materials._Material._subclass_registry:
         if material in exceptions:
             continue
         try:
