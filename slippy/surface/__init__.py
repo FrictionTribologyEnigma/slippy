@@ -15,7 +15,7 @@ The Surface class contains methods for reading surfaces from files including .ma
 contains methods for analysing surface roughness and other parameters.
 
 .. autosummary::
-   :toctree: generated
+   :toctree: generated/
 
    Surface
 
@@ -27,12 +27,11 @@ Surfaces which can be described by a mathematical function, these can be combine
 resolution.
 
 .. autosummary::
-   :toctree: generated
+   :toctree: generated/
 
    FlatSurface         -- Flat or sloping surface.
    RoundSurface        -- Round surfaces
    PyramidSurface      -- Square based pyramid surfaces
-   RandomSurface       -- Surfaces based on transformations of random sequences
    DiscFreqSurface     -- Surfaces containing specific frequency components
    HurstFractalSurface -- A Hurst Fractal Surface
 
@@ -42,19 +41,21 @@ Random Surfaces
 Surfaces based on transformations of random surfaces or probabilistic descriptions of the FFT.
 
 .. autosummary::
-   :toctree: generated
+    :toctree: generated/
 
-   RandomSurface     -- Surfaces from transformations of random sequences
+   RandomPerezSurface     -- Surfaces with set height distribution and PSD found by the Perez method
+   RandomFilterSurface    --Surfaces from transformations of random sequences
    ProbFreqSurface   -- Surfaces based on a probabilistic description of the FFT
    surface_like      -- random surfaces with similar properties to the input surface
 
 Functions
 =========
 
-Functional interfaces for common tasks, these are all aliased by class methods, apart from surface_like.
+Functional interfaces for common tasks, these are all aliased by class methods in the surface class, apart from
+surface_like.
 
 .. autosummary::
-   :toctree: generated
+   :toctree: generated/
 
    assurface              -- Make a surface object
    read_surface           -- Read a surface object from file
@@ -62,11 +63,8 @@ Functional interfaces for common tasks, these are all aliased by class methods, 
    read_tst_file          -- Read a bruker umt tst file
    roughness              -- Find 2d roughness parameters
    surface_like           -- Generate a random surface 'like' another surface
-   find_summits           -- Get summit locations
    get_height_of_mat_vr   -- Find the height of a specified material or void volume ratio
    get_mat_vr             -- Find the material or void volume ratio at a particular height
-   get_summit_curvatures  -- Fine the summit curvatures
-   low_pass_filter        -- Low pass filter a surface or surface profile
    subtract_polynomial    -- Fit and subtract an n degree polynomial from a surface profile
 """
 

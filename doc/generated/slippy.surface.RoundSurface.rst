@@ -14,7 +14,7 @@ slippy.surface.RoundSurface
    .. autosummary::
    
       ~RoundSurface.__init__
-      ~RoundSurface.descretise
+      ~RoundSurface.discretise
       ~RoundSurface.find_summits
       ~RoundSurface.get_acf
       ~RoundSurface.get_fft
@@ -43,13 +43,13 @@ slippy.surface.RoundSurface
    .. autosummary::
    
       ~RoundSurface.acf
-      ~RoundSurface.dimentions
+      ~RoundSurface.dimensions
       ~RoundSurface.extent
       ~RoundSurface.fft
       ~RoundSurface.grid_spacing
       ~RoundSurface.invert_surface
       ~RoundSurface.is_analytic
-      ~RoundSurface.is_descrete
+      ~RoundSurface.is_discrete
       ~RoundSurface.mask
       ~RoundSurface.material
       ~RoundSurface.profile

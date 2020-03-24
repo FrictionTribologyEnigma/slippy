@@ -44,13 +44,13 @@ slippy.surface.Surface
    .. autosummary::
    
       ~Surface.acf
-      ~Surface.dimentions
+      ~Surface.dimensions
       ~Surface.extent
       ~Surface.fft
       ~Surface.grid_spacing
       ~Surface.invert_surface
       ~Surface.is_analytic
-      ~Surface.is_descrete
+      ~Surface.is_discrete
       ~Surface.mask
       ~Surface.material
       ~Surface.profile

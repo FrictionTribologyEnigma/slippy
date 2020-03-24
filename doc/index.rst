@@ -1,14 +1,14 @@
 SlipPy
 ======
 
-SlipPy is an open source python package for tribologists. We aim to bring both basic and cutting edge tribology models to the wider community. 
+SlipPy is an open source python package for tribologists. We aim to bring both basic and cutting edge tribology models to the wider community.
 
 This page contains useful links for instalation, documentation, examples and a development guide. For a basic overview of what slippy can do, have a look at the examples.
 
 Installation
 ------------
 
-The following page describes how to install slippy, it assumes that the user does not have python insalled. 
+The following page describes how to install slippy, it assumes that the user does not have python insalled.
 
 .. toctree::
    :maxdepth: 1
@@ -24,6 +24,7 @@ The exact API of all functions and classes, as given by the docstrings. This doc
    :maxdepth: 1
 
    surface
+   contact
 
 Examples
 --------

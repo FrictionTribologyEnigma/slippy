@@ -14,7 +14,7 @@ slippy.surface.ProbFreqSurface
    .. autosummary::
    
       ~ProbFreqSurface.__init__
-      ~ProbFreqSurface.descretise
+      ~ProbFreqSurface.discretise
       ~ProbFreqSurface.find_summits
       ~ProbFreqSurface.get_acf
       ~ProbFreqSurface.get_fft
@@ -43,13 +43,13 @@ slippy.surface.ProbFreqSurface
    .. autosummary::
    
       ~ProbFreqSurface.acf
-      ~ProbFreqSurface.dimentions
+      ~ProbFreqSurface.dimensions
       ~ProbFreqSurface.extent
       ~ProbFreqSurface.fft
       ~ProbFreqSurface.grid_spacing
       ~ProbFreqSurface.invert_surface
       ~ProbFreqSurface.is_analytic
-      ~ProbFreqSurface.is_descrete
+      ~ProbFreqSurface.is_discrete
       ~ProbFreqSurface.mask
       ~ProbFreqSurface.material
       ~ProbFreqSurface.profile

@@ -14,7 +14,7 @@ slippy.surface.PyramidSurface
    .. autosummary::
    
       ~PyramidSurface.__init__
-      ~PyramidSurface.descretise
+      ~PyramidSurface.discretise
       ~PyramidSurface.find_summits
       ~PyramidSurface.get_acf
       ~PyramidSurface.get_fft
@@ -43,13 +43,13 @@ slippy.surface.PyramidSurface
    .. autosummary::
    
       ~PyramidSurface.acf
-      ~PyramidSurface.dimentions
+      ~PyramidSurface.dimensions
       ~PyramidSurface.extent
       ~PyramidSurface.fft
       ~PyramidSurface.grid_spacing
       ~PyramidSurface.invert_surface
       ~PyramidSurface.is_analytic
-      ~PyramidSurface.is_descrete
+      ~PyramidSurface.is_discrete
       ~PyramidSurface.mask
       ~PyramidSurface.material
       ~PyramidSurface.profile

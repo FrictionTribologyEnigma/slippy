@@ -14,7 +14,7 @@ slippy.surface.DiscFreqSurface
    .. autosummary::
    
       ~DiscFreqSurface.__init__
-      ~DiscFreqSurface.descretise
+      ~DiscFreqSurface.discretise
       ~DiscFreqSurface.find_summits
       ~DiscFreqSurface.get_acf
       ~DiscFreqSurface.get_fft
@@ -43,13 +43,13 @@ slippy.surface.DiscFreqSurface
    .. autosummary::
    
       ~DiscFreqSurface.acf
-      ~DiscFreqSurface.dimentions
+      ~DiscFreqSurface.dimensions
       ~DiscFreqSurface.extent
       ~DiscFreqSurface.fft
       ~DiscFreqSurface.grid_spacing
       ~DiscFreqSurface.invert_surface
       ~DiscFreqSurface.is_analytic
-      ~DiscFreqSurface.is_descrete
+      ~DiscFreqSurface.is_discrete
       ~DiscFreqSurface.mask
       ~DiscFreqSurface.material
       ~DiscFreqSurface.profile

@@ -290,7 +290,7 @@ class RandomFilterSurface(_Surface):
 
     Attributes
     ----------
-    dist : scipy distribution
+    dist : scipy.stats.rv_continuous
         The statistical distribution which the random sequence is drawn from
 
     Methods
@@ -299,7 +299,7 @@ class RandomFilterSurface(_Surface):
     set_moments
     set_quantiles
     fir_filter
-    descretise
+    discretise
 
     See Also
     --------
@@ -334,12 +334,7 @@ class RandomFilterSurface(_Surface):
                  shape: typing.Optional[typing.Sequence] = None,
                  moments: typing.Sequence = None,
                  quantiles: typing.Sequence = None, **method_keywords):
-        """
-        aims: should be able to generate in single line, needs to include the mode that the matrix will be
-        Parameters
-        ----------
-        method
-        """
+
         super().__init__(grid_spacing=grid_spacing, extent=extent, shape=shape)
 
         valid_methods = ['linear_transform', 'fir_filter']
@@ -355,8 +350,8 @@ class RandomFilterSurface(_Surface):
             method(**method_keywords)
 
         elif method != 'linear_transform':
-            warnings.warn("Setting the method to generate the filter coeficents matrix has no effect if a target acf is"
-                          " not given.")
+            warnings.warn("Setting the method to generate the filter coefficients matrix has no effect if a target acf "
+                          "is not given.")
 
         if moments is not None:
             if quantiles is not None:
@@ -397,16 +392,17 @@ class RandomFilterSurface(_Surface):
         Parameters
         ----------
 
-        target_acf : ACF object or description
-            The target ACF, the linear transform matrix will produce surfaces
+        target_acf : slippy.surface.ACF
+            The target ACF, the linear transform matrix will aim to produce surfaces
             with this ACF.
-        filter_size_n_m : 2 element sequence of int, optional (35, 35)
-            The dimensions of the filter coefficient matrix to be generated the default is (35, 35)
+        filter_size_n_m : Sequence, optional (35, 35)
+            The dimensions of the filter coefficient matrix to be generated the default is (35, 35), must be exactly 2
+            elements both elements must be ints
         max_it : int, optional (100)
             The maximum number of iterations used
         accuracy : float, optional (1e-11)
             The accuracy of the iterated solution
-        no_large_filter_error: bool, optional (False
+        no_large_filter_error: bool, optional (False)
             If True the program allows large filters to be used, large filters do not converge to physical solutions
             with this method
 
@@ -528,20 +524,17 @@ class RandomFilterSurface(_Surface):
         -----
 
         The skew of the input sequence:
-        ..math:: Sk_\eta
+        :math:`Sk_\eta`
         can be related to the skew of the final surface:
-        ..math:: Sk_z
+        :math:`Sk_z`
         by the following:
 
-        ..math::
-            Sk_z=Sk_\eta \frac{\sum_{i=0}^{q} \alpha_{i}^{3}}{(\sum_{i=0}^{q}\alpha_i^2)^\frac{3}{2}}\\
+        :math:`Sk_z=Sk_\eta \frac{\sum_{i=0}^{q} \alpha_{i}^{3}}{(\sum_{i=0}^{q}\alpha_i^2)^\frac{3}{2}}`
 
         The kurtosis of the input sequence can be related to the final surface
         by [1]:
 
-        ..math:
-            K_z= \frac{K_\eta \sum_{i=0}^q \alpha_i^2 + 6 \sum_{i=0}^{q-1}\sum_{j=i+1}^q
-            \alpha_i^2 \alpha_j^2}{(\sum_{i=0}^q \alpha_i^2)^2}\\
+        :math:`K_z= \frac{K_\eta \sum_{i=0}^q \alpha_i^2 + 6 \sum_{i=0}^{q-1}\sum_{j=i+1}^q\alpha_i^2 \alpha_j^2}{(\sum_{i=0}^q \alpha_i^2)^2}`
 
         References
         ----------
@@ -550,7 +543,7 @@ class RandomFilterSurface(_Surface):
         An improved rough surface modeling method based on linear
         transformation technique. Tribology International, 119(August 2017),
         786–794. '<https://doi.org/10.1016/j.triboint.2017.12.008>'_
-        """
+        """  # noqa
         self._moments = (skew, kurtosis)
 
         if not hasattr(self, '_filter_coefficients'):
@@ -567,7 +560,7 @@ class RandomFilterSurface(_Surface):
 
         seq_skew = skew * sal2 ** (3 / 2) / np.sum(alpha2 * alpha)
 
-        # The quadratic alpha term needs some speical treatment
+        # The quadratic alpha term needs some special treatment
         # pad with 0s
         alphapad2 = np.pad(alpha2, [0, len(alpha2)], 'constant')
 
@@ -630,8 +623,8 @@ class RandomFilterSurface(_Surface):
         --------
 
         slippy.surface.ACF
-        RandomSurface.linear_transform
-        RandomSurface.descretise
+        RandomFilterSurface.linear_transform
+        RandomFilterSurface.discretise
 
         Notes
         -----
@@ -719,13 +712,13 @@ class RandomFilterSurface(_Surface):
         See Also
         --------
 
-        RandomSurface.linear_transform
-        RandomSurface.fir_filter
+        RandomFilterSurface.linear_transform
+        RandomFilterSurface.fir_filter
 
         Notes
         -----
 
-        Uses the method outlined in the below with fft based convoluiton:
+        Uses the method outlined in the below with fft based convolution:
         Liao, D., Shao, W., Tang, J., & Li, J. (2018). An improved rough
         surface modeling method based on linear transformation technique.
         Tribology International, 119(August 2017), 786–794.
@@ -768,8 +761,8 @@ class RandomFilterSurface(_Surface):
 
 
 # TODO get rid of kwargs here
-def surface_like(target_surface: Surface, extent: typing.Union[str, tuple] = 'original',
-                 grid_spacing: typing.Union[str, float] = 'original',
+def surface_like(target_surface: Surface, extent: tuple = None,
+                 grid_spacing: float = None,
                  filter_shape: typing.Sequence = (35, 35), **kwargs):
     """
     Generates a surface similar to the input surface
@@ -783,18 +776,25 @@ def surface_like(target_surface: Surface, extent: typing.Union[str, tuple] = 'or
     target_surface : Surface
         A surface object to be 'copied'
 
-    extent : {'original' or 2 element list of ints}
+    extent : Sequence, optional (None)
         The size in each direction of the output surface,
         if 'original' the dimensions of the input surface are used
 
-    grid_spacing : {'original' or float}
+    grid_spacing : float, optional (None)
         The spacing between grid points, if 'original' the grid spacing of the
         input surface is used, if this property is not set for the input
         surface it is assumed that both are 1 and warns
 
-    filter_shape : 2 element list of ints
-        The size of the filter to be used defaults to [35, 35]
+    filter_shape : Sequence, optional (35, 35)
+        The size of the filter to be used defaults to (35, 35), must be exactly two elements, both elements must be
+        integers
 
+    periodic : bool, optional (False)
+        If True the returned surface will have a periodic profile
+
+    filter_kwargs : dict
+        Keyword arguments that are passed to RandomFilterSurface.linear_transforms
+        see that for more information
 
     Returns
     -------
@@ -808,34 +808,17 @@ def surface_like(target_surface: Surface, extent: typing.Union[str, tuple] = 'or
     is given as the grid spacing arg will assume both are 1 and produce a
     warning
 
-    Other Parameters
-    ----------------
-
-    periodic : bool default False
-        If true the returned surface will have a periodic profile
-
-    filter_kwargs : dict
-        Keyword arguments that are passed to RandomSurface.linear_transforms
-        see that for more information
-
-    dist_type: {'johnson', 'kernel'}
-        Defaults to johnson, the distribution that will be used to draw random
-        samples for the pre-filter sequence, if johnson a johnson distribution
-        will be fitted to the input surface quartiles, if kernel a kernel
-        distribution will be made from the input histogram, this is
-        experimental
-
     See Also
     --------
-    RandomSurface.linear_transforms
-    RandomSurface
+    RandomFilterSurface.linear_transforms
+    RandomFilterSurface
     Surface
 
     Notes
     -----
 
     If multiple realisations are needed of the same 'copied' surface it will
-    be much faster to call the descretise function of the returned surface.
+    be much faster to call the discretise function of the returned surface.
     multiple surfaces of the same grid spacing but different grid sizes can be
     generated this way.
 
