@@ -621,8 +621,6 @@ class RandomFilterSurface(_Surface):
 
         seq_kurt = (kurtosis * sal2 ** 2 - 6 * quad_term) / np.sum(alpha2**2) + 3
 
-        print(seq_skew, seq_kurt)
-
         self.dist = _fit_johnson_by_moments(0, 1, seq_skew, seq_kurt, True)
 
     def set_quantiles(self, quantiles: typing.Sequence):
