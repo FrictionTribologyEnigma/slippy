@@ -62,7 +62,6 @@ surface_like.
    alicona_read           -- Read alicona data files
    read_tst_file          -- Read a bruker umt tst file
    roughness              -- Find 2d roughness parameters
-   surface_like           -- Generate a random surface 'like' another surface
    get_height_of_mat_vr   -- Find the height of a specified material or void volume ratio
    get_mat_vr             -- Find the material or void volume ratio at a particular height
    subtract_polynomial    -- Fit and subtract an n degree polynomial from a surface profile
@@ -72,7 +71,7 @@ surface_like.
 from .ACF_class import ACF
 from .Surface_class import Surface, assurface, read_surface
 from .Geometric import FlatSurface, RoundSurface, PyramidSurface
-from .Random import RandomFilterSurface, RandomPerezSurface, surface_like
+from .Random import RandomFilterSurface, RandomPerezSurface
 from .FFTBased import ProbFreqSurface, DiscFreqSurface, HurstFractalSurface
 from .alicona import alicona_read
 from .roughness_funcs import roughness, subtract_polynomial, get_mat_vr, get_height_of_mat_vr
@@ -81,4 +80,4 @@ from .read_tst_file import read_tst_file
 __all__ = ['Surface', 'assurface', 'read_surface', 'ACF', 'FlatSurface', 'RoundSurface', 'PyramidSurface',
            'RandomFilterSurface', 'RandomPerezSurface', 'ProbFreqSurface', 'DiscFreqSurface', 'HurstFractalSurface',
            'alicona_read', 'roughness', 'subtract_polynomial', 'get_mat_vr', 'get_height_of_mat_vr',
-           'read_tst_file', 'surface_like']
+           'read_tst_file']

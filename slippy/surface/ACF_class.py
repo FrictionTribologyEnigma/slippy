@@ -85,12 +85,12 @@ class ACF(object):
     acf_type = ''
     """A description of the acf source"""
 
-    def __init__(self, source, grid_spacing=1, *args):
+    def __init__(self, source, *args, grid_spacing=1):
         if type(source) is str:
             self._input_check_string(source, args)
             self.acf_type = "string"
         elif isinstance(source, _SurfaceABC):
-            self._input_check_array(source.profile, source.grid_spacing)
+            self._input_check_array(source.profile, grid_spacing=source.grid_spacing)
             self.acf_type = "surface"
         elif isinstance(source, types.FunctionType):
             self._input_check_method(source)
@@ -200,7 +200,7 @@ class ACF(object):
 def _exp_acf(sigma, beta_x, beta_y):
     def inner(x_mesh, y_mesh):
         raw = sigma ** 2 * np.exp(-2.3 * np.sqrt((x_mesh / beta_x) ** 2 + (y_mesh / beta_y) ** 2))
-        raw[x_mesh > beta_x] = 0
-        raw[y_mesh > beta_y] = 0
+        #raw[x_mesh > 10*beta_x] = 0
+        #raw[y_mesh > beta_y] = 0
         return raw
     return inner

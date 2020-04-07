@@ -29,6 +29,7 @@ class _MaterialABC(abc.ABC):
 
 
 class _SurfaceABC(abc.ABC):
+    profile = None
     grid_spacing: float
     material: _MaterialABC
     pass

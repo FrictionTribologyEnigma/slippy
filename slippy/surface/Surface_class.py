@@ -918,7 +918,7 @@ class _Surface(_SurfaceABC):
             ax = []
             sub_plot_number = 100 * n_rows + 10 * n_cols + 1
             for i in range(number_of_subplots):
-                if property_to_plot[i].lower() in types2d and not plot_type[i] == 'image':
+                if property_to_plot[i].lower() in types2d and not plot_type[i] in ['image', 'default']:
                     ax.append(fig.add_subplot(sub_plot_number + i, projection='3d'))
                 else:
                     ax.append(fig.add_subplot(sub_plot_number + i))
