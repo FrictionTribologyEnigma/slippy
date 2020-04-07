@@ -130,7 +130,7 @@ def _fit_johnson_by_moments(mean: float, sd: float, root_beta_1: float, beta_2: 
             return dist_type, xi, xlam, gamma, delta
 
     if beta_2 >= 0:
-        if beta_2 < beta_1 + 2 - tolerance:
+        if beta_2 < beta_1 + 1 - tolerance:
             raise ValueError("beta 2 must be greater than or equal to beta_1+1")  # error code 2
         if beta_2 <= (beta_1 + tolerance + 1):
             dist_type = 5  # ST distribution
