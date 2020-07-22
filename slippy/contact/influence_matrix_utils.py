@@ -731,7 +731,7 @@ try:
         small = 1e-14
         it = 0
         it_inn = 0
-        rho_prev = cp.nan
+        rho_prev = np.nan
         rho = 0.0
 
         while True:
