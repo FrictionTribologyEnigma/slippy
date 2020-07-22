@@ -260,8 +260,7 @@ class RandomPerezSurface(_Surface):
             if len(error['H']) > 2 and (error['H'][-2] - error['H'][-1]) < 0:
                 msg = 'Solution is diverging, solution failed to converge'
                 break
-            if error['H'][-1] < accuracy or \
-                (error['PS'][-1] < accuracy and error['PS0'][-1] < accuracy):
+            if error['H'][-1] < accuracy or (error['PS'][-1] < accuracy and error['PS0'][-1] < accuracy):
                 msg = ''
                 break  # solution converged
 
@@ -316,12 +315,12 @@ class RandomFilterSurface(_Surface):
     In the following example we will generate a randomly rough surface with an exponential ACF and a non gaussian height
     distribution.
 
-    >>> import slippy.surface as S  # surface generation and manipulation
+    >>> import slippy.surface as s  # surface generation and manipulation
     >>> import numpy as np          # numerical functions
     >>> np.random.seed(0)
-    >>> target_acf = S.ACF('exp', 2, 0.1, 0.2)  # make an example ACF
+    >>> target_acf = s.ACF('exp', 2, 0.1, 0.2)  # make an example ACF
     >>> # Finding the filter coefficients
-    >>> lin_trans_surface = S.RandomFilterSurface(target_acf=target_acf, grid_spacing=0.01)
+    >>> lin_trans_surface = s.RandomFilterSurface(target_acf=target_acf, grid_spacing=0.01)
     >>> lin_trans_surface.linear_transform(filter_shape=(40,20), gtol=1e-5, symmetric=True)
     >>> # Setting the skew and kurtosis of the output surface
     >>> lin_trans_surface.set_moments(skew = -0.5, kurtosis=5)
@@ -460,12 +459,12 @@ class RandomFilterSurface(_Surface):
         In the following example we will generate a randomly rough surface with an exponential ACF and a non gaussian
         height distribution.
 
-        >>> import slippy.surface as S  # surface generation and manipulation
+        >>> import slippy.surface as s  # surface generation and manipulation
         >>> import numpy as np          # numerical functions
         >>> np.random.seed(0)
-        >>> target_acf = S.ACF('exp', 2, 0.1, 0.2)  # make an example ACF
+        >>> target_acf = s.ACF('exp', 2, 0.1, 0.2)  # make an example ACF
         >>> # Finding the filter coefficients
-        >>> lin_trans_surface = S.RandomFilterSurface(target_acf=target_acf, grid_spacing=0.01)
+        >>> lin_trans_surface = s.RandomFilterSurface(target_acf=target_acf, grid_spacing=0.01)
         >>> lin_trans_surface.linear_transform(filter_shape=(40,20), gtol=1e-5, symmetric=True)
         >>> # Setting the skew and kurtosis of the output surface
         >>> lin_trans_surface.set_moments(skew = -0.5, kurtosis=5)
@@ -583,12 +582,12 @@ class RandomFilterSurface(_Surface):
         In the following example we will generate a randomly rough surface with an exponential ACF and a non gaussian
         height distribution.
 
-        >>> import slippy.surface as S  # surface generation and manipulation
+        >>> import slippy.surface as s  # surface generation and manipulation
         >>> import numpy as np          # numerical functions
         >>> np.random.seed(0)
-        >>> target_acf = S.ACF('exp', 2, 0.1, 0.2)  # make an example ACF
+        >>> target_acf = s.ACF('exp', 2, 0.1, 0.2)  # make an example ACF
         >>> # Finding the filter coefficients
-        >>> lin_trans_surface = S.RandomFilterSurface(target_acf=target_acf, grid_spacing=0.01)
+        >>> lin_trans_surface = s.RandomFilterSurface(target_acf=target_acf, grid_spacing=0.01)
         >>> lin_trans_surface.linear_transform(filter_shape=(40,20), gtol=1e-5, symmetric=True)
         >>> # Setting the skew and kurtosis of the output surface
         >>> lin_trans_surface.set_moments(skew = -0.5, kurtosis=5)
@@ -891,8 +890,8 @@ def _get_acf_estimate(alpha):
         for q in range(m):
             a_est = 0.0
             for k in range(n - p):
-                for l in range(m - q):
-                    a_est += alpha[k, l] * alpha[k + p, l + q]
+                for el in range(m - q):
+                    a_est += alpha[k, el] * alpha[k + p, el + q]
             acf_estimate[p, q] = a_est
     return acf_estimate
 
@@ -949,7 +948,7 @@ def _grad_min_fun(alpha: np.ndarray, target_acf: np.ndarray, acf_estimate):
             for p in range(min(n - i + 1, n1)):
                 for q in range(m - j + 1):
                     grad += (difference[p, q]) * (-alpha[i + p - 1, j + q - 1])
-            for p in range(min(i,n1)):
+            for p in range(min(i, n1)):
                 for q in range(j):
                     grad += (difference[p, q]) * (-alpha[i - p - 1, j - q - 1])
             grads[i - 1, j - 1] = 2.0 * grad

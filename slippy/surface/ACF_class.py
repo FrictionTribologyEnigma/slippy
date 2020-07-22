@@ -200,7 +200,5 @@ class ACF(object):
 def _exp_acf(sigma, beta_x, beta_y):
     def inner(x_mesh, y_mesh):
         raw = sigma ** 2 * np.exp(-2.3 * np.sqrt((x_mesh / beta_x) ** 2 + (y_mesh / beta_y) ** 2))
-        #raw[x_mesh > 10*beta_x] = 0
-        #raw[y_mesh > beta_y] = 0
         return raw
     return inner

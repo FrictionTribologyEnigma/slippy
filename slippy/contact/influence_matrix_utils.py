@@ -340,10 +340,8 @@ def elastic_influence_matrix(comp: str, span: typing.Sequence[int], grid_spacing
 try:
     import cupy as cp
 
-
     def n_pow_2(a):
         return 2 ** int(np.ceil(np.log2(a)))
-
 
     def _plan_cuda_convolve(loads: np.ndarray, im: np.ndarray, domain: np.ndarray = None):
         """Plans an FFT convolution, returns a function to carry out the convolution
@@ -422,20 +420,19 @@ try:
             loads_pad = cp.pad(full_loads, shape_diff_loads, 'constant')
             full = cp.real(cp.fft.ifftshift(backward_trans(forward_trans(loads_pad) * fft_im)))
             same = norm_inv * full[shape_diff_loads[0][0] - 1:-shape_diff_loads[0][1] - 1,
-                              shape_diff_loads[1][0] - 1:-shape_diff_loads[1][1] - 1]
+                                   shape_diff_loads[1][0] - 1:-shape_diff_loads[1][1] - 1]
             return same[domain]
 
         def inner_no_domain(full_loads):
             loads_pad = cp.pad(full_loads, shape_diff_loads, 'constant')
             full = cp.real(cp.fft.ifftshift(backward_trans(forward_trans(loads_pad) * fft_im)))
             return norm_inv * full[shape_diff_loads[0][0] - 1:-shape_diff_loads[0][1] - 1,
-                              shape_diff_loads[1][0] - 1:-shape_diff_loads[1][1] - 1]
+                                   shape_diff_loads[1][0] - 1:-shape_diff_loads[1][1] - 1]
 
         if domain is None:
             return inner_no_domain
         else:
             return inner_with_domain
-
 
     def _cuda_bccg(f: typing.Callable, b: typing.Sequence, tol: float, max_it: int, x0: typing.Sequence,
                    min_pressure: float = 0.0, max_pressure: float = cp.inf, k_inn=1) -> cp.ndarray:
@@ -591,7 +588,6 @@ except ImportError:
 try:
     import pyfftw
 
-
     def _plan_fftw_convolve(loads: np.ndarray, im: np.ndarray, domain: np.ndarray = None):
         """Plans an FFT convolution, returns a function to carry out the convolution
         FFTW implementation
@@ -656,7 +652,7 @@ try:
             loads_pad = np.pad(full_loads, shape_diff_loads, 'constant')
             full = np.fft.ifftshift(backward_trans(forward_trans(loads_pad) * fft_im))
             return norm_inv * full[shape_diff_loads[0][0] - 1:-shape_diff_loads[0][1] - 1,
-                              shape_diff_loads[1][0] - 1:-shape_diff_loads[1][1] - 1]
+                                   shape_diff_loads[1][0] - 1:-shape_diff_loads[1][1] - 1]
 
         shape = loads.shape
         dtype = loads.dtype
@@ -669,14 +665,13 @@ try:
             loads_pad = np.pad(full_loads, shape_diff_loads, 'constant')
             full = np.fft.ifftshift(backward_trans(forward_trans(loads_pad) * fft_im))
             same = norm_inv * full[shape_diff_loads[0][0] - 1:-shape_diff_loads[0][1] - 1,
-                              shape_diff_loads[1][0] - 1:-shape_diff_loads[1][1] - 1]
+                                   shape_diff_loads[1][0] - 1:-shape_diff_loads[1][1] - 1]
             return same[domain]
 
         if domain is None:
             return inner_no_domain
         else:
             return inner_with_domain
-
 
     def _fftw_bccg(f: typing.Callable, b: typing.Sequence, tol: float, max_it: int, x0: typing.Sequence,
                    min_pressure: float = 0, max_pressure: float = np.inf, k_inn=1) -> np.ndarray:

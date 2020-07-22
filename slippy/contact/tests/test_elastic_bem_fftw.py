@@ -17,7 +17,7 @@ def test_hertz_agreement_static_load_fftw():
 
     """
     try:
-        import pyfftw
+        import pyfftw  # noqa: F401
         slippy.CUDA = False
     except ImportError:
         warnings.warn("Could not import pyfftw, could not test the fftw backend")
@@ -61,13 +61,13 @@ def test_hertz_agreement_static_load_fftw():
 
 def test_hertz_agreement_static_interference_fftw():
     try:
-        import pyfftw
+        import pyfftw  # noqa: F401
         slippy.CUDA = False
     except ImportError:
         warnings.warn("Could not import pyfftw, could not test the fftw backend")
         return
 
-    """Tests that the static normal interference step agrees with the analytial hertz solution"""
+    """Tests that the static normal interference step agrees with the analytical hertz solution"""
     flat_surface = s.FlatSurface(shift=(0, 0))
     round_surface = s.RoundSurface((1, 1, 1), extent=(0.006, 0.006), shape=(255, 255), generate=True)
     # set materials
@@ -100,8 +100,3 @@ def test_hertz_agreement_static_interference_fftw():
     npt.assert_approx_equal(a_result['contact_area'],
                             round_surface.grid_spacing ** 2 * sum(final_state['contact_nodes'].flatten()),
                             significant=2)
-
-
-if __name__ == '__main__':
-    test_hertz_agreement_static_load()
-    test_hertz_agreement_static_interference()

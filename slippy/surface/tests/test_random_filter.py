@@ -1,4 +1,3 @@
-from scipy.optimize import check_grad
 import numpy as np
 import numpy.testing as npt
 

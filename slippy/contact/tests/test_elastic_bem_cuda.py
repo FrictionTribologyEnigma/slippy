@@ -17,7 +17,7 @@ def test_hertz_agreement_static_load_cuda():
     analytical hertz solver
     """
     try:
-        import cupy
+        import cupy  # noqa: F401
         slippy.CUDA = True
     except ImportError:
         warnings.warn("Could not import cupy, could not test the CUDA fft backend")
@@ -61,7 +61,7 @@ def test_hertz_agreement_static_load_cuda():
 def test_hertz_agreement_static_interference_cuda():
     """Tests that the static normal interference step agrees with the analytical hertz solution"""
     try:
-        import cupy
+        import cupy  # noqa: F401
         slippy.CUDA = True
     except ImportError:
         warnings.warn("Could not import cupy, could not test the CUDA fft backend")
@@ -98,8 +98,3 @@ def test_hertz_agreement_static_interference_cuda():
     npt.assert_approx_equal(a_result['contact_area'],
                             round_surface.grid_spacing ** 2 * sum(final_state['contact_nodes'].flatten()),
                             significant=2)
-
-
-if __name__ == '__main__':
-    test_hertz_agreement_static_load()
-    test_hertz_agreement_static_interference()

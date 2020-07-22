@@ -746,7 +746,7 @@ class _Surface(_SurfaceABC):
 
     def __add__(self, other):
         if not isinstance(other, _Surface):
-            return Surface(profile=self.profile+other, grid_spacing=self.grid_spacing)
+            return Surface(profile=self.profile + other, grid_spacing=self.grid_spacing)
 
         if self.grid_spacing is not None and other.grid_spacing is not None and self.grid_spacing != other.grid_spacing:
             if self.grid_spacing < other.grid_spacing:
@@ -802,7 +802,8 @@ class _Surface(_SurfaceABC):
         else:
             return repr(self) == repr(other)
 
-    def show(self, property_to_plot='profile', plot_type='default', ax=False, *, dist=None, stride=None,
+    def show(self, property_to_plot: typing.Union[str, typing.Sequence[str]] = 'profile',
+             plot_type: typing.Union[str, typing.Sequence[str]] = 'default', ax=False, *, dist=None, stride=None,
              **figure_kwargs):
         """ Plot surface properties
 
@@ -820,7 +821,7 @@ class _Surface(_SurfaceABC):
         stride : float, optional (None)
             Only used if a wire frame plot is requested, the stride between
             wires
-        figure_kwargs : dict, optional (None)
+        figure_kwargs : optional (None)
             Keyword arguments sent to the figure function in matplotlib
 
         Returns
@@ -1156,7 +1157,7 @@ class _Surface(_SurfaceABC):
         sub_profile: np.ndarray
             The surface heights at the grid points requested, same shape as x_points and y_points
         """
-        assert(x_points.shape == y_points.shape)
+        assert (x_points.shape == y_points.shape)
 
         if mode == 'nearest':
             x_index = np.array(x_points / self.grid_spacing + 0.5, dtype='int32')
@@ -1603,11 +1604,11 @@ class _AnalyticalSurface(_Surface):
         0
         """
 
-        x = x_mesh*np.cos(self._total_rotation) - y_mesh*np.sin(self._total_rotation)
-        y = y_mesh*np.cos(self._total_rotation) + x_mesh*np.sin(self._total_rotation)
+        x = x_mesh * np.cos(self._total_rotation) - y_mesh * np.sin(self._total_rotation)
+        y = y_mesh * np.cos(self._total_rotation) + x_mesh * np.sin(self._total_rotation)
         x_shift, y_shift = self._total_shift
-        x += x_shift*np.cos(self._total_rotation) - y_shift*np.sin(self._total_rotation)
-        y += y_shift*np.cos(self._total_rotation) + x_shift*np.sin(self._total_rotation)
+        x += x_shift * np.cos(self._total_rotation) - y_shift * np.sin(self._total_rotation)
+        y += y_shift * np.cos(self._total_rotation) + x_shift * np.sin(self._total_rotation)
 
         return self._height(x, y)
 
@@ -1717,7 +1718,7 @@ class _AnalyticalSurface(_Surface):
             profile = self.height(*self.get_points_from_extent())
         elif self.extent is not None:
             set_gs = True
-            gs = min(self.extent)/n_pts
+            gs = min(self.extent) / n_pts
             profile = self.height(*self.get_points_from_extent(extent=self.extent, grid_spacing=gs))
             self._shape = tuple([int(sz / gs) for sz in self.extent])
             self._grid_spacing = gs
@@ -1755,7 +1756,7 @@ class SurfaceCombination(_AnalyticalSurface):
         if surface_1.extent is not None and surface_2.extent is not None and surface_1.extent != surface_2.extent:
             raise ValueError('Surfaces have different extents, cannot add')
         if surface_1.grid_spacing is not None and surface_2.grid_spacing is not None \
-                and surface_1.grid_spacing != surface_2.grid_spacing:
+           and surface_1.grid_spacing != surface_2.grid_spacing:
             raise ValueError('Surfaces have different extents, cannot add')
         new_extent = surface_1.extent if surface_1.extent is not None else surface_2.extent
         new_gs = surface_1.grid_spacing if surface_1.grid_spacing is not None else surface_2.grid_spacing

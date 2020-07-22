@@ -81,6 +81,7 @@ def solve_normal_loading(loads: Loads, model: _ContactModelABC, current_state: d
     return total_displacement, surface_1_displacement, surface_2_displacement
 
 
+# noinspection PyArgumentList
 def solve_normal_interference(interference: float, gap: np.ndarray, model: _ContactModelABC, current_state: dict,
                               adhesive_pressure: typing.Union[float, typing.Callable] = None,
                               contact_nodes: np.ndarray = None, max_iter: int = 100, tol: float = 1e-4,
@@ -165,8 +166,10 @@ def solve_normal_interference(interference: float, gap: np.ndarray, model: _Cont
         else:
             span = tuple(gs * 2 for gs in gap.shape)
 
-        im1 = surf_1.material.influence_matrix(span=span, grid_spacing=[surf_1.grid_spacing] * 2, components=['zz'])['zz']
-        im2 = surf_2.material.influence_matrix(span=span, grid_spacing=[surf_1.grid_spacing] * 2, components=['zz'])['zz']
+        im1 = surf_1.material.influence_matrix(span=span, grid_spacing=[surf_1.grid_spacing] * 2, components=['zz'])[
+              'zz']
+        im2 = surf_2.material.influence_matrix(span=span, grid_spacing=[surf_1.grid_spacing] * 2, components=['zz'])[
+              'zz']
         total_im = im1 + im2
 
         convolution_func = plan_convolve(gap, total_im, contact_nodes)
