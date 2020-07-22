@@ -30,7 +30,7 @@ class OutputRequest:
         assert isinstance(name, str), f"Output request name must be a string received {type(name)}"
         self.name = name
         assert isinstance(parameter, str), f"Output request parameter must be a string received {type(parameter)}"
-        assert parameter.isidentifier(), f"Output request parameter must be a valid variable name"
+        assert parameter.isidentifier(), "Output request parameter must be a valid variable name"
         self.parameter = parameter
         if slices is not None:
             for this_slice in slices:

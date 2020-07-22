@@ -67,7 +67,7 @@ def solve_normal_loading(loads: Loads, model: _ContactModelABC, current_state: d
 
     if reverse_loads_on_second_surface:
         loads_2 = Loads(*[-1 * loads.__getattribute__(l) if l in reverse_loads_on_second_surface
-                          else loads.__getattribute__(l) for l in 'xyz'])
+                          else loads.__getattribute__(l) for l in 'xyz'])  # noqa: E741
     else:
         loads_2 = loads
 

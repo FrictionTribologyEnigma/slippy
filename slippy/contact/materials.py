@@ -419,7 +419,7 @@ class Rigid(_IMMaterial):
         return {comp: np.zeros(span) for comp in components}
 
     def displacement_from_surface_loads(self, loads, *args, **kwargs):
-        return Displacements(*[np.zeros_like(l) for l in loads])
+        return Displacements(*[np.zeros_like(l) for l in loads])  # noqa: E741
 
     def __repr__(self):
         return "Rigid(" + self.name + ")"

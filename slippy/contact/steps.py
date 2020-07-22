@@ -155,7 +155,7 @@ class _ModelStep(_StepABC):
             args = full_arg_spec.args
             for requirement in args:
                 if requirement not in current_state:
-                    raise ValueError(f"Model")
+                    raise ValueError(f"Model step doesn't find required inputs for model: {model.name}")
                 current_state.update(model.provides)
 
         return set(current_state)

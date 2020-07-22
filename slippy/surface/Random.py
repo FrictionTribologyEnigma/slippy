@@ -371,7 +371,7 @@ class RandomFilterSurface(_Surface):
         if self.shape is not None:
             string += f'shape = {self.shape}, '
         if self.is_discrete:
-            string += f'generate = True, '
+            string += 'generate = True, '
         string = string[:-2]
         return string + ')'
 
