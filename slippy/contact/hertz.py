@@ -1142,7 +1142,7 @@ def _displacement_spherical_contact(young_modulus, v, a, p0):
         axial[r <= a] = ((1 - v ** 2) * np.pi * p0) / (young_modulus * 4 * a) * (2 * a ** 2 - r_in ** 2)
         axial[r > a] = ((1 - v ** 2) * p0) / \
                        (young_modulus * 2 * a) * ((2 * a ** 2 - r_out ** 2) * np.arcsin(a / r_out) +
-                                                  r_out * a * np.sqrt((1 - a ** 2) / r_out ** 2))
+                                                  r_out * a * np.sqrt(1 - a ** 2 / r_out ** 2))
         with np.errstate(divide='ignore', invalid='ignore'):
             radial[r <= a] = ((1 - 2 * v) * (1 + v) * a ** 2 * p0 / (3 * young_modulus * r_in) *
                               (1 - (1 - r_in ** 2 / a ** 2) ** (3 / 2)))

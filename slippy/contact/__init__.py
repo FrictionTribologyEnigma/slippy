@@ -113,7 +113,7 @@ from ._material_utils import Loads, Displacements
 from .hertz import hertz_full, solve_hertz_line, solve_hertz_point
 from .lubricant import Lubricant
 from .lubrication_steps import IterSemiSystemLoad
-from .materials import Elastic, Rigid, rigid
+from .materials import Elastic, Rigid, rigid, elastic_influence_matrix
 from .models import ContactModel
 from .outputs import OutputRequest
 from .static_step import StaticNormalLoad, StaticNormalInterference, SurfaceDisplacement, SurfaceLoading
@@ -121,6 +121,7 @@ from .static_step import StaticNormalLoad, StaticNormalInterference, SurfaceDisp
 from .unified_reynolds_solver import UnifiedReynoldsSolver
 
 __all__ = ['Loads', 'Displacements', 'hertz_full', 'solve_hertz_line', 'solve_hertz_point', 'Lubricant',
-           'lubricant_models', 'IterSemiSystemLoad', 'Elastic', 'Rigid', 'rigid', 'ContactModel', 'OutputRequest',
+           'lubricant_models', 'IterSemiSystemLoad', 'Elastic', 'Rigid', 'rigid', 'elastic_influence_matrix',
+           'ContactModel', 'OutputRequest',
            'StaticNormalLoad', 'StaticNormalInterference', 'SurfaceDisplacement', 'SurfaceLoading',
            'UnifiedReynoldsSolver', 'sub_models']

@@ -64,7 +64,7 @@ class ContactModel(_ContactModelABC):
     steps: OrderedDict
     log_file_name: str = None
     output_file_name: str = None
-    _adhesion = None
+    adhesion = None
 
     def __init__(self, name: str, surface_1: _SurfaceABC, surface_2: _SurfaceABC = None,
                  lubricant: _LubricantModelABC = None, log_file_name: str = None,
@@ -158,7 +158,7 @@ class ContactModel(_ContactModelABC):
         """
         # check that if only one surface is provided this is ok with all steps
         # check if one of the surfaces is rigid, make sure both are not rigid
-        # if one is rigid it must be the second one, if this is true set self._is_rigid to true
+        # if one is rigid it must be the second one
         # check all have materials
         # check all are discrete
         # check all steps use the same number of surfaces

@@ -1,6 +1,9 @@
+import warnings
+
 import numpy as np
 import numpy.testing as npt
 
+import slippy
 import slippy.contact as c
 import slippy.surface as s
 
@@ -9,11 +12,16 @@ import slippy.surface as s
 #         'elastic_loading', '_solve_el', 'elastic_im'
 
 
-def test_hertz_agreement_static_load():
+def test_hertz_agreement_static_load_cuda():
     """ Test that the load controlled static step gives approximately the same answer as the
     analytical hertz solver
-
     """
+    try:
+        import cupy
+        slippy.CUDA = True
+    except ImportError:
+        warnings.warn("Could not import cupy, could not test the CUDA fft backend")
+        return
     # make surfaces
     flat_surface = s.FlatSurface(shift=(0, 0))
     round_surface = s.RoundSurface((1, 1, 1), extent=(0.006, 0.006), shape=(255, 255), generate=True)
@@ -50,8 +58,14 @@ def test_hertz_agreement_static_load():
     npt.assert_approx_equal(a_result['total_deflection'], out['interference'], 4)
 
 
-def test_hertz_agreement_static_interference():
-    """Tests that the static normal interference step agrees with the analytial hertz solution"""
+def test_hertz_agreement_static_interference_cuda():
+    """Tests that the static normal interference step agrees with the analytical hertz solution"""
+    try:
+        import cupy
+        slippy.CUDA = True
+    except ImportError:
+        warnings.warn("Could not import cupy, could not test the CUDA fft backend")
+        return
     flat_surface = s.FlatSurface(shift=(0, 0))
     round_surface = s.RoundSurface((1, 1, 1), extent=(0.006, 0.006), shape=(255, 255), generate=True)
     # set materials

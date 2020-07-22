@@ -10,11 +10,12 @@ def test_random_filter():
     sigma = 2
     target_acf = S.ACF('exp', sigma, 0.1, 0.2)
     lin_trans_surface = S.RandomFilterSurface(target_acf=target_acf, grid_spacing=0.01)
-    lin_trans_surface.linear_transform(filter_shape=(40, 20), gtol=1e-5, symmetric=True)
+    lin_trans_surface.linear_transform(filter_shape=(20, 10), gtol=1e-5, symmetric=True)
     my_realisation = lin_trans_surface.discretise([512, 512], periodic=True, create_new=True)
     npt.assert_almost_equal(my_realisation.roughness('Sq'), sigma, 1)
 
     target = lin_trans_surface.target_acf_array
+    my_realisation.get_acf()
     actual = np.array(my_realisation.acf)
     n, m = actual.shape
     tn, tm = target.shape

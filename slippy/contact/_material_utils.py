@@ -42,8 +42,8 @@ def memoize_components(static_method=True):
 
     def outer(fn):
         # non local variables spec is a list to ensure it's mutable
-        spec = [None]
-        cache = dict()
+        spec = []
+        cache = []
         sig = inspect.signature(fn)
 
         if static_method:
@@ -52,26 +52,30 @@ def memoize_components(static_method=True):
                 nonlocal cache, spec, sig
                 new_spec = sig.bind(None, *args, **kwargs)
                 new_spec.apply_defaults()
-                if not new_spec == spec[0]:
-                    cache.clear()
-                    del spec[0]
+                try:
+                    index = spec.index(new_spec)
+                except ValueError:
                     spec.append(new_spec)
-                if component not in cache:
-                    cache[component] = fn(component, *args, **kwargs)
-                return cache[component]
+                    cache.append(dict())
+                    index = len(cache)-1
+                if component not in cache[index]:
+                    cache[index][component] = fn(component, *args, **kwargs)
+                return cache[index][component]
         else:
             @wraps(fn)
             def inner(self, component, *args, **kwargs):
                 nonlocal cache, spec, sig
                 new_spec = sig.bind(None, None, *args, **kwargs)
                 new_spec.apply_defaults()
-                if not new_spec == spec[0]:
-                    cache.clear()
-                    del spec[0]
+                try:
+                    index = spec.index(new_spec)
+                except ValueError:
                     spec.append(new_spec)
-                if component not in cache:
-                    cache[component] = fn(self, component, *args, **kwargs)
-                return cache[component]
+                    cache.append(dict())
+                    index = len(cache)-1
+                if component not in cache[index]:
+                    cache[index][component] = fn(component, *args, **kwargs)
+                return cache[index][component]
 
         inner.cache = cache
         inner.spec = spec

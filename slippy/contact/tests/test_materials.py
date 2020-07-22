@@ -29,7 +29,7 @@ exceptions = [contact.Rigid]
 
 def test_materials_basic():
     # check that one of influence matrix or displacement from loading is given
-    for material in contact.materials._Material._subclass_registry:
+    for material in contact.materials._IMMaterial._subclass_registry:
         if material in exceptions:
             continue
         try:
@@ -41,14 +41,15 @@ def test_materials_basic():
 
         np.random.seed(0)
 
-        loads = np.pad(np.random.rand(16, 16) * max_load, 8)
+        loads = np.pad(np.random.rand(16, 16) * max_load, 8, mode='constant')
 
         # check that the loads and displacement functions are inverse of each other
         for direction in {'x', 'y', 'z'}:
             load_in_direction = contact.Loads(**{direction: loads})
             displacement = mat_instance.displacement_from_surface_loads(loads=load_in_direction, **mat_params[1])
 
-            set_disp = np.pad(displacement.__getattribute__(direction)[8:24, 8:24], 8, constant_values=float('nan'))
+            set_disp = np.pad(displacement.__getattribute__(direction)[8:24, 8:24], 8,
+                              mode='constant', constant_values=float('nan'))
             set_displacement = contact.Displacements(**{direction: set_disp})
 
             loads_calc, displacement_calc = mat_instance.loads_from_surface_displacement(displacements=set_displacement,
