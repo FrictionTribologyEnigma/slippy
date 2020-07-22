@@ -37,13 +37,13 @@ def memoize_components(static_method=True):
         The other arguments passed to the callable (if any of these change the cache is cleared)
     """
     if not isinstance(static_method, bool):
-        raise ValueError('Memoise components is a decorator factory, it cannot be appled as a decorator directly.'
+        raise ValueError('memoize_components is a decorator factory, it cannot be applied as a decorator directly.'
                          ' static_method argument must be a bool')
 
     def outer(fn):
         # non local variables spec is a list to ensure it's mutable
-        spec = [None]
-        cache = dict()
+        spec = []
+        cache = []
         sig = inspect.signature(fn)
 
         if static_method:
@@ -52,26 +52,30 @@ def memoize_components(static_method=True):
                 nonlocal cache, spec, sig
                 new_spec = sig.bind(None, *args, **kwargs)
                 new_spec.apply_defaults()
-                if not new_spec == spec[0]:
-                    cache.clear()
-                    del spec[0]
+                try:
+                    index = spec.index(new_spec)
+                except ValueError:
                     spec.append(new_spec)
-                if component not in cache:
-                    cache[component] = fn(component, *args, **kwargs)
-                return cache[component]
+                    cache.append(dict())
+                    index = len(cache)-1
+                if component not in cache[index]:
+                    cache[index][component] = fn(component, *args, **kwargs)
+                return cache[index][component]
         else:
             @wraps(fn)
             def inner(self, component, *args, **kwargs):
                 nonlocal cache, spec, sig
                 new_spec = sig.bind(None, None, *args, **kwargs)
                 new_spec.apply_defaults()
-                if not new_spec == spec[0]:
-                    cache.clear()
-                    del spec[0]
+                try:
+                    index = spec.index(new_spec)
+                except ValueError:
                     spec.append(new_spec)
-                if component not in cache:
-                    cache[component] = fn(self, component, *args, **kwargs)
-                return cache[component]
+                    cache.append(dict())
+                    index = len(cache)-1
+                if component not in cache[index]:
+                    cache[index][component] = fn(component, *args, **kwargs)
+                return cache[index][component]
 
         inner.cache = cache
         inner.spec = spec
@@ -123,7 +127,7 @@ def convert_array(loads_or_displacements: np.array, name: str):
     Parameters
     ----------
     loads_or_displacements: numpy.array
-            Loads or displacemnts (3 by N by M array)
+            Loads or displacements (3 by N by M array)
     name : str {'l', 'd'}
         or any string which starts with l or d if 'l' a loads named tuple is returned if a 'd' a displacement named
         tuple is returned
@@ -154,29 +158,29 @@ def convert_array(loads_or_displacements: np.array, name: str):
 
 def _get_properties(set_props: dict):
     """Get all elastic properties from any pair
-    
+
     Parameters
     ----------
     set_props : dict
-        dict of properties must have exactly 2 members valid keys are: 'K', 
+        dict of properties must have exactly 2 members valid keys are: 'K',
         'E', 'v', 'Lam', 'M', 'G'
-    
+
     Returns
     -------
     out : dict
         dict of all material properties keys are: 'K', 'E', 'v', 'Lam', 'M', 'G'
-    
+
     Notes
     -----
-    
+
     Keys refer to:
         - E - Young's modulus
         - v - Poission's ratio
         - K - Bulk Modulus
         - Lam - Lame's first parameter
         - G - Shear modulus
-        - M - P wave modulus 
-    
+        - M - P wave modulus
+
     """
     if len(set_props) != 2:
         raise ValueError("Exactly 2 properties must be set,"

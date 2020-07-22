@@ -1,6 +1,8 @@
 import numpy as np
 import numpy.testing as npt
+import warnings
 
+import slippy
 import slippy.contact as c
 import slippy.surface as s
 
@@ -9,11 +11,18 @@ import slippy.surface as s
 #         'elastic_loading', '_solve_el', 'elastic_im'
 
 
-def test_hertz_agreement_static_load():
+def test_hertz_agreement_static_load_fftw():
     """ Test that the load controlled static step gives approximately the same answer as the
     analytical hertz solver
 
     """
+    try:
+        import pyfftw  # noqa: F401
+        slippy.CUDA = False
+    except ImportError:
+        warnings.warn("Could not import pyfftw, could not test the fftw backend")
+        return
+
     # make surfaces
     flat_surface = s.FlatSurface(shift=(0, 0))
     round_surface = s.RoundSurface((1, 1, 1), extent=(0.006, 0.006), shape=(255, 255), generate=True)
@@ -50,8 +59,15 @@ def test_hertz_agreement_static_load():
     npt.assert_approx_equal(a_result['total_deflection'], out['interference'], 4)
 
 
-def test_hertz_agreement_static_interference():
-    """Tests that the static normal interference step agrees with the analytial hertz solution"""
+def test_hertz_agreement_static_interference_fftw():
+    try:
+        import pyfftw  # noqa: F401
+        slippy.CUDA = False
+    except ImportError:
+        warnings.warn("Could not import pyfftw, could not test the fftw backend")
+        return
+
+    """Tests that the static normal interference step agrees with the analytical hertz solution"""
     flat_surface = s.FlatSurface(shift=(0, 0))
     round_surface = s.RoundSurface((1, 1, 1), extent=(0.006, 0.006), shape=(255, 255), generate=True)
     # set materials
@@ -84,8 +100,3 @@ def test_hertz_agreement_static_interference():
     npt.assert_approx_equal(a_result['contact_area'],
                             round_surface.grid_spacing ** 2 * sum(final_state['contact_nodes'].flatten()),
                             significant=2)
-
-
-if __name__ == '__main__':
-    test_hertz_agreement_static_load()
-    test_hertz_agreement_static_interference()

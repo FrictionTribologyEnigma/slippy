@@ -19,16 +19,17 @@ class _MaterialABC(abc.ABC):
 
     @abc.abstractmethod
     def loads_from_surface_displacement(self, displacements, grid_spacing: float,
-                                        other: '_MaterialABC', **material_options):
+                                        other: '_MaterialABC', current_state: dict, **material_options):
         pass
 
     @abc.abstractmethod
     def displacement_from_surface_loads(self, loads, grid_spacing: float,
-                                        other: '_MaterialABC', **material_options):
+                                        other: '_MaterialABC', current_state: dict, **material_options):
         pass
 
 
 class _SurfaceABC(abc.ABC):
+    profile = None
     grid_spacing: float
     material: _MaterialABC
     pass

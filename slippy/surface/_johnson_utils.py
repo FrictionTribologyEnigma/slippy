@@ -47,7 +47,7 @@ def _fit_johnson_by_moments(mean: float, sd: float, root_beta_1: float, beta_2: 
         -> typing.Union[scipy.stats.rv_continuous, typing.Tuple[int, float, float, float, float]]:
     """
     Fits a johnson family distribution to the specified moments
-    
+
     Parameters
     ----------
     mean : float
@@ -61,7 +61,7 @@ def _fit_johnson_by_moments(mean: float, sd: float, root_beta_1: float, beta_2: 
     return_rv: bool, optional (True)
         If False the descriptive parameters found in the reference will be returned, else a scipy.stats.rv_continuous
         object fitted to the desired parameter will be returned
-    
+
     Returns
     -------
     rv: scipy.stats.rv_continuous
@@ -75,37 +75,37 @@ def _fit_johnson_by_moments(mean: float, sd: float, root_beta_1: float, beta_2: 
                 johnson Sb, 4 - normal, 5 - Boundary johnson St}
         integer, a number corresponding to the type of distribution that has
         been fitted
-    xi, xlam, gamma, delta : scalar, shape parameters of the fitted 
+    xi, xlam, gamma, delta : scalar, shape parameters of the fitted
         distribution, xi is epsilon, xlam is lambda
-    
-    When a normal distribution is fitted (type 4) the delta is set to 1/sd and 
+
+    When a normal distribution is fitted (type 4) the delta is set to 1/sd and
     gamma is set to mean/sigma, xi and xlam are arbitrarily set to 0.
-    
+
     When a boundary johnson curve is fitted (type 5, St) the return parameters
-    have different meanings. xi and xlam are set to the two values at which 
-    ordinates occur and delta to the proportion of values at xlam, gamma is 
+    have different meanings. xi and xlam are set to the two values at which
+    ordinates occur and delta to the proportion of values at xlam, gamma is
     set arbitrarily to 0.
-    
+
     See Also
     -------
     scipy.stats.johnsonsu
     scipy.stats.johnsonsb
     scipy.stats.johnsonsl
-    
+
     Notes
     -----
     Copied from algorithm 99.3 in:
-    applied statistics, 1976 vol 25 no 2 
+    applied statistics, 1976 vol 25 no 2
     accessible here:
     https://www.jstor.org/stable/pdf/2346692.pdf
     also in c as part of the R supdists package here:
     https://cran.r-project.org/web/packages/SuppDists/index.html
-    
+
     changes from the original functionality are noted by #CHANGE
-    
+
     Examples
     --------
-    
+
     >>>my_scipy_rv=_fit_johnson_by_moments(10,5,1,2)
     returns a scipy rv with a mean of 10, a standard deviation of 5, a skew of
     1 and a kurtosis of 2
@@ -131,7 +131,7 @@ def _fit_johnson_by_moments(mean: float, sd: float, root_beta_1: float, beta_2: 
 
     if beta_2 >= 0:
         if beta_2 < beta_1 + 1 - tolerance:
-            raise ValueError("beta 2 must be greater than or eqaul to beta_1+1")  # error code 2
+            raise ValueError("beta 2 must be greater than or equal to beta_1+1")  # error code 2
         if beta_2 <= (beta_1 + tolerance + 1):
             dist_type = 5  # ST distribution
             y = 0.5 + 0.5 * math.sqrt(1 - 4 / (beta_1 + 4))
@@ -176,7 +176,7 @@ def _fit_johnson_by_moments(mean: float, sd: float, root_beta_1: float, beta_2: 
         """
         Evaluates the first 6 moments of a johnson distribution using goodwin's
         method (SB only)
-         
+
         Parameters
         ----------
             g : scalar,
@@ -189,18 +189,18 @@ def _fit_johnson_by_moments(mean: float, sd: float, root_beta_1: float, beta_2: 
                 The tolerance of the outer loop
             tol_inner : float
                 The tolerance for the inner loop
-        
+
         Returns
         -------
         moments : list of the first 6 moments
-        
+
         Notes
         -----
         Copied from algorithm 99.3 in
-        applied statistics, 1976 vol 25 no 2 
+        applied statistics, 1976 vol 25 no 2
         accessible here:
             https://www.jstor.org/stable/pdf/2346692.pdf
-            
+
         See also
         --------
         sb_fit : fits bounded johnson distributions
@@ -256,8 +256,8 @@ def _fit_johnson_by_moments(mean: float, sd: float, root_beta_1: float, beta_2: 
                 u = u - f
                 z = math.exp(u) + 1
                 t = t + f
-                l = t > 23.7
-                if not l:
+                el = t > 23.7
+                if not el:
                     s = math.exp(t) + 1
                 p = math.exp(-v)
                 q = p
@@ -269,10 +269,10 @@ def _fit_johnson_by_moments(mean: float, sd: float, root_beta_1: float, beta_2: 
                     if p == 0:
                         break
                     moment_a = moment_a + p
-                    if not l:
+                    if not el:
                         q = q / s
                         moment_a = moment_a + q
-                        l = q == 0
+                        el = q == 0
                     moments[i - 1] = moment_a
                 # 100
                 y = y + x
@@ -475,28 +475,28 @@ def _fit_johnson_by_moments(mean: float, sd: float, root_beta_1: float, beta_2: 
 def _fit_johnson_by_quantiles(quantiles):
     """
     Fits a johnson family distribution based on the supplied quartiles
-    
+
     quantiles relate to normal quantiles of -1.5, -0.5, 0.5, 1.5
     => 0.067, 0.309, 0.691, 0.933 (roughly)
-    
+
     Parameters
     ----------
-    
+
     quantiles : array like 4 elements
-        The quartiles to be fitted to 
-    
+        The quartiles to be fitted to
+
     Returns
     -------
-    
+
     dist : scipy.stats._distn_infrastructure.rv_frozen
         A scipy rv object of the fitted distribution
-    
+
     See Also
     --------
-    
+
     References
     ----------
-    
+
     Examples
     --------
 

@@ -19,6 +19,7 @@
 #
 import os
 import sys
+
 sys.path.insert(0, os.path.abspath('..'))
 
 import slippy
@@ -40,8 +41,9 @@ extensions = [
     'sphinx.ext.coverage',
     'sphinx.ext.mathjax']
 
-autosummary_generate=True
-
+autosummary_generate = True
+default_role = "autolink"
+nitpicky = True
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
@@ -86,13 +88,12 @@ pygments_style = 'sphinx'
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = False
 
-
 # -- Options for HTML output -------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'sphinxdoc'
+html_theme = 'classic'
 
 # Theme options are theme-specific and customize the look and feel of a
 # theme further.  For a list of options available for each theme, see the
@@ -105,12 +106,10 @@ html_theme = 'sphinxdoc'
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
 
-
 # -- Options for HTMLHelp output ---------------------------------------
 
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'slippydoc'
-
 
 # -- Options for LaTeX output ------------------------------------------
 
@@ -141,7 +140,6 @@ latex_documents = [
      'Michael Watson', 'manual'),
 ]
 
-
 # -- Options for manual page output ------------------------------------
 
 # One entry per manual page. List of tuples
@@ -151,7 +149,6 @@ man_pages = [
      'SlipPY Documentation',
      [author], 1)
 ]
-
 
 # -- Options for Texinfo output ----------------------------------------
 
@@ -166,6 +163,3 @@ texinfo_documents = [
      'One line description of project.',
      'Miscellaneous'),
 ]
-
-
-

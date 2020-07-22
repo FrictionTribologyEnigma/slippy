@@ -172,7 +172,7 @@ class StaticNormalLoad(_ModelStep):
         current_state = dict(just_touching_gap=just_touching_gap, surface_1_points=surface_1_points,
                              surface_2_points=surface_2_points)
 
-        adhesion_model = self._adhesion if self._adhesion else self.model._adhesion
+        adhesion_model = self.model.adhesion if self._adhesion else None
 
         results = dict()
         it = 0
@@ -195,7 +195,8 @@ class StaticNormalLoad(_ModelStep):
 
             # noinspection PyTypeChecker
             loads, *disp_tup, contact_nodes = solve_normal_interference(height, gap=just_touching_gap, model=self.model,
-                                                                        adhesive_force=adhesion_model,
+                                                                        current_state=current_state,
+                                                                        adhesive_pressure=adhesion_model,
                                                                         contact_nodes=initial_contact_nodes,
                                                                         max_iter=opt.max_it_find_contact_nodes,
                                                                         material_options=opt.material_options)
@@ -217,7 +218,7 @@ class StaticNormalLoad(_ModelStep):
             return total_load - set_load
 
         # need to set bounds and pick a sensible starting point
-        upper = 5 * max(just_touching_gap.flatten()) / uz
+        upper = 3 * max(just_touching_gap.flatten()) / uz
 
         print(f'upper bound set at: {upper}')
         print(f'Interference tolerance set to {opt.atol_load_loop} A, {opt.rtol_load_loop} R')
@@ -237,7 +238,7 @@ class StaticNormalLoad(_ModelStep):
         return current_state
 
     def __repr__(self):
-        return 'Not yet sorry'
+        return ''
 
     @classmethod
     def new_step(cls, model):
@@ -256,10 +257,10 @@ class StaticNormalInterference(_ModelStep):
         The absolute interference between the surfaces from the point of first contact, only one type of interference
         can be set
     relative_interference: float, optional (None)
-        The realtive interference between the surfaces from the current position, only one type of interference can be
+        The relative interference between the surfaces from the current position, only one type of interference can be
         set
     relative_off_set: tuple, optional (None)
-        The relative off set betwee nsurface 1 and surface 2 (relative to the offset at the start of the step) only one
+        The relative off set between surface 1 and surface 2 (relative to the offset at the start of the step) only one
         off set can be specified
     absolute_off_set: tuple, optional (None)
         The absolute off set between surface 1 and surface 2 (off set between the origins of the surfaces)
@@ -333,12 +334,13 @@ class StaticNormalInterference(_ModelStep):
                                                          mode=self._options.interpolation_mode,
                                                          periodic=self._options.periodic)
 
-        adhesion_model = self._adhesion if self._adhesion else self.model._adhesion
+        adhesion_model = self.model.adhesion if self._adhesion else None
 
         initial_contact_nodes = current_state['contact_nodes'] if 'contact_nodes' in current_state else None
 
         loads, *disp_tup, contact_nodes = solve_normal_interference(height, gap=gap, model=self.model,
-                                                                    adhesive_force=adhesion_model,
+                                                                    current_state=current_state,
+                                                                    adhesive_pressure=adhesion_model,
                                                                     contact_nodes=initial_contact_nodes,
                                                                     max_iter=self._options.max_it_find_contact_nodes,
                                                                     material_options=self._options.material_options)
@@ -348,22 +350,8 @@ class StaticNormalInterference(_ModelStep):
         current_state['surf_1_disp'] = disp_tup[1]
         current_state['surf_2_disp'] = disp_tup[2]
         current_state['contact_nodes'] = contact_nodes
-        current_state['nd_gap'] = gap
+        current_state['gap'] = gap
         current_state['interference'] = height
-        ################################################################################################################
-        # if not hasattr(np, 'ITNUM'):
-        #    np.ITNUM = int(get_next_file_num(data_path))  #
-        #
-        #        total_load = np.sum(loads.z.flatten()) * self.model.surface_1.grid_spacing ** 2
-        #        pickle.dump({b'nd_gap': nd_gap, b'height': height, b'total_load': total_load, b'interference': height,
-        #                     b's1_disp': disp_tup[1].z, b's2_disp': disp_tup[2].z,  b'all_loads': loads.z,
-        #                     b'props': {b'E1': self.model.surface_1.material.E, b'v1': self.model.surface_1.material.v,
-        #                                b'E2': self.model.surface_2.material.E, b'v2': self.model.surface_2.material.v},
-        #                     b'grid': self.model.surface_1.grid_spacing},
-        #                    open(f"{data_path}\\{np.ITNUM}.pkl", "wb"))
-        #
-        #        np.ITNUM += 1
-        ################################################################################################################
 
         self.solve_sub_models(current_state)
         self.save_outputs(current_state, output_file)
@@ -488,7 +476,7 @@ class _StaticStep(_ModelStep):
         The span in number of grid points of the influence matrix, this defaults to the same size as the first surface
         in the model.
 
-    
+
     _load = None
     _displacement = None
     options: StaticStepOptions = None

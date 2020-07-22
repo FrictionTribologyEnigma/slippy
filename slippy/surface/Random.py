@@ -1,8 +1,7 @@
-# change random itteration methods to work with scipy optimize way more methods
-# avalible
+# change random iteration methods to work with scipy optimize way more methods avalible
 """
 #TODO:
-        Sort out documantation for each method
+        Sort out documentation for each method
 
 """
 
@@ -12,15 +11,15 @@ from collections import defaultdict
 
 import numpy as np
 import scipy.stats
-from numpy.matlib import repmat
-from scipy.optimize import fsolve
+from scipy.optimize import minimize
 from scipy.signal import fftconvolve
+from numba import njit
 
 from .ACF_class import ACF
 from .Surface_class import Surface, _Surface
 from ._johnson_utils import _fit_johnson_by_moments, _fit_johnson_by_quantiles
 
-__all__ = ['RandomFilterSurface', 'RandomPerezSurface', 'surface_like']
+__all__ = ['RandomFilterSurface', 'RandomPerezSurface']
 
 
 class RandomPerezSurface(_Surface):
@@ -261,10 +260,9 @@ class RandomPerezSurface(_Surface):
             if len(error['H']) > 2 and (error['H'][-2] - error['H'][-1]) < 0:
                 msg = 'Solution is diverging, solution failed to converge'
                 break
-            if error['H'][-1] < accuracy or \
-                    (error['PS'][-1] < accuracy and error['PS0'][-1] < accuracy):
+            if error['H'][-1] < accuracy or (error['PS'][-1] < accuracy and error['PS0'][-1] < accuracy):
                 msg = ''
-                break  # soltuon converged
+                break  # solution converged
 
         if msg:
             if suppress_errors:
@@ -288,34 +286,47 @@ class RandomPerezSurface(_Surface):
 
 class RandomFilterSurface(_Surface):
     """ Surfaces based on transformations of random sequences by a filter
-    
+
     Attributes
     ----------
-    dist : scipy distribution
+    dist : scipy.stats.rv_continuous
         The statistical distribution which the random sequence is drawn from
-    
+
     Methods
     -------
     linear_transforms
     set_moments
     set_quantiles
     fir_filter
-    descretise
-    
+    discretise
+
     See Also
     --------
     surface_like
-    
+
     Notes
     -----
     This is a subclass of Surface and inherits all methods. All key words that
     can be passed to Surface on instantiation can also be passed to this class
     apart from 'profile'
-    
+
     Examples
     --------
-    
-    
+    In the following example we will generate a randomly rough surface with an exponential ACF and a non gaussian height
+    distribution.
+
+    >>> import slippy.surface as s  # surface generation and manipulation
+    >>> import numpy as np          # numerical functions
+    >>> np.random.seed(0)
+    >>> target_acf = s.ACF('exp', 2, 0.1, 0.2)  # make an example ACF
+    >>> # Finding the filter coefficients
+    >>> lin_trans_surface = s.RandomFilterSurface(target_acf=target_acf, grid_spacing=0.01)
+    >>> lin_trans_surface.linear_transform(filter_shape=(40,20), gtol=1e-5, symmetric=True)
+    >>> # Setting the skew and kurtosis of the output surface
+    >>> lin_trans_surface.set_moments(skew = -0.5, kurtosis=5)
+    >>> # generating and showing a realisation of the surface
+    >>> my_realisation = lin_trans_surface.discretise([512,512], periodic=False, create_new=True)
+    >>> fig, axes = my_realisation.show(['profile', 'acf', 'histogram'], ['image', 'image'], figsize=(15,5))
     """
 
     surface_type = 'Random'
@@ -325,39 +336,21 @@ class RandomFilterSurface(_Surface):
     is_discrete: bool = False
     _moments = None
     _method_keywords = None
+    target_acf_array = None
+    "An array of acf values used as the target for the fitting procedure"
 
-    def __init__(self, method: str = 'linear_transform',
+    def __init__(self,
                  target_acf: ACF = None,
-                 target_psd: np.ndarray = None,
-                 generate: bool = False,
                  grid_spacing: typing.Optional[float] = None,
                  extent: typing.Optional[typing.Sequence] = None,
                  shape: typing.Optional[typing.Sequence] = None,
                  moments: typing.Sequence = None,
-                 quantiles: typing.Sequence = None, **method_keywords):
-        """
-        aims: should be able to generate in single line, needs to include the mode that the matrix will be
-        Parameters
-        ----------
-        method
-        """
+                 quantiles: typing.Sequence = None):
+
         super().__init__(grid_spacing=grid_spacing, extent=extent, shape=shape)
 
-        valid_methods = ['linear_transform', 'fir_filter']
-
-        if target_acf is not None or target_psd is not None:
-            self.target_psd = target_psd
+        if target_acf is not None:
             self.target_acf = target_acf
-            if method in valid_methods:
-                method = self.__getattribute__(method)
-            else:
-                raise ValueError(f"Method '{method}' is not valid, valid methods are {' '.join(valid_methods)}")
-
-            method(**method_keywords)
-
-        elif method != 'linear_transform':
-            warnings.warn("Setting the method to generate the filter coeficents matrix has no effect if a target acf is"
-                          " not given.")
 
         if moments is not None:
             if quantiles is not None:
@@ -366,13 +359,10 @@ class RandomFilterSurface(_Surface):
         if quantiles is not None:
             self.set_quantiles(quantiles)
 
-        if generate:
-            self.discretise()
-
     def __repr__(self):
         string = 'RandomSurface('
         if self.target_acf is not None:
-            string += f'target_surface={repr(self.target_acf)}, '
+            string += f'target_acf={repr(self.target_acf)}, '
             string += f'method={self.surface_type}, '
             string += f'grid_spacing={self.grid_spacing}, '
             string += f'**{repr(self._method_keywords)}, '
@@ -381,102 +371,122 @@ class RandomFilterSurface(_Surface):
         if self.shape is not None:
             string += f'shape = {self.shape}, '
         if self.is_discrete:
-            string += f'generate = True, '
+            string += 'generate = True, '
         string = string[:-2]
         return string + ')'
 
-    def linear_transform(self, target_acf: ACF = None, filter_size_n_m: typing.Sequence = (14, 14), max_it: int = 100,
-                         accuracy: float = 1e-11, no_large_filter_error=False):
+    def linear_transform(self, filter_shape: typing.Sequence = (14, 14), symmetric: bool = True, max_it: int = None,
+                         gtol: float = 1e-5, method='BFGS', **minimize_kwargs):
         r"""
         Generates a linear transform matrix
-        
-        Solves the non linear optimisation problem to generate a 
+
+        Solves the non linear optimisation problem to generate a
         moving average filter that when convolved with a set of normally
-        distributed random numbers will generate a surface profile with the 
+        distributed random numbers will generate a surface profile with the
         specified ACF
-        
+
         Parameters
         ----------
-        
-        target_acf : ACF object or description
-            The target ACF, the linear transform matrix will produce surfaces
-            with this ACF.
-        filter_size_n_m : 2 element sequence of int, optional (35, 35)
-            The dimensions of the filter coefficient matrix to be generated the default is (35, 35)
-        max_it : int, optional (100)
+
+        filter_shape: Sequence, optional (14, 14)
+            The dimensions of the filter coefficient matrix to be generated the default is (35, 35), must be exactly 2
+            elements both elements must be ints
+        symmetric: bool, optional (True)
+            If true a symmetric filter will be fitted to the target ACF, this typically produces more realistic surfaces
+            for the same filter shape but takes longer to fit the filter
+        max_it: int, optional (100)
             The maximum number of iterations used
-        accuracy : float, optional (1e-11)
+        gtol: float, optional (1e-11)
             The accuracy of the iterated solution
-        no_large_filter_error: bool, optional (False
-            If True the program allows large filters to be used, large filters do not converge to physical solutions
-            with this method
-        
+        method: str, optional ('BFGS')
+            Type of solver. In most situations this should be one of the following:
+            - Nelder-Mead
+            - Powell
+            - CG
+            - BFGS
+            - Newton-CG
+            However other options exist, see the notes for more details
+        minimize_kwargs
+            Extra key word arguments which are passed to scipy.optimise.minimize function, valid arguments will depend
+            on the choice of method
+
         Returns
         -------
-        
-        None
-        Sets the filter_coefficients property of the instance
-        
-        Other parameters
-        ----------------
-        
 
-        
+        None
+            Sets the filter_coefficients property of the instance
+
+
         See Also
         --------
-        
-        RandomSurface.set_moments
-        RandomSurface.FIRfilter
-        
+
+        RandomFilterSurface.set_moments
+        RandomFilterSurface.FIRfilter
+
         Notes
         -----
-        
-        This problem has a unique solution for each grid spacing. This should 
+
+        This problem has a unique solution for each grid spacing. This should
         be set before running this method, else it is assumed to be 1.
-        
-        The iteration procedure used if newtonian is selected is not strictly
-        newtonian. As it is much more time consuming to invert the jacobian 
-        matrix than to multiply the result a modified newtonian is used. If the
-        next iteration is not an improvement on the previous iteration the
-        'distance moved' is halved. This halving is repeated until the
-        iteration results in an improvement. The minimum distance that will
-        be tried can be set by setting the min_relax key word. This defaults to 
-        10e-6. This is a deviation from the method described by [1]
-        
+
+        For more information on each of the methods available the documentation of scipy.optimize.minimize should be
+        consulted. Practically, for this problem only unconstrained, unbound solvers are appropriate, these are:
+
+        - Nelder-Mead
+        - Powell
+        - CG
+        - BFGS
+        - Newton-CG
+        - dogleg
+        - trust-ncg
+        - trust-krylov
+        - trust-exact
+
+        However, the dogleg, trust-ncg, trust-krylov, trust-exact additionally require the user to specify the hessian
+        matrix for the problem which is currently unsupported.
+
         References
         ----------
-        
-        ..[1] N. Patir, "A numerical procedure for random generation of 
+
+        ..[1] N. Patir, "A numerical procedure for random generation of
         rough surfaces (1978)"
-        Wear, 47(2), 263–277. 
+        Wear, 47(2), 263–277.
         '<https://doi.org/10.1016/0043-1648(78)90157-6>'_
-        
+
         Examples
         --------
-        
+
+        In the following example we will generate a randomly rough surface with an exponential ACF and a non gaussian
+        height distribution.
+
+        >>> import slippy.surface as s  # surface generation and manipulation
+        >>> import numpy as np          # numerical functions
+        >>> np.random.seed(0)
+        >>> target_acf = s.ACF('exp', 2, 0.1, 0.2)  # make an example ACF
+        >>> # Finding the filter coefficients
+        >>> lin_trans_surface = s.RandomFilterSurface(target_acf=target_acf, grid_spacing=0.01)
+        >>> lin_trans_surface.linear_transform(filter_shape=(40,20), gtol=1e-5, symmetric=True)
+        >>> # Setting the skew and kurtosis of the output surface
+        >>> lin_trans_surface.set_moments(skew = -0.5, kurtosis=5)
+        >>> # generating and showing a realisation of the surface
+        >>> my_realisation = lin_trans_surface.discretise([512,512], periodic=False, create_new=True)
+        >>> fig, axes = my_realisation.show(['profile', 'acf', 'histogram'], ['image', 'image'], figsize=(15,5))
         """
         self._method_keywords = {**locals()}
-        del (self._method_keywords['target_acf'])
+        del (self._method_keywords['self'])
 
         self.surface_type = 'linear_transform'
-
-        if type(target_acf) is ACF:
-            self.target_acf = target_acf
 
         if self.target_acf is None:
             raise ValueError("No target ACF given, a target ACF must be given before the filter coefficients can be "
                              "found")
 
         # n by m ACF
-        n = filter_size_n_m[0]
-        m = filter_size_n_m[1]
+        n = filter_shape[0]
+        m = filter_shape[1]
 
-        if n * m > 15 ** 2:
-            warnings.warn("Warning large filter sizes often do not converge")
-        if n * m > 400 and not no_large_filter_error:
-            raise ValueError("Large filter size used, this will not converge, for large surfaces it is best to "
-                             "resample a lower resolution surface. To suppress this error set the "
-                             "no_large_filter_error to True, please check the result if this is done")
+        if max_it is None:
+            max_it = n * m * 100
 
         if self.grid_spacing is None:
             msg = ("Grid spacing is not set assuming grid grid_spacing is 1, the solution is unique for each grid "
@@ -485,76 +495,110 @@ class RandomFilterSurface(_Surface):
             self.grid_spacing = 1
 
         # generate the acf array form the ACF object
-        l = self.grid_spacing * np.arange(n)
+        el = self.grid_spacing * np.arange(n)
         k = self.grid_spacing * np.arange(m)
-        [k_mesh, l_mesh] = np.meshgrid(k, l)
-        acf_array = self.target_acf(k, l)
-
+        acf_array = self.target_acf(k, el)
+        self.target_acf_array = acf_array
         # initial guess (n by m guess of filter coefficients)
         x0 = _initial_guess(acf_array)
 
-        alpha, *optional_out = fsolve(_opt_func, x0, args=(acf_array,), fprime=_jac, xtol=accuracy, maxfev=max_it)
+        if symmetric:
+            result = minimize(_min_fun_symmetric, x0/2, args=(acf_array,), method=method,
+                              jac=_get_grad_min_fun_symmetric, tol=gtol,
+                              **minimize_kwargs)
+        else:
+            result = minimize(_min_fun, x0, args=(acf_array,), method=method, jac=_get_grad_min_fun, tol=gtol,
+                              **minimize_kwargs)
+
+        if not result.success:
+            warnings.warn(result.message)
+
+        alpha = np.reshape(result.x, filter_shape)
+
+        if symmetric:
+            filter_coefficients_half = alpha
+            n1, m1 = filter_coefficients_half.shape
+            filter_coefficients = np.zeros((n1 * 2 - 1, m1))
+            filter_coefficients[:n1, :m1] = np.flip(filter_coefficients_half, 0)
+            filter_coefficients[n1 - 1:, :m1] = filter_coefficients_half
+            alpha = filter_coefficients
+
+        # un comment the next two lines for the root finding method
+        # from scipy.optimise import fsolve
+        # alpha, *optional_out = fsolve(_root_func, x0, args=(acf_array,),
+        #                              xtol=gtol, maxfev=max_it, full_output=True)
 
         self._filter_coefficients = alpha
 
-        if optional_out[-2] != 1:
-            warnings.warn("Iterations for the filter coefficients failed to converge, process exited with error: " +
-                          optional_out[-1])
-
-    def set_moments(self, skew=0, kurtosis=3):
+    def set_moments(self, skew=0, kurtosis=0):
         r"""
         Sets the skew and kurtosis of the output surface
-        
+
         If a filter coefficients matrix is present, this method changes the dist
-        property of this instance to a distribution that produces a series of 
-        johnson or normally distributed random numbers that will have the 
+        property of this instance to a distribution that produces a series of
+        johnson or normally distributed random numbers that will have the
         set skew and kurtosis when convolved with the filter coefficients matrix.
-        
+
         Parameters
         ----------
-        
+
         skew, kurtosis : float
             The desired moments of the surface profile
-            
+
         Returns
         -------
         None
             Sets the dist parameter of the instance
-            
+
         See Also
         --------
-        RandomSurface.linear_transform
-        
+        RandomFilterSurface.linear_transform
+
         Notes
         -----
-        
+
         The skew of the input sequence:
-        ..math:: Sk_\eta
+        :math:`Sk_\eta`
         can be related to the skew of the final surface:
-        ..math:: Sk_z
+        :math:`Sk_z`
         by the following:
-        
-        ..math::
-            Sk_z=Sk_\eta \frac{\sum_{i=0}^{q} \alpha_{i}^{3}}{(\sum_{i=0}^{q}\alpha_i^2)^\frac{3}{2}}\\
-        
-        The kurtosis of the input sequence can be related to the final surface 
+
+        :math:`Sk_z=Sk_\eta \frac{\sum_{i=0}^{q} \alpha_{i}^{3}}{(\sum_{i=0}^{q}\alpha_i^2)^\frac{3}{2}}`
+
+        The kurtosis of the input sequence can be related to the final surface
         by [1]:
-        
-        ..math:
-            K_z= \frac{K_\eta \sum_{i=0}^q \alpha_i^2 + 6 \sum_{i=0}^{q-1}\sum_{j=i+1}^q \alpha_i^2 \alpha_j^2}{(\sum_{i=0}^q \alpha_i^2)^2}\\
-        
+
+        :math:`K_z= \frac{K_\eta \sum_{i=0}^q \alpha_i^2 + 6 \sum_{i=0}^{q-1}\sum_{j=i+1}^q\alpha_i^2 \alpha_j^2}{(\sum_{i=0}^q \alpha_i^2)^2}`
+
         References
         ----------
-        
-        [1] Liao, D., Shao, W., Tang, J., & Li, J.
-        An improved rough surface modeling method based on linear 
-        transformation technique. Tribology International, 119(August 2017), 
-        786–794. '<https://doi.org/10.1016/j.triboint.2017.12.008>'_
-        """
+
+        [1] Manesh, K. K., Ramamoorthy, B., & Singaperumal, M. (2010). Numerical generation of anisotropic 3D
+        non-Gaussian engineering surfaces with specified 3D surface roughness parameters. Wear, 268(11–12),
+        1371–1379. https://doi.org/10.1016/j.wear.2010.02.005
+
+        Examples
+        --------
+        In the following example we will generate a randomly rough surface with an exponential ACF and a non gaussian
+        height distribution.
+
+        >>> import slippy.surface as s  # surface generation and manipulation
+        >>> import numpy as np          # numerical functions
+        >>> np.random.seed(0)
+        >>> target_acf = s.ACF('exp', 2, 0.1, 0.2)  # make an example ACF
+        >>> # Finding the filter coefficients
+        >>> lin_trans_surface = s.RandomFilterSurface(target_acf=target_acf, grid_spacing=0.01)
+        >>> lin_trans_surface.linear_transform(filter_shape=(40,20), gtol=1e-5, symmetric=True)
+        >>> # Setting the skew and kurtosis of the output surface
+        >>> lin_trans_surface.set_moments(skew = -0.5, kurtosis=5)
+        >>> # generating and showing a realisation of the surface
+        >>> my_realisation = lin_trans_surface.discretise([512,512], periodic=False, create_new=True)
+        >>> fig, axes = my_realisation.show(['profile', 'acf', 'histogram'], ['image', 'image'], figsize=(15,5))
+        """  # noqa
         self._moments = (skew, kurtosis)
 
-        if not hasattr(self, '_filter_coefficients'):
-            msg = ("filter coefficients matrix not found, this must be found by"
+        if self._filter_coefficients is None:
+            msg = ("Filter coefficients matrix not found, this must be found by"
                    " the linear_transforms or FIR_filter methods before this "
                    "method can be used")
             raise AttributeError(msg)
@@ -565,23 +609,16 @@ class RandomFilterSurface(_Surface):
         alpha2 = alpha ** 2  # alpha squared
         sal2 = np.sum(alpha2)  # sum alpha squared
 
-        seq_skew = skew * sal2 ** (3 / 2) / np.sum(alpha2 * alpha)
+        seq_skew = skew * (sal2 ** (3 / 2)) / np.sum(alpha2 * alpha)
 
-        # The quadratic alpha term needs some speical treatment
-        # pad with 0s
-        alphapad2 = np.pad(alpha2, [0, len(alpha2)], 'constant')
+        # making the mixed term
+        quad_term = 0.0
+        q = len(alpha)
+        for i in range(0, q - 1):
+            for j in range(i, q):
+                quad_term += alpha2[i] * alpha2[j]
 
-        ai = repmat(alpha2[:-1], len(alpha2) - 1, 1)
-
-        index_x_mesh, index_y_mesh = np.meshgrid(np.arange(len(alpha2) - 1), np.arange(len(alpha2) - 1))
-        index = index_x_mesh + index_y_mesh + 1  # diagonally increasing matrix
-        aj = alphapad2[index]
-
-        quad_term = sum(ai.flatten() * aj.flatten())
-
-        seq_kurt = (kurtosis * sal2 ** 2 - 6 * quad_term) / sal2
-
-        print(seq_skew, seq_kurt)
+        seq_kurt = (kurtosis * sal2 ** 2 - 6 * quad_term) / np.sum(alpha2**2) + 3
 
         self.dist = _fit_johnson_by_moments(0, 1, seq_skew, seq_kurt, True)
 
@@ -615,40 +652,40 @@ class RandomFilterSurface(_Surface):
     def fir_filter(self, target_acf: ACF = None, filter_span: typing.Sequence = None):
         """
         Create a 2D FIR filter to produce a surface with the given ACF
-            
+
         Parameters
         ----------
-        
+
         target_acf: ACF
             The target ACF of the final surface.
         filter_span: Sequence, optional (None)
             The span of the filter which will be found, larger filters give better long range representation of the ACF
             but take longer to find and longer to apply
 
-        
+
         See Also
         --------
-        
+
         slippy.surface.ACF
-        RandomSurface.linear_transform
-        RandomSurface.descretise
-        
+        RandomFilterSurface.linear_transform
+        RandomFilterSurface.discretise
+
         Notes
         -----
-        
+
         1 For this function to work the grid_spacing of the final surface
             must be set.
         2 After running this method surface realisations can be generated by the
             discretise method
         3 Uses the method defined here:
-            Hu, Y. Z., & Tonder, K. (1992). Simulation of 3-D random rough 
-            surface by 2-D digital filter and Fourier analysis. 
-            International Journal of Machine Tools and …, 32(1–2), 83–90. 
+            Hu, Y. Z., & Tonder, K. (1992). Simulation of 3-D random rough
+            surface by 2-D digital filter and Fourier analysis.
+            International Journal of Machine Tools and …, 32(1–2), 83–90.
             https://doi.org/10.1016/0890-6955(92)90064-N
-            
+
         Examples
         --------
-        
+
         #TODO
         """
         if target_acf is None:
@@ -682,9 +719,9 @@ class RandomFilterSurface(_Surface):
             raise ValueError("Target ACF must be set before the filter coefficients can be found")
 
         # Generate array of ACF
-        l = self.grid_spacing * np.arange(filter_span[0])
+        el = self.grid_spacing * np.arange(filter_span[0])
         k = self.grid_spacing * np.arange(filter_span[1])
-        acf_array = self.target_acf(k, l)
+        acf_array = self.target_acf(k, el)
 
         # Find FIR filter coefficients
         self._filter_coefficients = np.sqrt(np.fft.fft2(acf_array))
@@ -693,50 +730,54 @@ class RandomFilterSurface(_Surface):
                    create_new: bool = False):
         """
         Create a random surface realisation based on preset parameters
-        
+
         Parameters
         ----------
-        
-        output_shape : 2 element list of ints, defaults to [512, 512]
-            The size of the output in points, the grid_spacing of these points 
+
+        output_shape : 2 element list of ints
+            The size of the output in points, the grid_spacing of these points
             is set when the filter coefficients matrix is generated, see
             linear_transform for more information
         periodic : bool, (False)
-            If true the resulting surface will be periodic in geometry, for 
+            If true the resulting surface will be periodic in geometry, for
             this to work the filter coefficients matrix must have odd order in
-            both directions 
+            both directions
         create_new : bool, optional (False)
             If set to true the method will return a new surface object with the
-            generated profile and the correct sizes/ grid_spacing otherwise the 
+            generated profile and the correct sizes/ grid_spacing otherwise the
             parent surface will given the generated profile
-        
+
         Returns
         -------
-        
-        A new surface object if the create_new parameter is set to true else 
+
+        A new surface object if the create_new parameter is set to true else
         nothing, but sets profile property of surface
-        
+
         See Also
         --------
-        
-        RandomSurface.linear_transform
-        RandomSurface.fir_filter
-        
+
+        RandomFilterSurface.linear_transform
+        RandomFilterSurface.fir_filter
+
         Notes
         -----
-        
-        Uses the method outlined in the below with fft based convoluiton:
+
+        Uses the method outlined in the below with fft based convolution:
         Liao, D., Shao, W., Tang, J., & Li, J. (2018). An improved rough
         surface modeling method based on linear transformation technique.
         Tribology International, 119(August 2017), 786–794.
         https://doi.org/10.1016/j.triboint.2017.12.008
-        
+
         """
 
         if self._filter_coefficients is None:
             raise AttributeError('The filter coefficients matrix must be found by either the linear_transform or '
                                  'fir_filter method before surface realisations can be generated')
-        (n, m) = self._filter_coefficients.shape
+
+        filter_coefficients = self._filter_coefficients
+
+        n, m = filter_coefficients.shape
+
         if output_shape is None:
             output_shape = self.shape
 
@@ -746,18 +787,11 @@ class RandomFilterSurface(_Surface):
         output_n, output_m = output_shape
 
         if periodic:
-            if n % 2 == 0 or m % 2 == 0:
-                msg = ('For a periodic surface the filter coefficients matrix must'
-                       'have an odd number of elements in every dimension, '
-                       'output profile will not be the expected size')
-                warnings.warn(msg)
-            pad_rows = int(np.floor(n / 2))
-            pad_cols = int(np.floor(m / 2))
-            eta = np.pad(self.dist.rvs(size=[output_n, output_m]), ((pad_rows, pad_rows), (pad_cols, pad_cols)), 'wrap')
+            eta = np.pad(self.dist.rvs(size=[output_n, output_m]), ((0, n-1), (0, m-1)), 'wrap')
         else:
             eta = self.dist.rvs(size=[output_n + n - 1, output_m + m - 1])
 
-        profile = fftconvolve(eta, self._filter_coefficients, 'valid')
+        profile = fftconvolve(eta, filter_coefficients, 'valid')
 
         if create_new:
             return Surface(grid_spacing=self.grid_spacing, profile=profile)
@@ -765,141 +799,6 @@ class RandomFilterSurface(_Surface):
             self.profile = profile
             self.is_discrete = True
         return
-
-
-# TODO get rid of kwargs here
-def surface_like(target_surface: Surface, extent: typing.Union[str, tuple] = 'original',
-                 grid_spacing: typing.Union[str, float] = 'original',
-                 filter_shape: typing.Sequence = (35, 35), **kwargs):
-    """
-    Generates a surface similar to the input surface
-    
-    Generates a surface with the same ACF, skew and kurtosis as the input
-    surface assuming the surface is johnson distributed
-    
-    Parameters
-    ----------
-    
-    target_surface : Surface
-        A surface object to be 'copied'
-        
-    extent : {'original' or 2 element list of ints}
-        The size in each direction of the output surface, 
-        if 'original' the dimensions of the input surface are used
-        
-    grid_spacing : {'original' or float}
-        The spacing between grid points, if 'original' the grid spacing of the 
-        input surface is used, if this property is not set for the input
-        surface it is assumed that both are 1 and warns
-        
-    filter_shape : 2 element list of ints
-        The size of the filter to be used defaults to [35, 35]
-        
-    
-    Returns
-    -------
-    surf_out : Surface
-        A surface object with the same properties as the original surface
-        of the scale and size requested with keyword arguments
-    
-    Warns
-    -----
-    If the grid spacing property is not set on the input surface and 'original'
-    is given as the grid spacing arg will assume both are 1 and produce a 
-    warning
-    
-    Other Parameters
-    ----------------
-    
-    periodic : bool default False
-        If true the returned surface will have a periodic profile
-        
-    filter_kwargs : dict
-        Keyword arguments that are passed to RandomSurface.linear_transforms 
-        see that for more information
-        
-    dist_type: {'johnson', 'kernel'}
-        Defaults to johnson, the distribution that will be used to draw random
-        samples for the pre-filter sequence, if johnson a johnson distribution
-        will be fitted to the input surface quartiles, if kernel a kernel 
-        distribution will be made from the input histogram, this is 
-        experimental
-        
-    See Also
-    --------
-    RandomSurface.linear_transforms
-    RandomSurface
-    Surface
-    
-    Notes
-    -----
-    
-    If multiple realisations are needed of the same 'copied' surface it will
-    be much faster to call the descretise function of the returned surface. 
-    multiple surfaces of the same grid spacing but different grid sizes can be 
-    generated this way.
-
-    """
-    # TODO sort out this function
-    if 'filter_method' in kwargs:
-        filter_method = kwargs['filter_method']
-    else:
-        filter_method = 'newtonian'
-
-    if 'filter_kwargs' in kwargs:
-        filter_kwargs = kwargs['filter_kwargs']
-    else:
-        filter_kwargs = {}
-
-    if 'periodic' in kwargs:
-        periodic = kwargs.pop('periodic')
-    else:
-        periodic = False
-
-    if kwargs:
-        msg = f'Unrecognised key word {kwargs}'
-        ValueError(msg)
-
-    if not isinstance(target_surface, _Surface):
-        msg = "input must be of surface type"
-        raise ValueError(msg)
-
-    if grid_spacing is 'original':
-        if target_surface.grid_spacing is None:
-            warnings.warn("Grid spacing of the original surface is not set "
-                          "assuming it is 1")
-            target_surface.grid_spacing = 1
-            grid_spacing = 1
-        else:
-            grid_spacing = target_surface.grid_spacing
-
-    if extent is 'original':
-        if target_surface.extent is not None:
-            extent = target_surface.extent
-        else:
-            extent = [grid_spacing * dim for dim in
-                      target_surface.shape]
-
-    target_surface.subtract_polynomial(2)
-
-    if not target_surface.acf:
-        target_surface.get_acf()
-
-    surf_out = RandomFilterSurface(extent=extent, grid_spacing=grid_spacing)
-
-    surf_out.linear_transform(target_surface.acf, filter_shape, filter_method,
-                              **filter_kwargs)
-
-    quantiles = np.quantile(target_surface.profile,
-                            [0.066807, 0.30854, 0.69146, 0.93319])
-
-    surf_out.set_quantiles(quantiles)
-
-    pts_each_dir = [int(sz / grid_spacing) for sz in extent]
-
-    surf_out.discretise(pts_each_dir, periodic, False)
-
-    return surf_out
 
 
 def _initial_guess(target_acf):
@@ -919,38 +818,11 @@ def _initial_guess(target_acf):
         for j in range(m):
             c[i, j] = target_acf[i, j] / ((n - i) * (m - j))
     s_sq = target_acf[0, 0] / np.sum((c ** 2).flatten())
-    return (c*s_sq**0.5).flatten()
+    return (c * s_sq ** 0.5).flatten()
 
 
-def _jac(alpha: np.ndarray, target_acf: np.ndarray):
-    """Jacobian of the filter coefficients matrix
-
-    Parameters
-    ----------
-    alpha: np.array
-        Filter coefficients matrix
-    target_acf: np.array
-        The target acf
-
-    Returns
-    -------
-
-    np.array shape (n,n) where n is alpha.size
-
-    """
-    alpha = alpha.reshape(target_acf.shape)
-    n, m = target_acf.shape
-    alpha_0 = np.pad(alpha, ((n, n), (m, m)), 'constant')
-    jacobian_plus = []
-    jacobian_minus = []
-    for p in range(n):
-        jacobian_plus.extend([alpha_0[n + p:2 * n + p, m + q:2 * m + q].flatten() for q in range(m)])
-        jacobian_minus.extend([alpha_0[n - p:2 * n - p, m - q:2 * m - q].flatten() for q in range(m)])
-    return np.array(jacobian_plus) + np.array(jacobian_minus)
-
-
-def _opt_func(alpha: np.ndarray, target_acf: np.ndarray):
-    """Optimisation function for linear transforms method
+def _root_func(alpha: np.ndarray, target_acf: np.ndarray):
+    """Optimisation function for linear transforms method if using with a vector root finding algorithm
 
     Parameters
     ----------
@@ -964,11 +836,121 @@ def _opt_func(alpha: np.ndarray, target_acf: np.ndarray):
     np.ndarray of residuals
     """
     alpha = alpha.reshape(target_acf.shape)
-    n, m = target_acf.shape
-    acf_estimate = np.zeros_like(target_acf)
+    acf_estimate = _get_acf_estimate_fft(alpha)
+    return (acf_estimate - target_acf).flatten()
+
+
+def _min_fun(alpha: np.ndarray, target_acf: np.ndarray):
+    """Optimisation function for linear transforms method if using with a minimisation function
+
+    Parameters
+    ----------
+    alpha: np.ndarray
+        The current filter coefficient matrix
+    target_acf: np.ndarray
+        The target acf array (same shape as alpha)
+
+    Returns
+    -------
+    np.ndarray of residuals
+    """
+    alpha = alpha.reshape(target_acf.shape)
+    acf_estimate = _get_acf_estimate_fft(alpha)
+    return np.sum(((target_acf - acf_estimate).flatten()) ** 2)
+
+
+def _min_fun_symmetric(alpha: np.ndarray, target_acf: np.ndarray):
+    """Optimisation function for linear transforms method if using with a minimisation function
+
+    Parameters
+    ----------
+    alpha: np.ndarray
+        The current filter coefficient matrix
+    target_acf: np.ndarray
+        The target acf array (same shape as alpha)
+
+    Returns
+    -------
+    np.ndarray of residuals
+    """
+    alpha = alpha.reshape(target_acf.shape)
+    n1, m1 = alpha.shape
+    alpha_2 = np.zeros((n1 * 2 - 1, m1))
+    alpha_2[:n1, :m1] = np.flip(alpha, 0)
+    alpha_2[n1 - 1:, :m1] = alpha
+    acf_estimate = _get_acf_estimate_fft(alpha_2)
+    return np.sum(((target_acf - acf_estimate[:n1, :m1]).flatten()) ** 2)
+
+
+@njit
+def _get_acf_estimate(alpha):
+    n, m = alpha.shape
+    acf_estimate = np.zeros_like(alpha)
     for p in range(n):
         for q in range(m):
-            acf_estimate[p, q] = sum([sum([alpha[k, l] * alpha[k + p, l + q]
-                                           for l in range(m - q)])
-                                      for k in range(n - p)])
-    return (acf_estimate - target_acf).flatten()
+            a_est = 0.0
+            for k in range(n - p):
+                for el in range(m - q):
+                    a_est += alpha[k, el] * alpha[k + p, el + q]
+            acf_estimate[p, q] = a_est
+    return acf_estimate
+
+
+def _get_acf_estimate_fft(alpha):
+    """Gives the same results as the manual convolution method above but much faster for large filters"""
+    n, m = alpha.shape
+    alpha_pad = np.pad(np.flip(alpha, (0, 1)), ((0, n - 1), (0, m - 1)), mode='constant')
+    return fftconvolve(alpha, alpha_pad, 'same')
+
+
+def _get_grad_min_fun(alpha, target_acf):
+    alpha = alpha.reshape(target_acf.shape)
+    acf_estimate = _get_acf_estimate_fft(alpha)
+    return _grad_min_fun(alpha, target_acf, acf_estimate).flatten()
+
+
+def _get_grad_min_fun_symmetric(alpha, target_acf):
+    alpha = alpha.reshape(target_acf.shape)
+    n1, m1 = alpha.shape
+    alpha_2 = np.zeros((n1 * 2 - 1, m1))
+    alpha_2[:n1, :] = np.flip(alpha, 0)
+    alpha_2[n1 - 1:, :m1] = alpha
+    acf_estimate = _get_acf_estimate_fft(alpha_2)[:n1, :m1]
+    grads_2 = _grad_min_fun(alpha_2, target_acf, acf_estimate)
+    grads = grads_2[n1 - 1:, :m1]
+    grads[1:, :] += np.flip(grads_2[:n1 - 1, :], 0)
+    return grads.flatten()
+
+
+@njit
+def _grad_min_fun(alpha: np.ndarray, target_acf: np.ndarray, acf_estimate):
+    """Gradient of the above optimisation function for minimisation methods
+
+    Parameters
+    ----------
+    alpha: np.ndarray
+        The filter coefficients
+    target_acf: np.ndarray
+        The the target acf
+
+    Returns
+    -------
+    np.ndarray
+        The gradient of the objective value wrt each of the filter coefficients
+    """
+    n, m = alpha.shape
+    grads = np.zeros_like(alpha)
+    n1, m1 = target_acf.shape
+    difference = target_acf - acf_estimate
+    for i in range(1, n + 1):
+        for j in range(1, m + 1):
+            grad = 0.0
+            for p in range(min(n - i + 1, n1)):
+                for q in range(m - j + 1):
+                    grad += (difference[p, q]) * (-alpha[i + p - 1, j + q - 1])
+            for p in range(min(i, n1)):
+                for q in range(j):
+                    grad += (difference[p, q]) * (-alpha[i - p - 1, j - q - 1])
+            grads[i - 1, j - 1] = 2.0 * grad
+
+    return grads

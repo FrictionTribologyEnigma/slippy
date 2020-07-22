@@ -14,7 +14,7 @@ slippy.surface.FlatSurface
    .. autosummary::
    
       ~FlatSurface.__init__
-      ~FlatSurface.descretise
+      ~FlatSurface.discretise
       ~FlatSurface.find_summits
       ~FlatSurface.get_acf
       ~FlatSurface.get_fft
@@ -44,13 +44,13 @@ slippy.surface.FlatSurface
    
       ~FlatSurface.acf
       ~FlatSurface.analytic
-      ~FlatSurface.dimentions
+      ~FlatSurface.dimensions
       ~FlatSurface.extent
       ~FlatSurface.fft
       ~FlatSurface.grid_spacing
       ~FlatSurface.invert_surface
       ~FlatSurface.is_analytic
-      ~FlatSurface.is_descrete
+      ~FlatSurface.is_discrete
       ~FlatSurface.mask
       ~FlatSurface.material
       ~FlatSurface.profile

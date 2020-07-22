@@ -357,7 +357,6 @@ if __name__ == '__main__':
     import numpy as np
     import matplotlib.pyplot as plt
 
-
     def plot_surf(var):
         x = range(var.shape[0])
         y = range(var.shape[1])
@@ -366,7 +365,6 @@ if __name__ == '__main__':
         ax = fig.gca(projection='3d')
         ax.plot_trisurf(X.flatten(), Y.flatten(), var.flatten(), cmap=plt.cm.viridis, linewidth=0.2)
         plt.show()
-
 
     radius = 0.01905
     hertz_result = C.hertz_full([radius, radius], [float('inf'), float('inf')], [200e9, 200e9], [0.3, 0.3], 800)

@@ -10,7 +10,7 @@ __all__ = ['step', '_ModelStep', 'InitialStep']
 
 """
 Steps including solve functions, each actual step is a subclass of ModelStep should provide an __init__, _solve
- and _check method. these do all the heavy lifting  
+ and _check method. these do all the heavy lifting
 """
 
 
@@ -41,17 +41,17 @@ def step(model: _ContactModelABC):
 
 class _ModelStep(_StepABC):
     """ A step in a contact mechanics problem
-    
+
     Parameters
     ----------
-    
+
     Attributes
     ----------
-    
+
     Methods
     -------
-    
-    
+
+
     """
 
     name = None
@@ -155,7 +155,7 @@ class _ModelStep(_StepABC):
             args = full_arg_spec.args
             for requirement in args:
                 if requirement not in current_state:
-                    raise ValueError(f"Model")
+                    raise ValueError(f"Model step doesn't find required inputs for model: {model.name}")
                 current_state.update(model.provides)
 
         return set(current_state)

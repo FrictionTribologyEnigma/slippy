@@ -3,3 +3,9 @@
 __author__ = """Michael Watson"""
 __email__ = 'mike.watson@sheffield.ac.uk'
 __version__ = '0.1.0'
+
+try:
+    import cupy  # noqa: F401
+    CUDA = True
+except ImportError:
+    CUDA = False

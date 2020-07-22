@@ -1,5 +1,5 @@
 """
-model object just a container for step object that do the real work
+model object, just a container for step object that do the real work
 """
 import os
 import typing
@@ -10,12 +10,12 @@ from datetime import datetime
 from slippy.abcs import _SurfaceABC, _LubricantModelABC, _ContactModelABC
 from slippy.contact.steps import _ModelStep, InitialStep, step
 
-__all__ = ["ContactModel"]
+__all__ = ['ContactModel']
 
 
 class ContactModel(_ContactModelABC):
     """ A container for multi step contact mechanics and lubrication problems
-    
+
     Parameters
     ----------
     name: str
@@ -55,7 +55,7 @@ class ContactModel(_ContactModelABC):
     solve
         Solves all of the model steps in sequence, writing history and field outputs to the output file. Writes progress
         to the log file
-    
+
     """
 
     _domains = {'all': None}
@@ -64,7 +64,7 @@ class ContactModel(_ContactModelABC):
     steps: OrderedDict
     log_file_name: str = None
     output_file_name: str = None
-    _adhesion = None
+    adhesion = None
 
     def __init__(self, name: str, surface_1: _SurfaceABC, surface_2: _SurfaceABC = None,
                  lubricant: _LubricantModelABC = None, log_file_name: str = None,
@@ -90,23 +90,23 @@ class ContactModel(_ContactModelABC):
 
     def add_step(self, step_instance: _ModelStep = None, position: typing.Union[int, str] = None):
         """ Adds a solution step to the current model
-        
+
         Parameters
         ----------
         step_instance: _ModelStep
             An instance of a model step
         position : {int, 'last'}, optional ('last')
             The position of the step in the existing order
-        
+
         See Also
         --------
         step
-        
+
         Notes
         -----
-        Steps should only be added to the model using this method 
+        Steps should only be added to the model using this method
         #TODO detailed description of inputs
-        
+
         Examples
         --------
         >>> #TODO
@@ -114,7 +114,7 @@ class ContactModel(_ContactModelABC):
         # note to self
         """
         New steps should be bare bones, all the relevant information should be
-        added to the steps at the data check stage, essentially there should be 
+        added to the steps at the data check stage, essentially there should be
         nothing you can do to make a nontrivial error here.
         """
         if step_instance is None:
@@ -158,7 +158,7 @@ class ContactModel(_ContactModelABC):
         """
         # check that if only one surface is provided this is ok with all steps
         # check if one of the surfaces is rigid, make sure both are not rigid
-        # if one is rigid it must be the second one, if this is true set self._is_rigid to true
+        # if one is rigid it must be the second one
         # check all have materials
         # check all are discrete
         # check all steps use the same number of surfaces

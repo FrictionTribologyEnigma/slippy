@@ -1,8 +1,9 @@
 sympy
 scikit-image
 matplotlib
-numpy
+numpy>=1.16.1
 scipy
+numba>=0.48.0
 pip==19.2.3
 bump2version==0.5.11
 wheel==0.33.6
@@ -12,6 +13,7 @@ tox==3.14.0
 coverage==4.5.4
 Sphinx==1.8.5
 twine==1.14.0
+pyfftw
 
 pytest==4.6.5
 pytest-runner==5.1

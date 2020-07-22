@@ -13,15 +13,15 @@ __all__ = ['alicona_read']
 
 def alicona_read(full_path: str):
     r"""
-    Reads .al3d and associated files made by alicona measurment machines
-    
+    Reads .al3d and associated files made by alicona measurement machines
+
     Will look for texture and icon images automatically, reads tags and depth data at a minimum from the al3d file.
-    
+
     Parameters
     ----------
     full_path : str
-        The full path including extention to an al3d file
-        
+        The full path including extension to an al3d file
+
     Returns
     -------
     data : dict
@@ -30,20 +30,20 @@ def alicona_read(full_path: str):
         - 'TextureData' : Array of texture data or image of the surface
         - 'Header' : Dict of tags read from the header
         - 'Icon' : Array of icon image data
-    
+
     Notes
     -----
     If the file name in full_path ends with (#) or # where # is an integer this function will look first for texture (#)
     or texture # etc. otherwise just texture will be found
-    
+
     This is a port of the matlab function from the Alicona file format reader (al3D) tool box
-    
+
     Copyright (c) 2016, Martin
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions are met:
-        
+
     \* Redistributions of source code must retain the above copyright notice,
     this list of conditions and the following disclaimer.
 
@@ -56,7 +56,7 @@ def alicona_read(full_path: str):
     GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
     LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
     OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-    
+
     """
 
     path, file_name = os.path.split(full_path)
@@ -73,7 +73,6 @@ def alicona_read(full_path: str):
     tags = dict()
 
     with open(full_path, 'rb') as file:
-
         # read the header
 
         line = file.readline()
@@ -160,7 +159,7 @@ def alicona_read(full_path: str):
                 num_planes = tags['NumberOfPlanes']
             else:
                 msg = ("The file format may have been updated please ensure this"
-                       " verison is up to date then contact the developers")
+                       " version is up to date then contact the developers")
                 raise NotImplementedError(msg)
 
             cols = int((file.seek(0, 2) - tags['TextureImageOffset']) / (num_planes * rows))
