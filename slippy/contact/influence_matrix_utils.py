@@ -877,7 +877,7 @@ def plan_convolve(loads, im, domain: np.ndarray):
 
 
 def bccg(f: typing.Callable, b: typing.Sequence, tol: float, max_it: int, x0: typing.Sequence,
-         min_pressure: float = 0.0, max_pressure: float = cp.inf, k_inn=1):
+         min_pressure: float = 0.0, max_pressure: float = np.inf, k_inn=1):
     """
     The Bound-Constrained Conjugate Gradient Method for Non-negative Matrices
     CUDA implementation
