@@ -414,13 +414,15 @@ try:
         shape = loads.shape
         dtype = loads.dtype
 
-        def inner_with_domain(sub_loads):
+        def inner_with_domain(sub_loads, ignore_domain=False):
             full_loads = cp.zeros(shape, dtype=dtype)
             full_loads[domain] = sub_loads
             loads_pad = cp.pad(full_loads, shape_diff_loads, 'constant')
             full = cp.real(cp.fft.ifftshift(backward_trans(forward_trans(loads_pad) * fft_im)))
             same = norm_inv * full[shape_diff_loads[0][0] - 1:-shape_diff_loads[0][1] - 1,
                                    shape_diff_loads[1][0] - 1:-shape_diff_loads[1][1] - 1]
+            if ignore_domain:
+                return same
             return same[domain]
 
         def inner_no_domain(full_loads):
@@ -435,7 +437,7 @@ try:
             return inner_with_domain
 
     def _cuda_bccg(f: typing.Callable, b: typing.Sequence, tol: float, max_it: int, x0: typing.Sequence,
-                   min_pressure: float = 0.0, max_pressure: float = cp.inf, k_inn=1) -> cp.ndarray:
+                   min_pressure: float = 0.0, max_pressure: float = cp.inf, k_inn=1) -> typing.Tuple[cp.ndarray, bool]:
         """
         The Bound-Constrained Conjugate Gradient Method for Non-negative Matrices
         CUDA implementation
@@ -507,6 +509,7 @@ try:
         it_inn = 0
         rho_prev = cp.nan
         rho = 0.0
+        failed = False
 
         while True:
             it += 1
@@ -570,17 +573,23 @@ try:
             if changed:
                 n_free = n - cp.sum(msk_bnd_0) - cp.sum(msk_bnd_max)
 
+            if not n_free:
+                warnings.warn("No free nodes for BCCG iterations")
+                failed = True
+                break
+
             if outer_it:
                 it_inn = 0
 
             if it > max_it:
                 warnings.warn("Bound constrained conjugate gradient iterations failed to converge")
+                failed = True
                 break
 
             if outer_it and (not changed) and upd < tol:
                 break
 
-        return cp.asnumpy(x)
+        return cp.asnumpy(x), failed
 except ImportError:
     _plan_cuda_convolve = None
     _cuda_bccg = None
@@ -657,15 +666,15 @@ try:
         shape = loads.shape
         dtype = loads.dtype
 
-        def inner_with_domain(sub_loads):
+        def inner_with_domain(sub_loads, ignore_domain=False):
             full_loads = np.zeros(shape, dtype=dtype)
             full_loads[domain] = sub_loads
-            print('full_loads.shape', full_loads.shape)
-            print('shape_diff_loads', shape_diff_loads)
             loads_pad = np.pad(full_loads, shape_diff_loads, 'constant')
             full = np.fft.ifftshift(backward_trans(forward_trans(loads_pad) * fft_im))
             same = norm_inv * full[shape_diff_loads[0][0] - 1:-shape_diff_loads[0][1] - 1,
                                    shape_diff_loads[1][0] - 1:-shape_diff_loads[1][1] - 1]
+            if ignore_domain:
+                return same
             return same[domain]
 
         if domain is None:
@@ -674,7 +683,7 @@ try:
             return inner_with_domain
 
     def _fftw_bccg(f: typing.Callable, b: typing.Sequence, tol: float, max_it: int, x0: typing.Sequence,
-                   min_pressure: float = 0, max_pressure: float = np.inf, k_inn=1) -> np.ndarray:
+                   min_pressure: float = 0, max_pressure: float = np.inf, k_inn=1) -> typing.Tuple[np.ndarray, bool]:
         """
         The Bound-Constrained Conjugate Gradient Method for Non-negative Matrices
         FFTW implementation
@@ -733,6 +742,7 @@ try:
         it_inn = 0
         rho_prev = np.nan
         rho = 0.0
+        failed = False
 
         while True:
             it += 1
@@ -796,16 +806,22 @@ try:
             if changed:
                 n_free = n - np.sum(msk_bnd_0) - np.sum(msk_bnd_max)
 
+            if not n_free:
+                warnings.warn("No free nodes for BCCG iterations")
+                failed = True
+                break
+
             if outer_it:
                 it_inn = 0
 
             if it > max_it:
                 warnings.warn("Bound constrained conjugate gradient iterations failed to converge")
+                failed = True
                 break
 
             if outer_it and (not changed) and upd < tol:
                 break
-        return x
+        return x, failed
 
 except ImportError:
     _plan_fftw_convolve = None
@@ -872,7 +888,7 @@ def plan_convolve(loads, im, domain: np.ndarray):
 
 
 def bccg(f: typing.Callable, b: typing.Sequence, tol: float, max_it: int, x0: typing.Sequence,
-         min_pressure: float = 0.0, max_pressure: float = np.inf, k_inn=1):
+         min_pressure: float = 0.0, max_pressure: float = np.inf, k_inn=1) -> typing.Tuple[np.ndarray, bool]:
     """
     The Bound-Constrained Conjugate Gradient Method for Non-negative Matrices
     CUDA implementation
@@ -901,6 +917,8 @@ def bccg(f: typing.Callable, b: typing.Sequence, tol: float, max_it: int, x0: ty
     -------
     x: cp.array/ np.array
         The solution to the system f(x)-b = 0 with the constraints applied.
+    failed: bool
+        True if the solution failed to converge, this will also produce a warning
 
     Notes
     -----

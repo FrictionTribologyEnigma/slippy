@@ -14,6 +14,17 @@ problem, thus friction can also be a sub model. However, when solving a lubricat
 viscosity response of the lubricant strongly affects the normal contact problem and acts in the same time scale to the
 material response, thus this should be solved as part of the main contact loop and is not a valid sub model.
 
-Several of the most common sub models are built in to slippy.
-#TODO
+Currently implemented sub models are:
+
+.. autosummary::
+   :toctree: generated
+
+   ContactStiffnessSubModel   -- Find contact stiffness in any direction
+   EPPWear                    -- Wear the surfaces where there is excess interference after elastic deformation
+
 """
+
+from .contact_stiffness import ContactStiffness
+from .epp_wear import EPPWear
+
+__all__ = ['ContactStiffness', 'EPPWear']

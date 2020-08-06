@@ -34,6 +34,9 @@ class _SurfaceABC(abc.ABC):
     material: _MaterialABC
     pass
 
+    def wear(self, name, x_pts, y_pts, depth):
+        pass
+
 
 class _AdhesionModelABC(abc.ABC):
 
@@ -119,28 +122,25 @@ class _NonDimensionalReynoldSolverABC(_ReynoldsSolverABC):
 
 class _SubModelABC(abc.ABC):
     name: str
+    requires: set
     provides: set
+    model: _ContactModelABC = None
+    no_time: bool = False
 
-    def __init__(self, name: str, provides: set):
+    def __init__(self, name: str):
         self.name = name
-        self.provides = provides
 
-    def solve(self, **kwargs) -> dict:
+    def solve(self, current_state: dict) -> dict:
         """Solve the sub model
 
         Parameters
         ----------
-        kwargs
-            The solve method must take a variable number of keyword arguments
+        current_state: dict
+            The current model state
 
         Returns
         -------
         dict
-            dict of found parameters
+            dict of found parameters, current state will be updated with these after running the model
 
         """
-
-    def __init_subclass__(cls, is_abstract=False, **kwargs):
-        if not is_abstract:
-            full_arg_spec = inspect.getfullargspec(cls.solve)
-            assert full_arg_spec.varkw is not None, "Sub model solve method must take a variable number of keywords"

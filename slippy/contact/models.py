@@ -137,6 +137,8 @@ class ContactModel(_ContactModelABC):
             self.steps = OrderedDict()
             for k, v in zip(keys, values):
                 self.steps[k] = v
+        for sub_model in step_instance.sub_models:
+            sub_model.model = self
 
     def data_check(self):
         with open(self.log_file_name, 'a+') as file:

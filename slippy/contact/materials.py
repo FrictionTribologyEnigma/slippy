@@ -484,7 +484,7 @@ class Elastic(_IMMaterial):
     density = None
 
     def __init__(self, name: str, properties: dict, max_load: float = np.inf):
-        super().__init__(name)
+        super().__init__(name, max_load)
 
         if len(properties) > 2:
             raise ValueError("Too many properties supplied, must be 1 or 2")

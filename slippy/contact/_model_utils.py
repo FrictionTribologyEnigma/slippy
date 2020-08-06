@@ -44,6 +44,7 @@ def non_dimentional_height(height: float, youngs: float, v: float, load: float, 
     References
     ----------
     """
+    load = load or 1
     a = gs_x
     b = gs_x if gs_y is None else gs_y
     c = (a**2+b**2)**0.5
@@ -110,7 +111,7 @@ def get_gap_from_model(model: _ContactModelABC, interference: float,
             contact_points_2 = (np.fmod(contact_points_2x, model.surface_2.extent[0]),
                                 np.fmod(contact_points_2y, model.surface_2.extent[1]))
             sub_1 = model.surface_1.profile
-            assert sub_1.shape == contact_points_1.shape == contact_points_2.shape
+            assert sub_1.shape == contact_points_1[0].shape == contact_points_2.shape
         else:  # not periodic
             extent_1x = (max(off_set[0], 0), min(model.surface_1.extent[0], off_set[0] + model.surface_2.extent[0]))
             slice_x = [ex / model.surface_1.grid_spacing for ex in extent_1x]
