@@ -429,11 +429,13 @@ class _Surface(_SurfaceABC):
         if name not in self.wear_volumes:
             self.wear_volumes[name] = np.zeros_like(self._profile)
 
-        x_ind = np.array(np.round(x_pts / self.grid_spacing), dtype=np.uint16)
-        y_ind = np.array(np.round(y_pts / self.grid_spacing), dtype=np.uint16)
+        # equivalent to rounding and applying wear to nearest node
+        x_ind = np.array(x_pts / self.grid_spacing + self.grid_spacing/2, dtype=np.uint16)
+        y_ind = np.array(y_pts / self.grid_spacing + self.grid_spacing/2, dtype=np.uint16)
 
-        self.wear_volumes[name][x_ind, y_ind] += depth
-        self._profile[x_ind, y_ind] -= depth
+        self.wear_volumes[name][y_ind, x_ind] += depth
+        self._profile[y_ind, x_ind] -= depth
+        self._inter_func = None  # force remaking the interpolator if the surface has been worn
 
     def get_fft(self, profile_in=None):
         """ Find the fourier transform of the surface
@@ -1144,19 +1146,21 @@ class _Surface(_SurfaceABC):
             if self.grid_spacing is None or self.extent is None:
                 raise AttributeError('Grid points cannot be found until the surface is fully defined, the grid spacing '
                                      'and extent must be findable.')
-            x = np.arange(0, self.extent[0], self.grid_spacing)
-            y = np.arange(0, self.extent[1], self.grid_spacing)
+
+            # I know this looks stupid, using arrange will give the wrong number of elements because of rounding error
+            x = np.linspace(0, self.grid_spacing*(self.shape[1]-1), self.shape[1])
+            y = np.linspace(0, self.grid_spacing*(self.shape[0]-1), self.shape[0])
 
             mesh_x, mesh_y = np.meshgrid(x, y)
 
         else:
             dum = Surface(grid_spacing=grid_spacing, shape=shape, extent=extent)
             try:
-                mesh_x, mesh_y = dum.get_points_from_extent()
+                mesh_y, mesh_x = dum.get_points_from_extent()
             except AttributeError:
                 raise ValueError('Exactly two parameters must be supplied')
 
-        return mesh_x, mesh_y
+        return mesh_y, mesh_x
 
     def mesh(self, depth, method='grid', parameters=None):
         """
@@ -1174,7 +1178,7 @@ class _Surface(_SurfaceABC):
         # if not self.is_discrete:
         #     raise ValueError("Surface must be discrete before meshing")
 
-    def interpolate(self, x_points: np.ndarray, y_points: np.ndarray, mode: str = 'nearest',
+    def interpolate(self, y_points: np.ndarray, x_points: np.ndarray, mode: str = 'nearest',
                     remake_interpolator: bool = False):
         """
         Easy memoized interpolation on surface objects
@@ -1199,8 +1203,8 @@ class _Surface(_SurfaceABC):
         assert (x_points.shape == y_points.shape)
 
         if mode == 'nearest':
-            x_index = np.array(x_points / self.grid_spacing + 0.5, dtype='int32')
-            y_index = np.array(y_points / self.grid_spacing + 0.5, dtype='int32')
+            x_index = np.array(x_points / self.grid_spacing, dtype='int32')
+            y_index = np.array(y_points / self.grid_spacing, dtype='int32')
             return np.reshape(self.profile[y_index, x_index], newshape=x_points.shape)
         elif mode == 'linear':
             if remake_interpolator or self._inter_func is None or self._inter_func.degrees != (1, 1):

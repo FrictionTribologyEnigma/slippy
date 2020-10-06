@@ -574,6 +574,7 @@ try:
                 n_free = n - cp.sum(msk_bnd_0) - cp.sum(msk_bnd_max)
 
             if not n_free:
+                print("No free nodes")
                 warnings.warn("No free nodes for BCCG iterations")
                 failed = True
                 break
@@ -582,6 +583,7 @@ try:
                 it_inn = 0
 
             if it > max_it:
+                print("Max iterations")
                 warnings.warn("Bound constrained conjugate gradient iterations failed to converge")
                 failed = True
                 break
@@ -589,7 +591,7 @@ try:
             if outer_it and (not changed) and upd < tol:
                 break
 
-        return cp.asnumpy(x), failed
+        return x, failed
 except ImportError:
     _plan_cuda_convolve = None
     _cuda_bccg = None
@@ -682,7 +684,7 @@ try:
         else:
             return inner_with_domain
 
-    def _fftw_bccg(f: typing.Callable, b: typing.Sequence, tol: float, max_it: int, x0: typing.Sequence,
+    def _fftw_bccg(f: typing.Callable, b: np.ndarray, tol: float, max_it: int, x0: np.ndarray,
                    min_pressure: float = 0, max_pressure: float = np.inf, k_inn=1) -> typing.Tuple[np.ndarray, bool]:
         """
         The Bound-Constrained Conjugate Gradient Method for Non-negative Matrices
@@ -807,6 +809,7 @@ try:
                 n_free = n - np.sum(msk_bnd_0) - np.sum(msk_bnd_max)
 
             if not n_free:
+                print("No free nodes")
                 warnings.warn("No free nodes for BCCG iterations")
                 failed = True
                 break
@@ -816,6 +819,7 @@ try:
 
             if it > max_it:
                 warnings.warn("Bound constrained conjugate gradient iterations failed to converge")
+                print("Max iterations")
                 failed = True
                 break
 
@@ -828,7 +832,7 @@ except ImportError:
     _fftw_bccg = None
 
 
-def plan_convolve(loads, im, domain: np.ndarray):
+def plan_convolve(loads, im, domain: np.ndarray = None):
     """Plans an FFT convolution, returns a function to carry out the convolution
     CUDA / FFTW implementation
 
@@ -887,7 +891,7 @@ def plan_convolve(loads, im, domain: np.ndarray):
         return _plan_fftw_convolve(loads, im, domain)
 
 
-def bccg(f: typing.Callable, b: typing.Sequence, tol: float, max_it: int, x0: typing.Sequence,
+def bccg(f: typing.Callable, b: np.ndarray, tol: float, max_it: int, x0: np.ndarray,
          min_pressure: float = 0.0, max_pressure: float = np.inf, k_inn=1) -> typing.Tuple[np.ndarray, bool]:
     """
     The Bound-Constrained Conjugate Gradient Method for Non-negative Matrices

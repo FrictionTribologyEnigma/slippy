@@ -3,6 +3,7 @@ model object, just a container for step object that do the real work
 """
 import os
 import typing
+import slippy
 from collections import OrderedDict
 from contextlib import redirect_stdout, ExitStack
 from datetime import datetime
@@ -65,6 +66,7 @@ class ContactModel(_ContactModelABC):
     log_file_name: str = None
     output_file_name: str = None
     adhesion = None
+    _current_state_debug: dict = None
 
     def __init__(self, name: str, surface_1: _SurfaceABC, surface_2: _SurfaceABC = None,
                  lubricant: _LubricantModelABC = None, log_file_name: str = None,
@@ -205,6 +207,8 @@ class ContactModel(_ContactModelABC):
 
             if not skip_data_check:
                 self.data_check()
+
+            print(f"Solving model {self.name}, CUDA = {slippy.CUDA}")
 
             for this_step in self.steps:
                 print(f"Solving step {this_step}")

@@ -3,12 +3,9 @@ import numpy.testing as npt
 import warnings
 
 import slippy
-import slippy.contact as c
-import slippy.surface as s
-
-
-# ['convert_array', 'convert_dict', 'elastic_displacement', '_solve_ed',
-#         'elastic_loading', '_solve_el', 'elastic_im'
+slippy.CUDA = False
+import slippy.contact as c  # noqa: E402
+import slippy.surface as s  # noqa: E402
 
 
 def test_hertz_agreement_static_load_fftw():
@@ -18,7 +15,6 @@ def test_hertz_agreement_static_load_fftw():
     """
     try:
         import pyfftw  # noqa: F401
-        slippy.CUDA = False
     except ImportError:
         warnings.warn("Could not import pyfftw, could not test the fftw backend")
         return

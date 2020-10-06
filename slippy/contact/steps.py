@@ -63,12 +63,14 @@ class _ModelStep(_StepABC):
     _model: _ContactModelABC = None
     _subclass_registry = []
 
-    sub_models: typing.List[_SubModelABC] = []
-    outputs: typing.List[OutputRequest] = []
+    sub_models: typing.List[_SubModelABC]
+    outputs: typing.List[OutputRequest]
 
     def __init__(self, step_name: str):
         assert isinstance(step_name, str), 'Step name must be string, this is used for all outputs related to this step'
         self.name = step_name
+        self.sub_models = []
+        self.outputs = []
 
     @classmethod
     def __init_subclass__(cls, is_abstract=False, **kwargs):

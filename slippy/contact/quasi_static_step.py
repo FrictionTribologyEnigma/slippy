@@ -94,6 +94,7 @@ class QuasiStaticStep(_ModelStep):
     _just_touching_gap = None
     _adhesion_model = None
     _initial_contact_nodes = None
+    _upper = None
 
     def __init__(self, step_name: str, number_of_steps: int, no_time: bool = False,
                  time_period: float = None,
@@ -109,7 +110,7 @@ class QuasiStaticStep(_ModelStep):
                  movement_interpolation_mode: str = 'linear',
                  profile_interpolation_mode: str = 'nearest',
                  periodic: bool = False, max_it_interference: int = 100, rtol_interference=1e-3,
-                 max_it_displacement: int = 100, rtol_displacement=1e-4, no_update_warning: bool = True):
+                 max_it_displacement: int = 200, rtol_displacement=1e-4, no_update_warning: bool = True):
 
         super().__init__(step_name)
         # movement interpolation mode sort out movement interpolation mode make array of values
@@ -230,9 +231,11 @@ class QuasiStaticStep(_ModelStep):
                     = get_gap_from_model(self.model, interference=0, off_set=self.off_set,
                                          mode=self.profile_interpolation_mode, periodic=self._periodic_profile)
                 self._just_touching_gap = just_touching_gap
+                self._upper = None
                 current_state = dict(just_touching_gap=just_touching_gap, surface_1_points=surface_1_points,
                                      surface_2_points=surface_2_points, off_set=self.off_set,
                                      time_step=self.time_step)
+                self._current_state_debug = current_state
             if i == 0:
                 current_state['new_step'] = True
             else:
@@ -245,7 +248,7 @@ class QuasiStaticStep(_ModelStep):
 
             self._initial_contact_nodes = initial_contact_nodes
             print('#####################################################\nTime step:', i,
-                  '\n #####################################################')
+                  '\n#####################################################')
             print('Set load:', self.normal_load)
 
             results = update_func(current_state)
@@ -258,6 +261,12 @@ class QuasiStaticStep(_ModelStep):
             self.save_outputs(current_state, output_file)
 
         return current_state
+
+    @property
+    def upper(self):
+        if self._upper is None:
+            self._upper = np.max(self._just_touching_gap)*2
+        return self._upper
 
     def update_movement(self, relative_time, original):
         for name in self.update:
@@ -286,14 +295,12 @@ class QuasiStaticStep(_ModelStep):
             contact_nodes = current_state['contact_nodes']
         else:
             contact_nodes = None
-            #contact_nodes = np.ones(self._just_touching_gap.shape, dtype=np.bool)
+            # contact_nodes = np.ones(self._just_touching_gap.shape, dtype=np.bool)
 
         h_opt_func.change_load(self.normal_load, contact_nodes)
 
-        uz = h_opt_func.uz
-
         # need to set bounds and pick a sensible starting point
-        upper = 3 * max(self._just_touching_gap.flatten()) / uz
+        upper = self.upper
         print(f'upper bound set at: {upper}')
         if self._no_time:
             brackets = h_opt_func.get_bounds_from_cache(0, upper)
@@ -306,8 +313,9 @@ class QuasiStaticStep(_ModelStep):
                                  maxiter=self._max_it_interference, args=(current_state,))
 
         results = h_opt_func.results
-        results['interference'] = opt_result.root * uz
-
+        results['interference'] = opt_result.root
+        results['converged'] = (np.abs(results['total_normal_load']-self.normal_load) /
+                                self.normal_load < 0.05)
         return results
 
     def _solve_displacement_controlled(self, current_state):

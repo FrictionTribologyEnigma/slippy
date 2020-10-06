@@ -4,7 +4,6 @@ this module should be as minimal as possible as it will be imported every time a
 """
 
 import abc
-import inspect
 
 __all__ = ['_SurfaceABC', '_AdhesionModelABC', '_MaterialABC', '_StepABC', '_FrictionModelABC', '_WearModelABC',
            '_ACFABC', '_LubricantModelABC', '_ContactModelABC', '_ReynoldsSolverABC',

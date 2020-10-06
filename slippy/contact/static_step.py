@@ -187,10 +187,8 @@ class StaticNormalLoad(_ModelStep):
                                               material_options=opt.material_options, max_set_load=self._load.z,
                                               tolerance=opt.rtol_load_loop)
 
-        uz = opt_func.uz
-
         # need to set bounds and pick a sensible starting point
-        upper = 3 * max(just_touching_gap.flatten()) / uz
+        upper = 3 * max(just_touching_gap.flatten())
 
         print(f'upper bound set at: {upper}')
         print(f'Interference tolerance set to {opt.rtol_load_loop} Relative')
@@ -201,7 +199,7 @@ class StaticNormalLoad(_ModelStep):
                                           maxiter=opt.maxit_load_loop, args=(current_state,))
 
         current_state.update(opt_func.results)
-        current_state['interference'] = opt_result.root * uz
+        current_state['interference'] = opt_result.root
         current_state['gap'] = (just_touching_gap - current_state['interference'] +
                                 opt_func.results['total_displacement'].z)
 
