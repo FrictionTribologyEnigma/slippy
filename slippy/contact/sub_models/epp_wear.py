@@ -22,6 +22,7 @@ class EPPWear(_SubModelABC):
     assigned incorrectly
     """
     n_calls = 0
+
     def __init__(self, name: str, proportion_surface_1: float, no_time: bool = True):
 
         super().__init__(name)
