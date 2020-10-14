@@ -63,6 +63,7 @@ class ContactStiffness(_SubModelABC):
         self.tol = tol
         self.max_it = max_it
         self.k_smooth = None
+        self.last_converged_result = {True: None, False: None}
 
     def _solve(self, current_state, loading):
         surf_1 = self.model.surface_1
@@ -97,9 +98,22 @@ class ContactStiffness(_SubModelABC):
 
         convolution_func = plan_convolve(displacement, total_im, contact_nodes)
 
+        try:
+            initial_guess = self.last_converged_result[loading]
+        except IndexError:
+            initial_guess = None
+
+        if initial_guess is None:
+            initial_guess = displacement
+
         loads_in_domain, failed = bccg(convolution_func, displacement[contact_nodes], self.tol,
-                                       self.max_it, x0=displacement[contact_nodes],
+                                       self.max_it, x0=initial_guess[contact_nodes],
                                        min_pressure=0, max_pressure=np.inf)
+
+        if not failed:
+            full_result = np.zeros_like(displacement)
+            full_result[contact_nodes] = loads_in_domain
+            self.last_converged_result[loading] = full_result
 
         k_rough = float(np.sum(loads_in_domain))
 

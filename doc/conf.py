@@ -43,7 +43,8 @@ extensions = [
 
 autosummary_generate = True
 default_role = "autolink"
-nitpicky = True
+nitpicky = False
+nitpick_ignore = [('py:class', 'type')]
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
