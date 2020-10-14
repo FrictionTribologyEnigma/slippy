@@ -1,5 +1,8 @@
 import numpy as np
 
+import slippy
+if slippy.CUDA:
+    import cupy as cp
 from slippy.abcs import _SubModelABC
 from slippy.contact.influence_matrix_utils import plan_convolve, bccg
 from slippy.contact.materials import _IMMaterial
@@ -109,6 +112,9 @@ class ContactStiffness(_SubModelABC):
         loads_in_domain, failed = bccg(convolution_func, displacement[contact_nodes], self.tol,
                                        self.max_it, x0=initial_guess[contact_nodes],
                                        min_pressure=0, max_pressure=np.inf)
+
+        if slippy.CUDA:
+            loads_in_domain = cp.asnumpy(loads_in_domain)
 
         if not failed:
             full_result = np.zeros_like(displacement)
