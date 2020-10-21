@@ -13,9 +13,10 @@ from scipy.signal import fftconvolve
 
 import slippy
 if slippy.CUDA:
-    import cupy as xp
+    import cupy as cp
 else:
-    xp = np
+    cp = None
+
 from slippy.abcs import _ContactModelABC  # noqa: E402
 from ._material_utils import Loads, Displacements  # noqa: E402
 from .influence_matrix_utils import bccg, plan_convolve, guess_loads_from_displacement  # noqa: E402
@@ -68,7 +69,11 @@ class HeightOptimisationFunction:
                  max_it_inner: int, tol_inner: float, material_options: typing.Union[typing.Sequence[dict], dict],
                  max_set_load: float, tolerance: float, use_cache: bool = True, cache_loads=True):
         if slippy.CUDA:
+            xp = cp
             cache_loads = False
+        else:
+            xp = np
+
         self._grid_spacing = model.surface_1.grid_spacing
 
         self._just_touching_gap = xp.asarray(just_touching_gap)
@@ -125,6 +130,10 @@ class HeightOptimisationFunction:
 
     @contact_nodes.setter
     def contact_nodes(self, value):
+        if slippy.CUDA:
+            xp = cp
+        else:
+            xp = np
         if value is None:
             self._contact_nodes = None
         else:
@@ -135,6 +144,10 @@ class HeightOptimisationFunction:
 
     @property
     def results(self):
+        if slippy.CUDA:
+            xp = cp
+        else:
+            xp = np
         if self.im_mats:
             # need to put the loads into an np array of right shape
             # find the full displacements (and convert to np array)
@@ -210,6 +223,10 @@ class HeightOptimisationFunction:
         return lower_bound, upper_bound
 
     def __call__(self, height, current_state):
+        if slippy.CUDA:
+            xp = cp
+        else:
+            xp = np
         # If the height guess is in the cache that can be out load guess
         pressure_initial_guess = None  # overwritten in one case where it should be (cached)
         height = float(height)

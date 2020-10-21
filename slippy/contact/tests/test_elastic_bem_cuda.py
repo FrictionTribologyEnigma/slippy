@@ -7,9 +7,12 @@ import slippy
 import slippy.contact as c
 import slippy.surface as s
 
-
-# ['convert_array', 'convert_dict', 'elastic_displacement', '_solve_ed',
-#         'elastic_loading', '_solve_el', 'elastic_im'
+try:
+    import cupy as cp
+    slippy.CUDA = True
+except ImportError:
+    cp = None
+    slippy.CUDA = False
 
 
 def test_hertz_agreement_static_load_cuda():
@@ -20,7 +23,6 @@ def test_hertz_agreement_static_load_cuda():
         import cupy  # noqa: F401
         slippy.CUDA = True
     except ImportError:
-        warnings.warn("Could not import cupy, could not test the CUDA fft backend")
         return
     # make surfaces
     flat_surface = s.FlatSurface(shift=(0, 0))

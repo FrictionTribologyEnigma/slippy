@@ -3,9 +3,9 @@ import numpy as np
 import slippy
 if slippy.CUDA:
     import cupy as cp
-from slippy.abcs import _SubModelABC
-from slippy.contact.influence_matrix_utils import plan_convolve, bccg
-from slippy.contact.materials import _IMMaterial
+from slippy.abcs import _SubModelABC  # noqa: E402
+from slippy.contact.influence_matrix_utils import plan_convolve, bccg  # noqa: E402
+from slippy.contact.materials import _IMMaterial  # noqa: E402
 
 
 class ContactStiffness(_SubModelABC):
