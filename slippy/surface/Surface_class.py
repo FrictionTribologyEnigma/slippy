@@ -137,6 +137,7 @@ class _Surface(_SurfaceABC):
     invert_surface: bool = False
 
     _material: typing.Optional[_MaterialABC] = None
+    unworn_profile: typing.Optional[np.ndarray] = None
     _profile: typing.Optional[np.ndarray] = None
     _grid_spacing: typing.Optional[float] = None
     _shape: typing.Optional[tuple] = None
@@ -144,7 +145,6 @@ class _Surface(_SurfaceABC):
     _inter_func = None
     _allowed_keys = {}
     _mask: typing.Optional[np.ndarray] = None
-    _wear: typing.Optional[np.ndarray] = None
     _size: typing.Optional[int] = None
     _subclass_registry = []
     _original_extent = None
@@ -162,6 +162,8 @@ class _Surface(_SurfaceABC):
             self.extent = extent
         if shape is not None:
             self.shape = shape
+
+        self.wear_volumes = dict()
 
     @classmethod
     def __init_subclass__(cls, is_abstract=False, **kwargs):
@@ -302,7 +304,8 @@ class _Surface(_SurfaceABC):
             return
 
         try:
-            self._profile = np.asarray(value, dtype=float)
+            self.unworn_profile = np.asarray(value, dtype=float).copy()
+            self._profile = np.asarray(value, dtype=float).copy()
         except ValueError:
             msg = "Could not convert profile to array of floats, profile contains invalid values"
             raise ValueError(msg)
@@ -310,7 +313,7 @@ class _Surface(_SurfaceABC):
         self._shape = self._profile.shape
         self._size = self._profile.size
         self.dimensions = len(self._profile.shape)
-        self._wear = np.zeros_like(self._profile)
+        self.wear_volumes = dict()
 
         if self.grid_spacing is not None:
             self._extent = tuple([self.grid_spacing * p for p in self.shape])
@@ -330,19 +333,13 @@ class _Surface(_SurfaceABC):
 
     @profile.deleter
     def profile(self):
+        self.unworn_profile = None
         self._profile = None
         del self.shape
         del self.extent
         del self.mask
-        self._wear = None
+        self.wear_volumes = dict()
         self.is_discrete = False
-
-    @property
-    def worn_profile(self):
-        if self.invert_surface:
-            return self._profile - self._wear
-        else:
-            return -1 * (self._profile - self._wear)
 
     @property
     def grid_spacing(self):
@@ -403,6 +400,42 @@ class _Surface(_SurfaceABC):
     @material.deleter
     def material(self):
         self._material = None
+
+    def wear(self, name: str, x_pts: np.ndarray, y_pts: np.ndarray, depth: np.ndarray):
+        """
+        Add wear / geometry changes to the surface profile
+
+        Parameters
+        ----------
+        name: str
+            Name of the source of wear
+        x_pts: np.ndarray
+            The x locations of the worn points in length units
+        y_pts: np.ndarray
+            The y locations of the worn points in length units
+        depth: np.ndarray
+            The depth to wear each point, negative values will add height
+
+        """
+        if not x_pts.size == y_pts.size == depth.size:
+            raise ValueError(f"X, Y locations and wear depths are not the same size for wear '{name}':\n"
+                             f"x:{x_pts.size}\n"
+                             f"y:{y_pts.size}\n"
+                             f"depth:{depth.size}")
+
+        if np.any(np.isnan(depth)):
+            raise ValueError(f"Some wear depth values are nan for wear {name}")
+
+        if name not in self.wear_volumes:
+            self.wear_volumes[name] = np.zeros_like(self._profile)
+
+        # equivalent to rounding and applying wear to nearest node
+        x_ind = np.array(x_pts / self.grid_spacing + self.grid_spacing/2, dtype=np.uint16)
+        y_ind = np.array(y_pts / self.grid_spacing + self.grid_spacing/2, dtype=np.uint16)
+
+        self.wear_volumes[name][y_ind, x_ind] += depth
+        self._profile[y_ind, x_ind] -= depth
+        self._inter_func = None  # force remaking the interpolator if the surface has been worn
 
     def get_fft(self, profile_in=None):
         """ Find the fourier transform of the surface
@@ -845,11 +878,12 @@ class _Surface(_SurfaceABC):
 
         2D and 1D plots can be produced. 2D properties are:
 
-            - profile - surface profile
-            - fft2d   - fft of the surface profile
-            - psd     - power spectral density of the surface profile
-            - acf     - auto correlation function of the surface
-            - apsd    - angular power spectral density of the profile
+            - profile         - surface profile
+            - unworn_profile  - the surface profile with no wear applied
+            - fft2d           - fft of the surface profile
+            - psd             - power spectral density of the surface profile
+            - acf             - auto correlation function of the surface
+            - apsd            - angular power spectral density of the profile
 
         Plot types allowed for 2D plots are:
 
@@ -891,17 +925,18 @@ class _Surface(_SurfaceABC):
         if self.profile is None:
             raise AttributeError('The profile of the surface must be set before it can be shown')
 
-        types2d = ['profile', 'fft2d', 'psd', 'acf', 'apsd']
+        types2d = ['profile', 'fft2d', 'psd', 'acf', 'apsd', 'unworn_profile']
         types1d = ['histogram', 'fft1d', 'qq', 'hist']
 
         # using a recursive call to deal with multiple plots on the same fig
-        if type(property_to_plot) is list:
+        if isinstance(property_to_plot, Sequence) and not isinstance(property_to_plot, str):
             number_of_subplots = len(property_to_plot)
             if not type(ax) is bool:
                 msg = ("Can't plot multiple plots on single axis, "
                        'making new figure')
                 warnings.warn(msg)
-            if type(plot_type) is list:
+            if isinstance(plot_type, Sequence) and not isinstance(property_to_plot, str):
+                plot_type = list(plot_type)
                 if len(plot_type) < number_of_subplots:
                     plot_type.extend(['default'] * (number_of_subplots -
                                                     len(plot_type)))
@@ -958,6 +993,12 @@ class _Surface(_SurfaceABC):
                 x = self.grid_spacing * np.arange(self.shape[0])
                 y = self.grid_spacing * np.arange(self.shape[1])
                 z = self.profile
+
+            elif property_to_plot == 'unworn_profile':
+                labels = ['Surface profile (unworn)', 'x', 'y', 'Height']
+                x = self.grid_spacing * np.arange(self.shape[0])
+                y = self.grid_spacing * np.arange(self.shape[1])
+                z = self.unworn_profile
 
             elif property_to_plot == 'fft2d':
                 labels = ['Fourier transform of surface', 'u', 'v', '|F(x)|']
@@ -1086,7 +1127,7 @@ class _Surface(_SurfaceABC):
         #######################################################################
 
     def __array__(self):
-        return np.asarray(self._profile)
+        return np.asarray(self.profile)
 
     @abc.abstractmethod
     def __repr__(self):
@@ -1105,19 +1146,21 @@ class _Surface(_SurfaceABC):
             if self.grid_spacing is None or self.extent is None:
                 raise AttributeError('Grid points cannot be found until the surface is fully defined, the grid spacing '
                                      'and extent must be findable.')
-            x = np.arange(0, self.extent[0], self.grid_spacing)
-            y = np.arange(0, self.extent[1], self.grid_spacing)
+
+            # I know this looks stupid, using arrange will give the wrong number of elements because of rounding error
+            x = np.linspace(0, self.grid_spacing*(self.shape[1]-1), self.shape[1])
+            y = np.linspace(0, self.grid_spacing*(self.shape[0]-1), self.shape[0])
 
             mesh_x, mesh_y = np.meshgrid(x, y)
 
         else:
             dum = Surface(grid_spacing=grid_spacing, shape=shape, extent=extent)
             try:
-                mesh_x, mesh_y = dum.get_points_from_extent()
+                mesh_y, mesh_x = dum.get_points_from_extent()
             except AttributeError:
                 raise ValueError('Exactly two parameters must be supplied')
 
-        return mesh_x, mesh_y
+        return mesh_y, mesh_x
 
     def mesh(self, depth, method='grid', parameters=None):
         """
@@ -1135,7 +1178,7 @@ class _Surface(_SurfaceABC):
         # if not self.is_discrete:
         #     raise ValueError("Surface must be discrete before meshing")
 
-    def interpolate(self, x_points: np.ndarray, y_points: np.ndarray, mode: str = 'nearest',
+    def interpolate(self, y_points: np.ndarray, x_points: np.ndarray, mode: str = 'nearest',
                     remake_interpolator: bool = False):
         """
         Easy memoized interpolation on surface objects
@@ -1160,9 +1203,9 @@ class _Surface(_SurfaceABC):
         assert (x_points.shape == y_points.shape)
 
         if mode == 'nearest':
-            x_index = np.array(x_points / self.grid_spacing + 0.5, dtype='int32')
-            y_index = np.array(y_points / self.grid_spacing + 0.5, dtype='int32')
-            return np.reshape(self.profile[x_index, y_index], newshape=x_points.shape)
+            x_index = np.array(x_points / self.grid_spacing, dtype='int32')
+            y_index = np.array(y_points / self.grid_spacing, dtype='int32')
+            return np.reshape(self.profile[y_index, x_index], newshape=x_points.shape)
         elif mode == 'linear':
             if remake_interpolator or self._inter_func is None or self._inter_func.degrees != (1, 1):
                 x0 = np.arange(0, self.extent[0], self.grid_spacing)
@@ -1172,7 +1215,7 @@ class _Surface(_SurfaceABC):
             if remake_interpolator or self._inter_func is None or self._inter_func.degrees != (3, 3):
                 x0 = np.arange(0, self.extent[0], self.grid_spacing)
                 y0 = np.arange(0, self.extent[1], self.grid_spacing)
-                self._inter_func = scipy.interpolate.RectBivariateSpline(x0, y0, self.profile, kx=1, ky=1)
+                self._inter_func = scipy.interpolate.RectBivariateSpline(x0, y0, self.profile, kx=3, ky=3)
         else:
             raise ValueError(f'{mode} is not a recognised mode for the interpolation function')
 

@@ -4,6 +4,7 @@ Helper functions for steps
 import os
 import typing
 import warnings
+import bisect
 from collections import namedtuple
 from numbers import Number
 
@@ -11,14 +12,307 @@ import numpy as np
 from scipy.signal import fftconvolve
 
 import slippy
-from slippy.abcs import _ContactModelABC
-from ._material_utils import Loads, Displacements
-from .influence_matrix_utils import bccg, plan_convolve, guess_loads_from_displacement
-from .materials import _IMMaterial
+if slippy.CUDA:
+    import cupy as cp
+else:
+    cp = None
 
-__all__ = ['solve_normal_interference', 'get_next_file_num', 'OffSetOptions', 'solve_normal_loading']
+from slippy.abcs import _ContactModelABC  # noqa: E402
+from ._material_utils import Loads, Displacements  # noqa: E402
+from .influence_matrix_utils import bccg, plan_convolve, guess_loads_from_displacement  # noqa: E402
+from .materials import _IMMaterial  # noqa: E402
+
+__all__ = ['solve_normal_interference', 'get_next_file_num', 'OffSetOptions', 'solve_normal_loading',
+           'HeightOptimisationFunction']
 
 OffSetOptions = namedtuple('off_set_options', ['off_set', 'abs_off_set', 'periodic', 'interpolation_mode'])
+
+
+class HeightOptimisationFunction:
+    """ A class to make a memorised function to be used in a height optimisation loop
+    Ths doesn't do the optimising it just gives a a callable class that can be used in one of scipy's methods
+
+    Parameters
+    ----------
+    just_touching_gap: np.ndarray
+        The just touching gap between the surfaces, should be found by get_gap_from function
+    model: _ContactModelABC
+        The contact model this will be solved in
+    adhesion_model: float
+        The maximum adhesive pressure between the surfaces
+    initial_contact_nodes:
+        If set the solution will be constrained to these nodes, if this is not wanted use None
+    max_it_inner: int
+        The maximum number of iterations for the inner loops
+    tol_inner: float
+        The tolerance used to declare convergence for the inner loops
+    material_options: dict, list of dict
+        Material options for the materials in the model
+    max_set_load: float
+        The target total load in the normal direction, this must be kept up to date if the same function is being reused
+    tolerance: float
+        The tolerance used in the outer loop, the loop that this functions is optimised over, this is necessary to
+        ensure a full solution is always returned (the final solution will not be returned from the cache)
+    use_cache: bool, optional (True)
+        If False the cache won't be used
+    cache_loads: bool, optional (True)
+        If False the full loads result will not be cached (otherwise this will be used to generate an initial guess of
+        the loads for each iteration)
+    """
+    _contact_nodes = None
+    _last_loads = None
+    _results: typing.Optional[dict] = None
+    set_contact_nodes = False
+
+    def __init__(self, just_touching_gap: np.ndarray, model: _ContactModelABC,
+                 adhesion_model: float, initial_contact_nodes: np.ndarray,
+                 max_it_inner: int, tol_inner: float, material_options: typing.Union[typing.Sequence[dict], dict],
+                 max_set_load: float, tolerance: float, use_cache: bool = True, cache_loads=True):
+        if slippy.CUDA:
+            xp = cp
+            cache_loads = False
+        else:
+            xp = np
+
+        self._grid_spacing = model.surface_1.grid_spacing
+
+        self._just_touching_gap = xp.asarray(just_touching_gap)
+
+        self._model = model
+        self._adhesion_model = adhesion_model
+        self.initial_contact_nodes = initial_contact_nodes
+        self.contact_nodes = initial_contact_nodes
+        self._max_it_inner = max_it_inner
+        self._tol_inner = tol_inner
+        self._material_options = material_options
+        self._original_set_load = max_set_load
+        self._set_load = float(max_set_load)
+        # these should really be a sorted dict but it seems like the added dependencies are not worth it atm
+        self.cache_heights = [0.0]
+        self.cache_total_load = [0.0]
+        self.cache_surface_loads = [xp.zeros(just_touching_gap.shape)]
+        self.tolerance = tolerance
+        self.it = 0
+        self.use_cache = use_cache
+        self.use_loads_cache = cache_loads
+        surf_1 = model.surface_1
+        surf_2 = model.surface_2
+
+        self.im_mats = False
+        self.conv_func = None
+        self.cache_max = False
+
+        if isinstance(surf_1.material, _IMMaterial) and isinstance(surf_2.material, _IMMaterial):
+            self.im_mats = True
+            span = [2 * s for s in just_touching_gap.shape]
+            max_pressure = min([surf_1.material.max_load, surf_2.material.max_load])
+            self._max_pressure = max_pressure
+            im1 = surf_1.material.influence_matrix(span=span, grid_spacing=[surf_1.grid_spacing] * 2,
+                                                   components=['zz'])['zz']
+            im2 = surf_2.material.influence_matrix(span=span, grid_spacing=[surf_1.grid_spacing] * 2,
+                                                   components=['zz'])['zz']
+            total_im = im1 + im2
+            self.total_im = xp.asarray(total_im)
+
+            self.conv_func = plan_convolve(just_touching_gap, self.total_im, self.contact_nodes)
+
+            if use_cache and max_pressure != np.inf:
+                max_loads = max_pressure * xp.ones(just_touching_gap.shape)
+                self.cache_surface_loads.append(max_loads)
+                self.cache_total_load.append(max_pressure * just_touching_gap.size * surf_1.grid_spacing ** 2)
+                if cache_loads:
+                    max_elastic_disp = fftconvolve(max_loads, total_im, 'same')
+                    self.cache_heights.append(np.max(max_elastic_disp + just_touching_gap))
+
+    @property
+    def contact_nodes(self):
+        return self._contact_nodes
+
+    @contact_nodes.setter
+    def contact_nodes(self, value):
+        if slippy.CUDA:
+            xp = cp
+        else:
+            xp = np
+        if value is None:
+            self._contact_nodes = None
+        else:
+            value = xp.array(value, dtype=bool)
+            self._contact_nodes = value
+            if self.im_mats:
+                self.conv_func = plan_convolve(self._just_touching_gap, self.total_im, self._contact_nodes)
+
+    @property
+    def results(self):
+        if slippy.CUDA:
+            xp = cp
+        else:
+            xp = np
+        if self.im_mats:
+            # need to put the loads into an np array of right shape
+            # find the full displacements (and convert to np array)
+            # find disp on surface 1 and surface 2
+            surf_1 = self._model.surface_1
+            surf_2 = self._model.surface_2
+            span = [2 * s for s in self._just_touching_gap.shape]
+            # noinspection PyUnresolvedReferences
+            im1 = surf_1.material.influence_matrix(span=span, grid_spacing=[surf_1.grid_spacing] * 2,
+                                                   components=['zz'])['zz']
+            # noinspection PyUnresolvedReferences
+            im2 = surf_2.material.influence_matrix(span=span, grid_spacing=[surf_1.grid_spacing] * 2,
+                                                   components=['zz'])['zz']
+            full_loads = np.zeros(self._just_touching_gap.shape)
+            if slippy.CUDA:
+                full_loads[xp.asnumpy(self._results['domain'])] = xp.asnumpy(self._results['loads_in_domain'])
+                full_disp = xp.asnumpy(self.conv_func(self._results['loads_in_domain'], ignore_domain=True))
+            else:
+                full_loads[self._results['domain']] = self._results['loads_in_domain']
+                full_disp = self.conv_func(self._results['loads_in_domain'], ignore_domain=True)
+
+            disp_1 = Displacements(z=fftconvolve(full_loads, im1, 'same'))
+            disp_2 = Displacements(z=fftconvolve(full_loads, im2, 'same'))
+
+            total_load = float(xp.sum(self._results['loads_in_domain']) * self._grid_spacing ** 2)
+
+            results = {'loads': Loads(z=full_loads), 'total_displacement': Displacements(z=full_disp),
+                       'surface_1_displacement': disp_1, 'surface_2_displacement': disp_2,
+                       'contact_nodes': full_loads > 0, 'total_normal_load': total_load}
+            return results
+        else:
+            return self._results
+
+    def clear_cache(self):
+        if self.cache_max:
+            self.cache_heights = [self.cache_heights[0], self.cache_heights[-1]]
+            self.cache_total_load = [self.cache_total_load[0], self.cache_total_load[-1]]
+            self.cache_surface_loads = [self.cache_surface_loads[0], self.cache_surface_loads[-1]]
+        else:
+            self.cache_heights = []
+            self.cache_total_load = []
+            self.cache_surface_loads = []
+
+    def change_load(self, new_load, contact_nodes):
+        # if you change the load... need to change the set load,
+        self.contact_nodes = contact_nodes
+        if contact_nodes is None:
+            self.set_contact_nodes = False
+        else:
+            self.set_contact_nodes = True
+        self._set_load = float(new_load)
+        self._last_loads = None
+        self._results = None
+        self.it = 0
+
+    def get_bounds_from_cache(self, lower, upper):
+        # want to find the closest HEIGHT above and below the set load, if none above or below return None for that one
+        if len(self.cache_heights) < 2:
+            return lower, upper
+        index = bisect.bisect_left(self.cache_total_load, self._set_load)
+        try:
+            upper_est = self.cache_heights[index]
+            upper_bound = min(upper_est, upper)
+        except IndexError:
+            upper_bound = upper
+
+        if index > 0:
+            lower_est = self.cache_heights[index-1]
+            lower_bound = max(lower_est, lower)
+        else:
+            lower_bound = lower
+
+        return lower_bound, upper_bound
+
+    def __call__(self, height, current_state):
+        if slippy.CUDA:
+            xp = cp
+        else:
+            xp = np
+        # If the height guess is in the cache that can be out load guess
+        pressure_initial_guess = None  # overwritten in one case where it should be (cached)
+        height = float(height)
+        if height in self.cache_heights:
+            total_load = self.cache_total_load[self.cache_heights.index(height)]
+            print(f"Returning bound value from cache: height: {height:.4}, total_load {total_load:.4}")
+            return total_load - self._set_load
+        self.it += 1
+        # if im mats we can save some time here mostly by not moving data to and from the gpu
+        if self.im_mats:
+            z = - self._just_touching_gap + height
+            if not self.set_contact_nodes:
+                self.contact_nodes = z > 0  # this will remake the conv function as a side effect
+            contact_nodes = self.contact_nodes
+            if not xp.any(contact_nodes):
+                print('no contact nodes')
+                total_load = 0
+                full_loads = xp.zeros(contact_nodes.shape, dtype=xp.float32)
+                failed = False
+            else:
+                if pressure_initial_guess is None:
+                    pressure_initial_guess = xp.zeros_like(z)
+                else:
+                    pressure_initial_guess = pressure_initial_guess.z
+                z_in = z[contact_nodes]
+                pressure_guess_in = pressure_initial_guess[contact_nodes]
+                loads_in_domain, failed = bccg(self.conv_func, z_in, self._tol_inner,
+                                               self._max_it_inner, pressure_guess_in,
+                                               self._adhesion_model, self._max_pressure)
+                self._results = {'loads_in_domain': loads_in_domain, 'domain': self.contact_nodes}
+                total_load = float(xp.sum(loads_in_domain) * self._grid_spacing ** 2)
+                if self.use_loads_cache:
+                    full_loads = xp.zeros(contact_nodes.shape)
+                    full_loads[contact_nodes] = loads_in_domain
+                else:
+                    full_loads = None
+
+            self.add_to_cache(height, total_load, full_loads, failed)
+            if failed:
+                # noinspection PyUnboundLocalVariable
+                print(f'Failed: total load: {total_load}, height {height}, max_load {xp.max(loads_in_domain)}')
+            else:
+                print(f'Solved: interference: {height}\tTotal load: {total_load}\tTarget load: {self._set_load}')
+            return total_load - self._set_load
+
+        # else use the basic form
+
+        loads, total_disp, disp_1, disp_2, contact_nodes, failed = \
+            solve_normal_interference(height, gap=self._just_touching_gap,
+                                      model=self._model,
+                                      current_state=current_state,
+                                      adhesive_pressure=self._adhesion_model,
+                                      contact_nodes=self.contact_nodes,
+                                      max_iter=self._max_it_inner,
+                                      material_options=self._material_options,
+                                      tol=self._tol_inner,
+                                      initial_guess_loads=pressure_initial_guess)
+
+        self._results['loads'] = loads
+        self._results['total_displacement'] = total_disp
+        self._results['surface_1_displacement'] = disp_1
+        self._results['surface_2_displacement'] = disp_2
+        self._results['contact_nodes'] = contact_nodes
+
+        total_load = np.sum(loads.z.flatten()) * self._grid_spacing ** 2
+
+        self._results['total_normal_load'] = total_load
+
+        if failed:
+            print(f'Failed: total load: {total_load}, height {height}, max_load {np.max(loads.z.flatten())}')
+        else:
+            print(f'Interference is: {height}\tTotal load is: {total_load}\tTarget load is: {self._set_load}')
+
+        self.add_to_cache(height, total_load, loads.z, failed)
+
+        return total_load - self._set_load
+
+    def add_to_cache(self, height, total_load, loads, failed):
+        if self.use_cache and height not in self.cache_heights and not failed:
+            index = bisect.bisect_left(self.cache_heights, height)
+            self.cache_heights.insert(index, height)
+            self.cache_total_load.insert(index, total_load)
+            # print(f'Cache: adding value: total load: {total_load},
+            # height {height}, cache len:{len(self.cache_heights)}')
+            if self.use_loads_cache:
+                self.cache_surface_loads.insert(index, loads)
 
 
 def solve_normal_loading(loads: Loads, model: _ContactModelABC, current_state: dict,
@@ -105,7 +399,8 @@ def solve_normal_interference(interference: float, gap: np.ndarray, model: _Cont
         adhesive_force(surface_loads, deformed_gap, contact_nodes, model) and must return two boolean arrays containing
         the nodes to be removed and the nodes to be added in the iteration.
     contact_nodes: np.ndarray
-        Boolean array of the surface nodes in contact at the start of the calculation
+        Boolean array of the surface nodes in contact at the start of the calculation, if set loading will be confined
+        to these nodes
     material_options: dict
         Dict of options to be passed to the loads_from_surface_displacement method of the first surface
     max_iter: int
@@ -133,6 +428,8 @@ def solve_normal_interference(interference: float, gap: np.ndarray, model: _Cont
         A named tuple of the displacement on surface 2
     contact_nodes: np.ndarray
         A boolean array of nodes in contact
+    failed: bool
+        False if the solution converged
 
     Notes
     -----
@@ -156,9 +453,11 @@ def solve_normal_interference(interference: float, gap: np.ndarray, model: _Cont
     if contact_nodes is None:
         contact_nodes = z > 0
 
-    if not any(contact_nodes.flatten()):
+    if not np.any(contact_nodes.flatten()):
+        print('no_contact_nodes')
         zeros = np.zeros_like(z)
-        return Loads(z=zeros), Displacements(z=zeros), Displacements(z=zeros), Displacements(z=zeros), contact_nodes
+        return (Loads(z=zeros), Displacements(z=zeros), Displacements(z=zeros), Displacements(z=zeros),
+                contact_nodes, False)
 
     if isinstance(surf_1.material, _IMMaterial) and isinstance(surf_2.material, _IMMaterial):
         if 'span' in material_options:
@@ -167,9 +466,9 @@ def solve_normal_interference(interference: float, gap: np.ndarray, model: _Cont
             span = tuple(gs * 2 for gs in gap.shape)
 
         im1 = surf_1.material.influence_matrix(span=span, grid_spacing=[surf_1.grid_spacing] * 2, components=['zz'])[
-              'zz']
+            'zz']
         im2 = surf_2.material.influence_matrix(span=span, grid_spacing=[surf_1.grid_spacing] * 2, components=['zz'])[
-              'zz']
+            'zz']
         total_im = im1 + im2
 
         convolution_func = plan_convolve(gap, total_im, contact_nodes)
@@ -179,32 +478,34 @@ def solve_normal_interference(interference: float, gap: np.ndarray, model: _Cont
 
         max_pressure = min(surf_1.material.max_load, surf_2.material.max_load)
 
-        loads_in_domain = bccg(convolution_func, z[contact_nodes], tol, max_iter, initial_guess_loads.z[contact_nodes],
-                               min_pressure=adhesive_pressure, max_pressure=max_pressure)
+        loads_in_domain, failed = bccg(convolution_func, z[contact_nodes], tol, max_iter,
+                                       initial_guess_loads.z[contact_nodes],
+                                       min_pressure=adhesive_pressure, max_pressure=max_pressure)
+        if slippy.CUDA:
+            import cupy as cp
+            loads_in_domain = cp.asnumpy(loads_in_domain)
         loads_full = np.zeros_like(z)
         loads_full[contact_nodes] = loads_in_domain
         loads = Loads(z=loads_full)
 
-        total_disp_in_domain = convolution_func(loads_in_domain)
+        total_disp = convolution_func(loads_in_domain, ignore_domain=True)
         if slippy.CUDA:
-            import cupy as cp
-            total_disp_in_domain = cp.asnumpy(total_disp_in_domain)
-        total_disp_full = np.zeros_like(z)
-        total_disp_full[contact_nodes] = total_disp_in_domain
+            total_disp = cp.asnumpy(total_disp)
 
-        total_disp = Displacements(z=total_disp_full)
+        total_disp = Displacements(z=total_disp)
         disp_1 = Displacements(z=fftconvolve(loads_full, im1, 'same'))
         disp_2 = Displacements(z=fftconvolve(loads_full, im2, 'same'))
 
         contact_nodes = np.logical_and(loads_full > adhesive_pressure, loads_full != 0)
 
-        return loads, total_disp, disp_1, disp_2, contact_nodes
-
+        return loads, total_disp, disp_1, disp_2, contact_nodes, failed
+    # if not both influence matrix based materials
     displacements = Displacements(z=z.copy(), x=None, y=None)
     displacements.z[np.logical_not(contact_nodes)] = np.nan
 
     it_num = 0
     added_nodes_last_it = np.inf
+    failed = False
 
     while True:
 
@@ -259,9 +560,10 @@ def solve_normal_interference(interference: float, gap: np.ndarray, model: _Cont
         if it_num > max_iter:
             warnings.warn('Solution failed to converge on a set of contact nodes while solving for normal interference')
             loads.z[:] = np.nan
+            failed = True
             break
 
-    return (loads,) + disp_tup + (contact_nodes,)
+    return (loads,) + disp_tup + (contact_nodes, failed)
 
 
 def get_next_file_num(output_folder):

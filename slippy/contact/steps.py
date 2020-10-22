@@ -28,7 +28,7 @@ def step(model: _ContactModelABC):
     item = -1
     while True:
         try:
-            item = int(input(prompt+''.join(list_of_step_types)))
+            item = int(input(prompt + ''.join(list_of_step_types)))
         except ValueError:
             print("Please only enter the number of the item in the list")
             continue
@@ -63,12 +63,14 @@ class _ModelStep(_StepABC):
     _model: _ContactModelABC = None
     _subclass_registry = []
 
-    sub_models: typing.List[_SubModelABC] = []
-    outputs: typing.List[OutputRequest] = []
+    sub_models: typing.List[_SubModelABC]
+    outputs: typing.List[OutputRequest]
 
     def __init__(self, step_name: str):
         assert isinstance(step_name, str), 'Step name must be string, this is used for all outputs related to this step'
         self.name = step_name
+        self.sub_models = []
+        self.outputs = []
 
     @classmethod
     def __init_subclass__(cls, is_abstract=False, **kwargs):
@@ -160,8 +162,13 @@ class _ModelStep(_StepABC):
 
         return set(current_state)
 
+    def add_sub_model(self, sub_model: _SubModelABC):
+        if self.model is not None:
+            sub_model.model = self.model
+        self.sub_models.append(sub_model)
+
     @abc.abstractmethod
-    def solve(self, current_state, output_file):
+    def solve(self, current_state, output_file) -> dict:
         """ Take in the current state solve the step and update the current state and any field outputs, printing in the
         solve method will add to the log file, the standard output will be changed before running
 
@@ -217,9 +224,9 @@ class _ModelStep(_StepABC):
                              'parameter': output.parameter,
                              'data': current_state[output.parameter[output.slices]]}, output_file)
 
-    def solve_sub_models(self, current_state: typing.Union[dict, set]):
+    def solve_sub_models(self, current_state: dict):
         for model in self.sub_models:
-            found_params = model.solve(**current_state)
+            found_params = model.solve(current_state)
             current_state.update(found_params)
         return current_state
 

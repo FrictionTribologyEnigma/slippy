@@ -343,7 +343,8 @@ try:
     def n_pow_2(a):
         return 2 ** int(np.ceil(np.log2(a)))
 
-    def _plan_cuda_convolve(loads: np.ndarray, im: np.ndarray, domain: np.ndarray = None):
+    def _plan_cuda_convolve(loads: np.ndarray, im: np.ndarray, domain: np.ndarray,
+                            circular: typing.Sequence[bool]):
         """Plans an FFT convolution, returns a function to carry out the convolution
         CUDA implementation
 
@@ -354,11 +355,13 @@ try:
         im: np.ndarray
             The influence matrix component for the transformation, this is not altered but it's fft is stored to
             save time during convolution, this must be larger in every dimension than the loads array
-        domain: np.ndarray, optional (None)
+        domain: np.ndarray, optional
             Array with same shape as loads filled with boolean values. If supplied this function will return a
             function which first fills the supplied loads into the domain then computes the convolution.
             This is typically used for finding loads from set displacements as the displacements are often not set
             over the whole surface.
+        circular: Sequence[bool], optional (False)
+            If True the circular convolution will be calculated, to be used for periodic simulations
 
         Returns
         -------
@@ -371,7 +374,7 @@ try:
         Notes
         -----
         This function uses CUDA to run on a GPU if your computer dons't have cupy installed this should not have loaded
-        if it is for some reason, this can be manually overridden by first importing slippy then patching the CUDA
+        if it is for some reason, this can be manually overridden by first importing slippy then setting the CUDA
         variable to False:
 
         >>> import slippy
@@ -389,45 +392,52 @@ try:
         >>> loads = result['pressure_f'](X,Y)
         >>> disp_analytical = result['surface_displacement_b_f'][0](X,Y)['uz']
         >>> im = c.elastic_influence_matrix('zz', (512,512), (grid_spacing,grid_spacing), 200e9/(2*(1+0.3)), 0.3)
-        >>> convolve_func = plan_convolve(loads, im)
+        >>> convolve_func = plan_convolve(loads, im, None, [False, False])
         >>> disp_numerical = convolve_func(loads)
 
         """
         loads = cp.asarray(loads)
         im = cp.asarray(im)
+        im_shape_orig = im.shape
         if domain is not None:
             domain = cp.asarray(domain)
-        input_shape = [n_pow_2(max(a, b)) for a, b in zip(loads.shape, im.shape)]
+        input_shape = []
+        for i in range(2):
+            if circular[i]:
+                assert loads.shape[i] == im.shape[i], "For circular convolution loads and im must be same shape"
+                input_shape.append(loads.shape[i])
+            else:
+                input_shape.append(2 * n_pow_2(max(loads.shape[i], im.shape[i])))
+        input_shape = tuple(input_shape)
+
         forward_trans = cp.fft.fft2
         backward_trans = cp.fft.ifft2
+        shape_diff = [[0, (b - a)] for a, b in zip(im.shape, input_shape)]
 
-        shape_diff = [[(b - a + 1) // 2, (b - a) // 2] for a, b in zip(im.shape, input_shape)]
-        im_pad = cp.pad(im, shape_diff, 'constant')
-
-        norm_inv = im_pad.size ** 0.5
+        norm_inv = (input_shape[0] * input_shape[1]) ** 0.5
         norm = 1 / norm_inv
-
-        fft_im = forward_trans(im_pad) * norm
-
-        shape_diff_loads = [[(b - a + 1) // 2, (b - a) // 2] for a, b in zip(loads.shape, input_shape)]
-
+        im = cp.pad(im, shape_diff, mode='constant')
+        im = cp.roll(im, tuple(-((sz - 1) // 2) for sz in im_shape_orig), (-2, -1))
+        fft_im = forward_trans(im, s=input_shape) * norm
         shape = loads.shape
         dtype = loads.dtype
 
-        def inner_with_domain(sub_loads):
+        def inner_with_domain(sub_loads, ignore_domain=False):
             full_loads = cp.zeros(shape, dtype=dtype)
             full_loads[domain] = sub_loads
-            loads_pad = cp.pad(full_loads, shape_diff_loads, 'constant')
-            full = cp.real(cp.fft.ifftshift(backward_trans(forward_trans(loads_pad) * fft_im)))
-            same = norm_inv * full[shape_diff_loads[0][0] - 1:-shape_diff_loads[0][1] - 1,
-                                   shape_diff_loads[1][0] - 1:-shape_diff_loads[1][1] - 1]
-            return same[domain]
+            fft_loads = forward_trans(full_loads, s=input_shape)
+            full = norm_inv * cp.real(backward_trans(fft_loads * fft_im))
+            full = full[:full_loads.shape[0], :full_loads.shape[1]]
+            if ignore_domain:
+                return full
+            return full[domain]
 
         def inner_no_domain(full_loads):
-            loads_pad = cp.pad(full_loads, shape_diff_loads, 'constant')
-            full = cp.real(cp.fft.ifftshift(backward_trans(forward_trans(loads_pad) * fft_im)))
-            return norm_inv * full[shape_diff_loads[0][0] - 1:-shape_diff_loads[0][1] - 1,
-                                   shape_diff_loads[1][0] - 1:-shape_diff_loads[1][1] - 1]
+            full_loads = cp.asarray(full_loads)
+            fft_loads = forward_trans(full_loads, s=input_shape)
+            full = norm_inv * cp.real(backward_trans(fft_loads * fft_im))
+            full = full[:full_loads.shape[0], :full_loads.shape[1]]
+            return full
 
         if domain is None:
             return inner_no_domain
@@ -435,7 +445,7 @@ try:
             return inner_with_domain
 
     def _cuda_bccg(f: typing.Callable, b: typing.Sequence, tol: float, max_it: int, x0: typing.Sequence,
-                   min_pressure: float = 0.0, max_pressure: float = cp.inf, k_inn=1) -> cp.ndarray:
+                   min_pressure: float = 0.0, max_pressure: float = cp.inf, k_inn=1) -> typing.Tuple[cp.ndarray, bool]:
         """
         The Bound-Constrained Conjugate Gradient Method for Non-negative Matrices
         CUDA implementation
@@ -507,6 +517,7 @@ try:
         it_inn = 0
         rho_prev = cp.nan
         rho = 0.0
+        failed = False
 
         while True:
             it += 1
@@ -570,17 +581,25 @@ try:
             if changed:
                 n_free = n - cp.sum(msk_bnd_0) - cp.sum(msk_bnd_max)
 
+            if not n_free:
+                print("No free nodes")
+                warnings.warn("No free nodes for BCCG iterations")
+                failed = True
+                break
+
             if outer_it:
                 it_inn = 0
 
             if it > max_it:
+                print("Max iterations")
                 warnings.warn("Bound constrained conjugate gradient iterations failed to converge")
+                failed = True
                 break
 
             if outer_it and (not changed) and upd < tol:
                 break
 
-        return cp.asnumpy(x)
+        return x, failed
 except ImportError:
     _plan_cuda_convolve = None
     _cuda_bccg = None
@@ -588,7 +607,7 @@ except ImportError:
 try:
     import pyfftw
 
-    def _plan_fftw_convolve(loads: np.ndarray, im: np.ndarray, domain: np.ndarray = None):
+    def _plan_fftw_convolve(loads: np.ndarray, im: np.ndarray, domain: np.ndarray, circular: typing.Sequence[bool]):
         """Plans an FFT convolution, returns a function to carry out the convolution
         FFTW implementation
 
@@ -604,6 +623,8 @@ try:
             function which first fills the supplied loads into the domain then computes the convolution.
             This is typically used for finding loads from set displacements as the displacements are often not set
             over the whole surface.
+        circular: Sequence[bool]
+            If True the circular convolution will be calculated, to be used for periodic simulations
 
         Returns
         -------
@@ -628,44 +649,58 @@ try:
         >>> loads = result['pressure_f'](X,Y)
         >>> disp_analytical = result['surface_displacement_b_f'][0](X,Y)['uz']
         >>> im = c.elastic_influence_matrix('zz', (512,512), (grid_spacing,grid_spacing), 200e9/(2*(1+0.3)), 0.3)
-        >>> convolve_func = plan_convolve(loads, im)
+        >>> convolve_func = plan_convolve(loads, im, None, [False, False])
         >>> disp_numerical = convolve_func(loads)
 
         """
-        input_shape = [pyfftw.next_fast_len(max(a, b)) for a, b in zip(loads.shape, im.shape)]
+        loads = np.asarray(loads)
+        im = np.asarray(im)
+        im_shape_orig = im.shape
+        if domain is not None:
+            domain = np.asarray(domain, dtype=np.bool)
+        input_shape = []
+        for i in range(2):
+            if circular[i]:
+                assert loads.shape[i] == im.shape[i], "For circular convolution loads and im must be same shape"
+                input_shape.append(loads.shape[i])
+            else:
+                input_shape.append(2 * pyfftw.next_fast_len(max(loads.shape[i], im.shape[i])))
+        input_shape = tuple(input_shape)
+
         fft_shape = [input_shape[0], input_shape[1] // 2 + 1]
         in_empty = pyfftw.empty_aligned(input_shape, dtype=loads.dtype)
         out_empty = pyfftw.empty_aligned(fft_shape, dtype='complex128')
         ret_empty = pyfftw.empty_aligned(input_shape, dtype=loads.dtype)
-        forward_trans = pyfftw.FFTW(in_empty, out_empty, axes=(0, 1), direction='FFTW_FORWARD', threads=4)
-        backward_trans = pyfftw.FFTW(out_empty, ret_empty, axes=(0, 1), direction='FFTW_BACKWARD', threads=4)
+        forward_trans = pyfftw.FFTW(in_empty, out_empty, axes=(0, 1),
+                                    direction='FFTW_FORWARD', threads=slippy.CORES)
+        backward_trans = pyfftw.FFTW(out_empty, ret_empty, axes=(0, 1),
+                                     direction='FFTW_BACKWARD', threads=slippy.CORES)
         norm_inv = forward_trans.N ** 0.5
         norm = 1 / norm_inv
 
-        shape_diff = [[(b - a + 1) // 2, (b - a) // 2] for a, b in zip(im.shape, input_shape)]
-        im_pad = np.pad(im, shape_diff, 'constant')
-        fft_im = forward_trans(im_pad) * norm
+        shape_diff = [[0, (b - a)] for a, b in zip(im.shape, input_shape)]
+        im = np.pad(im, shape_diff, 'constant')
+        im = np.roll(im, tuple(-((sz - 1) // 2) for sz in im_shape_orig), (-2, -1))
+        fft_im = forward_trans(im) * norm
 
-        shape_diff_loads = [[(b - a + 1) // 2, (b - a) // 2] for a, b in zip(loads.shape, input_shape)]
+        shape_diff_loads = [[0, (b - a)] for a, b in zip(loads.shape, input_shape)]
 
         def inner_no_domain(full_loads):
             loads_pad = np.pad(full_loads, shape_diff_loads, 'constant')
-            full = np.fft.ifftshift(backward_trans(forward_trans(loads_pad) * fft_im))
-            return norm_inv * full[shape_diff_loads[0][0] - 1:-shape_diff_loads[0][1] - 1,
-                                   shape_diff_loads[1][0] - 1:-shape_diff_loads[1][1] - 1]
+            full = backward_trans(forward_trans(loads_pad) * fft_im)
+            return norm_inv * full[:full_loads.shape[0], :full_loads.shape[1]]
 
         shape = loads.shape
         dtype = loads.dtype
 
-        def inner_with_domain(sub_loads):
+        def inner_with_domain(sub_loads, ignore_domain=False):
             full_loads = np.zeros(shape, dtype=dtype)
             full_loads[domain] = sub_loads
-            print('full_loads.shape', full_loads.shape)
-            print('shape_diff_loads', shape_diff_loads)
             loads_pad = np.pad(full_loads, shape_diff_loads, 'constant')
-            full = np.fft.ifftshift(backward_trans(forward_trans(loads_pad) * fft_im))
-            same = norm_inv * full[shape_diff_loads[0][0] - 1:-shape_diff_loads[0][1] - 1,
-                                   shape_diff_loads[1][0] - 1:-shape_diff_loads[1][1] - 1]
+            full = backward_trans(forward_trans(loads_pad) * fft_im)
+            same = norm_inv * full[:full_loads.shape[0], :full_loads.shape[1]]
+            if ignore_domain:
+                return same
             return same[domain]
 
         if domain is None:
@@ -673,8 +708,8 @@ try:
         else:
             return inner_with_domain
 
-    def _fftw_bccg(f: typing.Callable, b: typing.Sequence, tol: float, max_it: int, x0: typing.Sequence,
-                   min_pressure: float = 0, max_pressure: float = np.inf, k_inn=1) -> np.ndarray:
+    def _fftw_bccg(f: typing.Callable, b: np.ndarray, tol: float, max_it: int, x0: np.ndarray,
+                   min_pressure: float = 0, max_pressure: float = np.inf, k_inn=1) -> typing.Tuple[np.ndarray, bool]:
         """
         The Bound-Constrained Conjugate Gradient Method for Non-negative Matrices
         FFTW implementation
@@ -733,6 +768,7 @@ try:
         it_inn = 0
         rho_prev = np.nan
         rho = 0.0
+        failed = False
 
         while True:
             it += 1
@@ -796,23 +832,31 @@ try:
             if changed:
                 n_free = n - np.sum(msk_bnd_0) - np.sum(msk_bnd_max)
 
+            if not n_free:
+                print("No free nodes")
+                warnings.warn("No free nodes for BCCG iterations")
+                failed = True
+                break
+
             if outer_it:
                 it_inn = 0
 
             if it > max_it:
                 warnings.warn("Bound constrained conjugate gradient iterations failed to converge")
+                print("Max iterations")
+                failed = True
                 break
 
             if outer_it and (not changed) and upd < tol:
                 break
-        return x
+        return x, failed
 
 except ImportError:
     _plan_fftw_convolve = None
     _fftw_bccg = None
 
 
-def plan_convolve(loads, im, domain: np.ndarray):
+def plan_convolve(loads, im, domain: np.ndarray = None, circular: typing.Union[bool, typing.Sequence[bool]] = False):
     """Plans an FFT convolution, returns a function to carry out the convolution
     CUDA / FFTW implementation
 
@@ -828,6 +872,9 @@ def plan_convolve(loads, im, domain: np.ndarray):
         function which first fills the supplied loads into the domain then computes the convolution.
         This is typically used for finding loads from set displacements as the displacements are often not set
         over the whole surface.
+    circular: bool or sequence of bool, optional (False)
+        If True the circular convolution will be computed, to be used for periodic simulations. Alternatively a 2
+        element sequence of bool can be provided specifying which axes are to be treated as periodic.
 
     Returns
     -------
@@ -865,14 +912,24 @@ def plan_convolve(loads, im, domain: np.ndarray):
     >>> disp_numerical = convolve_func(loads)
 
     """
+    if isinstance(circular, int):
+        circular = [circular, ]*2
+    try:
+        length = len(circular)
+    except TypeError:
+        raise TypeError('Type of circular not recognised, should be a bool or a 2 element sequence of bool')
+
+    if length != 2:
+        raise ValueError(f"Circular must be a bool or a 2 element list of bool, length was {length}")
+
     if slippy.CUDA:
-        return _plan_cuda_convolve(loads, im, domain)
+        return _plan_cuda_convolve(loads, im, domain, circular)
     else:
-        return _plan_fftw_convolve(loads, im, domain)
+        return _plan_fftw_convolve(loads, im, domain, circular)
 
 
-def bccg(f: typing.Callable, b: typing.Sequence, tol: float, max_it: int, x0: typing.Sequence,
-         min_pressure: float = 0.0, max_pressure: float = np.inf, k_inn=1):
+def bccg(f: typing.Callable, b: np.ndarray, tol: float, max_it: int, x0: np.ndarray,
+         min_pressure: float = 0.0, max_pressure: float = np.inf, k_inn=1) -> typing.Tuple[np.ndarray, bool]:
     """
     The Bound-Constrained Conjugate Gradient Method for Non-negative Matrices
     CUDA implementation
@@ -901,6 +958,8 @@ def bccg(f: typing.Callable, b: typing.Sequence, tol: float, max_it: int, x0: ty
     -------
     x: cp.array/ np.array
         The solution to the system f(x)-b = 0 with the constraints applied.
+    failed: bool
+        True if the solution failed to converge, this will also produce a warning
 
     Notes
     -----

@@ -67,7 +67,6 @@ def test_hertz_full_spherical():
     npt.assert_approx_equal(displacement_calc, displacement_actual, err_msg=msg)
 
 
-@pytest.mark.xfail  # TODO equations in johnson are wrong, give non continuous displacement
 def test_hertz_spherical_displacements():
     results = hertz_full([1, 1], [float('inf')], [200e9], [0.3], 1000)
     # surface displacements should be continuous at the edge of the contact
