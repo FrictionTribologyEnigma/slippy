@@ -802,6 +802,18 @@ class _Surface(_SurfaceABC):
         new_profile = prof_1[0:new_shape[0], 0:new_shape[1]] + prof_2[0:new_shape[0], 0:new_shape[1]]
         return Surface(profile=new_profile, grid_spacing=new_gs)
 
+    def __mul__(self, other):
+        if isinstance(other, Number):
+            return Surface(profile=self.profile*other, grid_spacing=self.grid_spacing)
+        else:
+            raise NotImplementedError("Multiplication not implement for Surfaces unless other parameter is number")
+
+    def __div__(self, other):
+        if isinstance(other, Number):
+            return Surface(profile=self.profile/other, grid_spacing=self.grid_spacing)
+        else:
+            raise NotImplementedError("Division not implement for Surfaces unless other parameter is number")
+
     def __sub__(self, other):
         if not isinstance(other, _Surface):
             return Surface(profile=self.profile + other, grid_spacing=self.grid_spacing)
@@ -935,13 +947,12 @@ class _Surface(_SurfaceABC):
                 msg = ("Can't plot multiple plots on single axis, "
                        'making new figure')
                 warnings.warn(msg)
-            if isinstance(plot_type, Sequence) and not isinstance(property_to_plot, str):
+            if isinstance(plot_type, Sequence) and not isinstance(plot_type, str):
                 plot_type = list(plot_type)
                 if len(plot_type) < number_of_subplots:
-                    plot_type.extend(['default'] * (number_of_subplots -
-                                                    len(plot_type)))
+                    plot_type.extend(['default'] * (number_of_subplots - len(plot_type)))
             else:
-                plot_type = [plot_type] * number_of_subplots
+                plot_type = [plot_type, ] * number_of_subplots
             # 11, 12, 13, 22, then filling up rows of 3 (unlikely to be used)
             # fig = plt.figure()
             # ax = fig.add_subplot(111, projection='3d')
@@ -954,12 +965,11 @@ class _Surface(_SurfaceABC):
             ax = []
             sub_plot_number = 100 * n_rows + 10 * n_cols + 1
             for i in range(number_of_subplots):
-                if property_to_plot[i].lower() in types2d and not plot_type[i] in ['image', 'default']:
+                if property_to_plot[i].lower() in types2d and not plot_type[i] in ('image', 'default'):
                     ax.append(fig.add_subplot(sub_plot_number + i, projection='3d'))
                 else:
                     ax.append(fig.add_subplot(sub_plot_number + i))
                 self.show(property_to_plot[i], plot_type[i], ax[i])
-            fig.show()
             return fig, ax
         #######################################################################
         # main method
@@ -1738,6 +1748,22 @@ class _AnalyticalSurface(_Surface):
             return SurfaceCombination(self, other, '-')
 
         return super().__sub__(other)
+
+    def __mul__(self, other):
+        if isinstance(other, Number):
+            self_copy = copy.copy(self)
+            if self.profile is not None:
+                self_copy.profile = self.profile * other
+            self_copy.height = lambda x_mesh, y_mesh: self.height(x_mesh, y_mesh)*other
+            return self_copy
+        else:
+            raise NotImplementedError(f"Multiplication between analytical surfaces and {type(other)} not implemented")
+
+    def __div__(self, other):
+        if isinstance(other, Number):
+            return self * (1.0/other)
+        else:
+            raise NotImplementedError(f"Division between analytical surfaces and {type(other)} not implemented")
 
     def __eq__(self, other):
         if not isinstance(other, self.__class__):

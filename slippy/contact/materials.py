@@ -465,11 +465,11 @@ class Elastic(_IMMaterial):
     Examples
     --------
     >>> # Make a material model for elastic steel
-    >>> steel = Elastic({'E': 200e9, 'v': 0.3}, density=7850)
+    >>> steel = Elastic('steel', {'E': 200e9, 'v': 0.3})
     >>> # Find it's p-wave modulus:
     >>> pwm = steel.M
     >>> # Find the speeds of sound:
-    >>> sos = steel.speed_of_sound()
+    >>> sos = steel.speed_of_sound(7890)
     """
     material_type = 'Elastic'
 
@@ -733,30 +733,3 @@ class Elastic(_IMMaterial):
 
     def __repr__(self):
         return "Elastic(name = '" + self.name + f"', properties = {{ 'E':{self.E}, 'v':{self.v} }}"
-
-
-class ElasticPerfectlyPlastic(_MaterialABC):
-    influence_matrix = Elastic.influence_matrix
-
-    def __init__(self):
-        pass
-
-    def displacement_from_surface_loads(self, loads: {dict, Loads, typing.Sequence[np.ndarray]},
-                                        grid_spacing: {typing.Sequence[float], float},
-                                        deflections: str = 'xyz', span: typing.Optional[typing.Sequence[int]] = None,
-                                        simple: bool = False) -> Displacements:
-        pass
-
-    def loads_from_surface_displacement(self,
-                                        displacements: typing.Union[dict, Displacements,
-                                                                    typing.Sequence[typing.Optional[np.ndarray]]],
-                                        grid_spacing: float,
-                                        other: typing.Optional['_IMMaterial'] = None,
-                                        span: typing.Sequence[int] = None,
-                                        tol: float = 1e-8,
-                                        simple: bool = True,
-                                        max_it: int = 100):
-        pass
-
-    def __repr__(self):
-        pass

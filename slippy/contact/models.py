@@ -7,6 +7,7 @@ import slippy
 from collections import OrderedDict
 from contextlib import redirect_stdout, ExitStack
 from datetime import datetime
+from .outputs import OutputSaver, OutputRequest
 
 from slippy.abcs import _SurfaceABC, _LubricantModelABC, _ContactModelABC
 from slippy.contact.steps import _ModelStep, InitialStep, step
@@ -59,36 +60,33 @@ class ContactModel(_ContactModelABC):
 
     """
 
-    _domains = {'all': None}
     """Flag set to true if one of the surfaces is rigid"""
     _is_rigid: bool = False
     steps: OrderedDict
-    log_file_name: str = None
-    output_file_name: str = None
     adhesion = None
     _current_state_debug: dict = None
+    _all_step_outputs = []
 
     def __init__(self, name: str, surface_1: _SurfaceABC, surface_2: _SurfaceABC = None,
-                 lubricant: _LubricantModelABC = None, log_file_name: str = None,
-                 output_file_name: str = None):
+                 lubricant: _LubricantModelABC = None, output_dir: str = None):
         self.surface_1 = surface_1
         self.surface_2 = surface_2
         self.name = name
         if lubricant is not None:
             self.lubricant_model = lubricant
         self.steps = OrderedDict({'Initial': InitialStep()})
-        if log_file_name is None:
-            log_file_name = name
-        self.log_file_name = log_file_name + '.log'
-        if output_file_name is None:
-            output_file_name = name
-        self.output_file_name = output_file_name + '.sdb'
-        try:
-            os.remove(self.log_file_name)
-        except FileNotFoundError:
-            pass
-        self.history_outputs = dict()
-        self.field_outputs = dict()
+        if output_dir is not None:
+            if not os.path.isdir(output_dir):
+                try:
+                    os.mkdir(output_dir)
+                except OSError:
+                    raise ValueError("Output directory not found and creation of the output "
+                                     "directory: %s failed" % output_dir)
+            slippy.OUTPUT_DIR = output_dir
+
+    @property
+    def log_file_name(self):
+        return os.path.join(slippy.OUTPUT_DIR, self.name + '.log')
 
     def add_step(self, step_instance: _ModelStep = None, position: typing.Union[int, str] = None):
         """ Adds a solution step to the current model
@@ -142,19 +140,40 @@ class ContactModel(_ContactModelABC):
         for sub_model in step_instance.sub_models:
             sub_model.model = self
 
+    def add_output(self, output_request: OutputRequest, active_steps: typing.Union[str, typing.Sequence[str]] = 'all'):
+        """
+        Add an output to one or more steps in the model
+
+        Parameters
+        ----------
+        output_request: OutputRequest
+            A slippy.contact.OutputRequest with describing the parameters to save and the time points they will be saved
+            for
+        active_steps: str or list of str, optional ('all')
+            The step or a list of steps this output is active for, defaults to all the steps currently in the model
+
+        Examples
+        --------
+
+        """
+        if active_steps == 'all':
+            active_steps = set(self.steps)
+        if isinstance(active_steps, str):
+            active_steps = [active_steps, ]
+        for this_step in active_steps:
+            self.steps[this_step].outputs.append(output_request)
+
     def data_check(self):
-        with open(self.log_file_name, 'a+') as file:
-            with redirect_stdout(file):
-                print("Data check started at:")
-                print(datetime.now().strftime('%H:%M:%S %d-%m-%Y'))
+        print("Data check started at:")
+        print(datetime.now().strftime('%H:%M:%S %d-%m-%Y'))
 
-                self._model_check()
+        self._model_check()
 
-                current_state = None
+        current_state = None
 
-                for this_step in self.steps:
-                    print(f"Checking step: {this_step}")
-                    current_state = self.steps[this_step].data_check(current_state)
+        for this_step in self.steps:
+            print(f"Checking step: {this_step}")
+            current_state = self.steps[this_step].data_check(current_state)
 
     def _model_check(self):
         """
@@ -169,15 +188,12 @@ class ContactModel(_ContactModelABC):
         pass
         # TODO
 
-    def solve(self, output_file_name: str = None, verbose: bool = False, skip_data_check: bool = False):
+    def solve(self, verbose: bool = False, skip_data_check: bool = False):
         """
-        Solve all steps in the model
+        Solve all steps and sub-models in the model as well as writing all outputs
 
         Parameters
         ----------
-        output_file_name: str, optional (None)
-            The file name of the output file (not including the extension) if None the file name defaults to the same as
-            the model name set on instantiation
         verbose: bool optional (False)
             If True, logs are written to the console instead of the log file
         skip_data_check: bool, optional (False)
@@ -185,24 +201,19 @@ class ContactModel(_ContactModelABC):
 
         Returns
         -------
+        current_state: dict
+            A dictionary containing the final state of the model
 
         """
-        if output_file_name is None:
-            if self.output_file_name is None:
-                self.output_file_name = self.name + '.sdb'
-        else:
-            self.output_file_name = output_file_name + '.sdb'
+        if os.path.exists(self.log_file_name):
+            os.remove(self.log_file_name)
 
         current_state = None
-        try:
-            os.remove(self.output_file_name)
-        except FileNotFoundError:
-            pass
 
         with ExitStack() as stack:
-            output_file = stack.enter_context(open(self.output_file_name, 'wb+'))
+            output_writer = stack.enter_context(OutputSaver(self.name))
             if not verbose:
-                log_file = stack.enter_context(open(self.log_file_name, 'a+'))
+                log_file = stack.enter_context(open(self.log_file_name, 'x'))
                 stack.enter_context(redirect_stdout(log_file))
 
             if not skip_data_check:
@@ -212,7 +223,9 @@ class ContactModel(_ContactModelABC):
 
             for this_step in self.steps:
                 print(f"Solving step {this_step}")
-                current_state = self.steps[this_step].solve(current_state, output_file)
+                for output in self.steps[this_step].outputs:
+                    output.new_step(current_state['time'])
+                current_state = self.steps[this_step].solve(current_state, output_writer)
 
             now = datetime.now().strftime('%H:%M:%S %d-%m-%Y')
             print(f"Analysis completed successfully at: {now}")

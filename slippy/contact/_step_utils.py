@@ -67,7 +67,8 @@ class HeightOptimisationFunction:
     def __init__(self, just_touching_gap: np.ndarray, model: _ContactModelABC,
                  adhesion_model: float, initial_contact_nodes: np.ndarray,
                  max_it_inner: int, tol_inner: float, material_options: typing.Union[typing.Sequence[dict], dict],
-                 max_set_load: float, tolerance: float, use_cache: bool = True, cache_loads=True):
+                 max_set_load: float, tolerance: float, use_cache: bool = True, cache_loads=True,
+                 periodic_axes: typing.Tuple[bool] = (False, False)):
         if slippy.CUDA:
             xp = cp
             cache_loads = False
@@ -87,6 +88,7 @@ class HeightOptimisationFunction:
         self._material_options = material_options
         self._original_set_load = max_set_load
         self._set_load = float(max_set_load)
+        self._periodic_axes = periodic_axes
         # these should really be a sorted dict but it seems like the added dependencies are not worth it atm
         self.cache_heights = [0.0]
         self.cache_total_load = [0.0]
@@ -101,10 +103,11 @@ class HeightOptimisationFunction:
         self.im_mats = False
         self.conv_func = None
         self.cache_max = False
+        self.last_call_failed = False
 
         if isinstance(surf_1.material, _IMMaterial) and isinstance(surf_2.material, _IMMaterial):
             self.im_mats = True
-            span = [2 * s for s in just_touching_gap.shape]
+            span = just_touching_gap.shape
             max_pressure = min([surf_1.material.max_load, surf_2.material.max_load])
             self._max_pressure = max_pressure
             im1 = surf_1.material.influence_matrix(span=span, grid_spacing=[surf_1.grid_spacing] * 2,
@@ -114,7 +117,7 @@ class HeightOptimisationFunction:
             total_im = im1 + im2
             self.total_im = xp.asarray(total_im)
 
-            self.conv_func = plan_convolve(just_touching_gap, self.total_im, self.contact_nodes)
+            self.conv_func = plan_convolve(just_touching_gap, self.total_im, self.contact_nodes, circular=periodic_axes)
 
             if use_cache and max_pressure != np.inf:
                 max_loads = max_pressure * xp.ones(just_touching_gap.shape)
@@ -140,10 +143,13 @@ class HeightOptimisationFunction:
             value = xp.array(value, dtype=bool)
             self._contact_nodes = value
             if self.im_mats:
-                self.conv_func = plan_convolve(self._just_touching_gap, self.total_im, self._contact_nodes)
+                self.conv_func = plan_convolve(self._just_touching_gap, self.total_im, self._contact_nodes,
+                                               circular=self._periodic_axes)
 
     @property
     def results(self):
+        if self._results is None:
+            print("No results found in height opt func")
         if slippy.CUDA:
             xp = cp
         else:
@@ -154,7 +160,7 @@ class HeightOptimisationFunction:
             # find disp on surface 1 and surface 2
             surf_1 = self._model.surface_1
             surf_2 = self._model.surface_2
-            span = [2 * s for s in self._just_touching_gap.shape]
+            span = self._just_touching_gap.shape
             # noinspection PyUnresolvedReferences
             im1 = surf_1.material.influence_matrix(span=span, grid_spacing=[surf_1.grid_spacing] * 2,
                                                    components=['zz'])['zz']
@@ -169,14 +175,18 @@ class HeightOptimisationFunction:
                 full_loads[self._results['domain']] = self._results['loads_in_domain']
                 full_disp = self.conv_func(self._results['loads_in_domain'], ignore_domain=True)
 
-            disp_1 = Displacements(z=fftconvolve(full_loads, im1, 'same'))
-            disp_2 = Displacements(z=fftconvolve(full_loads, im2, 'same'))
+            conv_func_1 = plan_convolve(full_loads, im1, None, circular=self._periodic_axes)
+            conv_func_2 = plan_convolve(full_loads, im2, None, circular=self._periodic_axes)
+
+            disp_1 = Displacements(z=conv_func_1(full_loads))
+            disp_2 = Displacements(z=conv_func_2(full_loads))
 
             total_load = float(xp.sum(self._results['loads_in_domain']) * self._grid_spacing ** 2)
 
             results = {'loads': Loads(z=full_loads), 'total_displacement': Displacements(z=full_disp),
                        'surface_1_displacement': disp_1, 'surface_2_displacement': disp_2,
-                       'contact_nodes': full_loads > 0, 'total_normal_load': total_load}
+                       'contact_nodes': full_loads > 0, 'total_normal_load': total_load,
+                       'interference': self._results['interference']}
             return results
         else:
             return self._results
@@ -256,7 +266,8 @@ class HeightOptimisationFunction:
                 loads_in_domain, failed = bccg(self.conv_func, z_in, self._tol_inner,
                                                self._max_it_inner, pressure_guess_in,
                                                self._adhesion_model, self._max_pressure)
-                self._results = {'loads_in_domain': loads_in_domain, 'domain': self.contact_nodes}
+                self._results = {'loads_in_domain': loads_in_domain, 'domain': self.contact_nodes,
+                                 'interference': height}
                 total_load = float(xp.sum(loads_in_domain) * self._grid_spacing ** 2)
                 if self.use_loads_cache:
                     full_loads = xp.zeros(contact_nodes.shape)
@@ -268,8 +279,10 @@ class HeightOptimisationFunction:
             if failed:
                 # noinspection PyUnboundLocalVariable
                 print(f'Failed: total load: {total_load}, height {height}, max_load {xp.max(loads_in_domain)}')
+                self.last_call_failed = True
             else:
                 print(f'Solved: interference: {height}\tTotal load: {total_load}\tTarget load: {self._set_load}')
+                self.last_call_failed = False
             return total_load - self._set_load
 
         # else use the basic form
@@ -290,14 +303,17 @@ class HeightOptimisationFunction:
         self._results['surface_1_displacement'] = disp_1
         self._results['surface_2_displacement'] = disp_2
         self._results['contact_nodes'] = contact_nodes
+        self._results['interference'] = height
 
         total_load = np.sum(loads.z.flatten()) * self._grid_spacing ** 2
 
         self._results['total_normal_load'] = total_load
 
         if failed:
+            self.last_call_failed = True
             print(f'Failed: total load: {total_load}, height {height}, max_load {np.max(loads.z.flatten())}')
         else:
+            self.last_call_failed = False
             print(f'Interference is: {height}\tTotal load is: {total_load}\tTarget load is: {self._set_load}')
 
         self.add_to_cache(height, total_load, loads.z, failed)
@@ -306,6 +322,7 @@ class HeightOptimisationFunction:
 
     def add_to_cache(self, height, total_load, loads, failed):
         if self.use_cache and height not in self.cache_heights and not failed:
+            print(f"Inserting height: {height}, total_load: {total_load} into cache, len = {1+len(self.cache_heights)}")
             index = bisect.bisect_left(self.cache_heights, height)
             self.cache_heights.insert(index, height)
             self.cache_total_load.insert(index, total_load)

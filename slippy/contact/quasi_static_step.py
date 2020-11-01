@@ -8,7 +8,7 @@ from scipy.interpolate import interp1d
 
 from .steps import _ModelStep
 from ._model_utils import get_gap_from_model
-from ._step_utils import HeightOptimisationFunction, solve_normal_interference
+from ._step_utils import HeightOptimisationFunction
 
 __all__ = ['QuasiStaticStep']
 
@@ -31,9 +31,8 @@ class QuasiStaticStep(_ModelStep):
     no_time: bool, optional (False)
         Set to true if there is no time dependence and the time steps can be solved in any order (no permanent changes
         between steps such as plastic deformation or heat generation), if True the model will be solved more efficiently
-    time_period: float, optional (None)
-        The total time period of this model step, if not set no time stepping is used however the time steps will still
-        be solved in order, allowing for changes from the sub models to alter subsequent steps
+    time_period: float, optional (1.0)
+        The total time period of this model step, used for solving sub-models and writing outputs
     off_set_x, off_set_y: float or Sequence of float, optional (0.0)
         The off set between the surfaces in the x and y directions, this can be a relative off set or an absolute off
         set, controlled by the relative_loading parameter:
@@ -54,7 +53,7 @@ class QuasiStaticStep(_ModelStep):
           position values and array[1] should be time values, time values must be between 0 and 1. The
           movement_interpolation_mode will be used to generate intermediate values
     relative_loading: bool, optional (False)
-        If True the load or displacement and off sey will be applied relative to the value at the start of the step,
+        If True the load or displacement and off set will be applied relative to the value at the start of the step,
         otherwise the absolute value will be used. eg, if the previous step ended with a load of 10N and this step ramps
         from 0 to 10N setting relative_loading to True will ramp the total load form 10 to 20N over this step.
     adhesion: bool, optional (True)
@@ -73,10 +72,14 @@ class QuasiStaticStep(_ModelStep):
         Any valid input to scipy.interpolate.interp1d as the 'kind' parameter, using 'nearest', 'previous' or 'next'
         will cause a warning. This parameter controls how the offset and loading is interpolated over the step
     profile_interpolation_mode: {'nearest', 'linear'}, optional ('nearest')
-        Used to generate teh grid points for the second surface at the location of the grid points for the first
-        surface, nearest ensures compatibility with sub models which change the profile, if the grid spacings match
-    periodic: bool, optional (False)
+        Used to generate the grid points for the second surface at the location of the grid points for the first
+        surface, nearest ensures compatibility with sub models which change the profile, if the grid spacings of the
+        surfaces match
+    periodic_geometry: bool, optional (False)
         If True the surface profile will warp when applying the off set between the surfaces
+    periodic_axes: tuple, optional ((False, False))
+        For each True value the corresponding axis will be solved by circular convolution, meaning the result is
+        periodic in that direction
     max_it_interference: int, optional (100)
         The maximum number of iterations used to find the interference between the surfaces, only used if
         a total normal load is specified (Not used if contact is displacement controlled)
@@ -90,6 +93,11 @@ class QuasiStaticStep(_ModelStep):
         The norm of the residual used to declare convergence of the bccg iterations
     no_update_warning: bool, optional (True)
         Change to False to suppress warning given when no movement or loading changes are specified
+
+    Examples
+    --------
+
+
     """
     _just_touching_gap = None
     _adhesion_model = None
@@ -97,7 +105,7 @@ class QuasiStaticStep(_ModelStep):
     _upper = None
 
     def __init__(self, step_name: str, number_of_steps: int, no_time: bool = False,
-                 time_period: float = None,
+                 time_period: float = 1.0,
                  off_set_x: typing.Union[float, typing.Sequence[float]] = 0.0,
                  off_set_y: typing.Union[float, typing.Sequence[float]] = 0.0,
                  interference: typing.Union[float, typing.Sequence[float]] = None,
@@ -109,10 +117,10 @@ class QuasiStaticStep(_ModelStep):
                  impact_properties: dict = None,
                  movement_interpolation_mode: str = 'linear',
                  profile_interpolation_mode: str = 'nearest',
-                 periodic: bool = False, max_it_interference: int = 100, rtol_interference=1e-3,
-                 max_it_displacement: int = 200, rtol_displacement=1e-4, no_update_warning: bool = True):
+                 periodic_geometry: bool = False, periodic_axes: tuple = (False, False),
+                 max_it_interference: int = 100, rtol_interference=1e-3,
+                 max_it_displacement: int = None, rtol_displacement=1e-5, no_update_warning: bool = True):
 
-        super().__init__(step_name)
         # movement interpolation mode sort out movement interpolation mode make array of values
         if impact_properties is not None:
             raise NotImplementedError("Impacts are not yet implemented")
@@ -124,7 +132,8 @@ class QuasiStaticStep(_ModelStep):
         self._fast_ld = fast_ld
         self._relative_loading = relative_loading
         self.profile_interpolation_mode = profile_interpolation_mode
-        self._periodic_profile = periodic
+        self._periodic_profile = periodic_geometry
+        self._periodic_axes = periodic_axes
         self._max_it_interference = max_it_interference
         self._rtol_interference = rtol_interference
         self._max_it_displacement = max_it_displacement
@@ -134,10 +143,7 @@ class QuasiStaticStep(_ModelStep):
         self._adhesion = adhesion
         self._unloading = unloading
 
-        if not no_time and time_period is not None:
-            self.time_step = time_period / number_of_steps
-        else:
-            self.time_step = None
+        self.time_step = time_period / number_of_steps
 
         # check that something is actually changing
         self.update = set()
@@ -173,6 +179,8 @@ class QuasiStaticStep(_ModelStep):
                                                                  'normal_load')
                 self.update.add('normal_load')
             self.load_controlled = True
+        else:
+            self.normal_load = None
 
         if interference is not None:
             if isinstance(interference, Number):
@@ -187,12 +195,16 @@ class QuasiStaticStep(_ModelStep):
         if not self.update and no_update_warning:
             warnings.warn("Nothing set to update")
 
-        # if impact, check that impact properties is right
+        provides = {'off_set', 'loads', 'surface_1_displacement', 'surface_2_displacement', 'total_displacement',
+                    'interference', 'just_touching_gap', 'surface_1_points', 'contact_nodes',
+                    'surface_2_points', 'time', 'time_step', 'new_step', 'converged', 'gap', 'total_normal_load'}
+        super().__init__(step_name, time_period, provides)
 
     def data_check(self, previous_state: set):
         pass
 
     def solve(self, previous_state, output_file):
+        current_time = previous_state['time']
         if self._fast_ld:
             # solve the normal contact problem
             raise NotImplementedError("TODO")
@@ -235,7 +247,6 @@ class QuasiStaticStep(_ModelStep):
                 current_state = dict(just_touching_gap=just_touching_gap, surface_1_points=surface_1_points,
                                      surface_2_points=surface_2_points, off_set=self.off_set,
                                      time_step=self.time_step)
-                self._current_state_debug = current_state
             if i == 0:
                 current_state['new_step'] = True
             else:
@@ -255,7 +266,8 @@ class QuasiStaticStep(_ModelStep):
             current_state.update(results)
             current_state['gap'] = (just_touching_gap - current_state['interference'] +
                                     current_state['total_displacement'].z)
-
+            current_time += self.time_step
+            current_state['time'] = current_time
             # solve sub models
             self.solve_sub_models(current_state)
             self.save_outputs(current_state, output_file)
@@ -286,7 +298,8 @@ class QuasiStaticStep(_ModelStep):
                                                     tol_inner=self._rtol_displacement,
                                                     material_options=dict(),
                                                     max_set_load=self.normal_load,
-                                                    tolerance=self._rtol_interference)
+                                                    tolerance=self._rtol_interference,
+                                                    periodic_axes=self._periodic_axes)
             self._height_optimisation_func = h_opt_func
         else:
             h_opt_func = self._height_optimisation_func
@@ -311,42 +324,46 @@ class QuasiStaticStep(_ModelStep):
 
         opt_result = root_scalar(h_opt_func, bracket=brackets, rtol=self._rtol_interference,
                                  maxiter=self._max_it_interference, args=(current_state,))
-
+        # noinspection PyProtectedMember
+        if h_opt_func._results is None:
+            h_opt_func((brackets[0]+brackets[1])/2, current_state)
         results = h_opt_func.results
         results['interference'] = opt_result.root
-        results['converged'] = (np.abs(results['total_normal_load']-self.normal_load) /
-                                self.normal_load < 0.05)
+        load_conv = (np.abs(results['total_normal_load']-self.normal_load) / self.normal_load) < 0.05
+        results['converged'] = bool(load_conv) and not h_opt_func.last_call_failed
         return results
 
     def _solve_displacement_controlled(self, current_state):
-        results = dict()
-        loads, *disp_tup, contact_nodes = solve_normal_interference(self.interference, gap=self._just_touching_gap,
-                                                                    model=self._model,
-                                                                    current_state=current_state,
-                                                                    adhesive_pressure=self._adhesion_model,
-                                                                    contact_nodes=self._initial_contact_nodes,
-                                                                    max_iter=self._max_it_displacement,
-                                                                    material_options=dict(),
-                                                                    tol=self._rtol_displacement,
-                                                                    initial_guess_loads=None)
+        if not self._no_time or self._height_optimisation_func is None:
+            h_opt_func = HeightOptimisationFunction(just_touching_gap=self._just_touching_gap,
+                                                    model=self.model,
+                                                    adhesion_model=self._adhesion_model,
+                                                    initial_contact_nodes=self._initial_contact_nodes,
+                                                    max_it_inner=self._max_it_displacement,
+                                                    tol_inner=self._rtol_displacement,
+                                                    material_options=dict(),
+                                                    max_set_load=1,
+                                                    tolerance=self._rtol_interference,
+                                                    periodic_axes=self._periodic_axes)
+            self._height_optimisation_func = h_opt_func
+        else:
+            h_opt_func = self._height_optimisation_func
 
-        results['loads'] = loads
-        results['total_displacement'] = disp_tup[0]
-        results['surface_1_displacement'] = disp_tup[1]
-        results['surface_2_displacement'] = disp_tup[2]
-        results['contact_nodes'] = contact_nodes
-        total_load = np.sum(loads.z.flatten()) * self._model.surface_1.grid_spacing ** 2
-        results['total_normal_load'] = total_load
+        if self._unloading and 'contact_nodes' in current_state:
+            contact_nodes = current_state['contact_nodes']
+        else:
+            contact_nodes = None
+            # contact_nodes = np.ones(self._just_touching_gap.shape, dtype=np.bool)
+
+        h_opt_func.change_load(1, contact_nodes)
+        _ = h_opt_func(self.interference, current_state)
+        results = h_opt_func.results
         results['interference'] = self.interference
-
+        results['converged'] = not h_opt_func.last_call_failed
         return results
 
     def __repr__(self):
         return f'{self.name}: QuasiStaticStep'
-
-    @classmethod
-    def new_step(cls, model):
-        pass
 
 
 def _make_interpolation_func(values, kind, name):
