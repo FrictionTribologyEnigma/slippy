@@ -51,7 +51,7 @@ def test_array_reading():
 
 def test_lazy_array():
     with c.OutputSaver('test') as output_files:
-        output_files.write({'my_array': np.array([1, 2, 3, 4])})
+        output_files.write({'my_array': np.array([1, 2, 3, 4], dtype=np.int32)})
     lazy_array = c.outputs._ArrayReader('test.sar', '**array**#0#(4,)#int32')
     assert np.max(lazy_array) == 4
     lazy_array = c.outputs._ArrayReader('test.sar', '**array**#0#(4,)#int32')
