@@ -1,4 +1,5 @@
 import multiprocessing
+import os
 """Top-level package for SlipPY."""
 
 __author__ = """Michael Watson"""
@@ -12,6 +13,7 @@ except ImportError:
     CUDA = False
 
 CORES = multiprocessing.cpu_count()
+OUTPUT_DIR = os.getcwd()
 
 
 class OverRideCuda:

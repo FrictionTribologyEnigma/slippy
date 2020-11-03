@@ -36,7 +36,7 @@ def test_hertz_agreement_static_load_cuda():
     my_model = c.ContactModel('model-1', round_surface, flat_surface)
     # set model parameters
     total_load = 100
-    my_step = c.StaticNormalLoad('contact', load_z=total_load)
+    my_step = c.StaticStep('contact', normal_load=total_load)
     my_model.add_step(my_step)
 
     out = my_model.solve(skip_data_check=True)
@@ -82,7 +82,7 @@ def test_hertz_agreement_static_interference_cuda():
 
     a_result = c.hertz_full([1, 1], [np.inf, np.inf], [200e9, 70e9], [0.3, 0.33], set_load)
 
-    my_step = c.StaticNormalInterference('step', absolute_interference=a_result['total_deflection'])
+    my_step = c.StaticStep('step', interference=a_result['total_deflection'])
     my_model.add_step(my_step)
     final_state = my_model.solve()
 

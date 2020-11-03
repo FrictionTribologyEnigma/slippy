@@ -44,6 +44,8 @@ class RandomPerezSurface(_Surface):
         If True the surface profile is found on instantiation
     grid_spacing: float, optional (None)
         The distance between grid points on the surface
+    exact: {'psd', 'heights', 'best'}, optional ('best')
+
 
     Notes
     -----
@@ -91,7 +93,7 @@ class RandomPerezSurface(_Surface):
     def __init__(self, target_psd: np.ndarray,
                  height_distribution: typing.Union[scipy.stats.rv_continuous, typing.Sequence] = None,
                  accuracy: float = 1e-3, max_it: int = 100, min_speed: float = 1e-10,
-                 generate: bool = False, grid_spacing: float = None):
+                 generate: bool = False, grid_spacing: float = None, exact: str = 'best'):
 
         super().__init__(grid_spacing, None, None)
         self._target_psd = target_psd
@@ -107,6 +109,9 @@ class RandomPerezSurface(_Surface):
         self._accuracy = accuracy
         self._max_it = max_it
         self._min_speed = min_speed
+        if exact not in {'psd', 'heights', 'best'}:
+            raise ValueError("exact not recognised should be one of {'psd', 'heights', 'best'}")
+        self._exact = exact
         if generate:
             self.discretise()
 
@@ -225,6 +230,8 @@ class RandomPerezSurface(_Surface):
         height_guess = height_guess.reshape(power_spectrum.shape)
         fft_height_guess = np.fft.fft2(height_guess)
 
+        best = 'psd'
+
         while True:
             # Step 1: fix power spectrum by FFT filter
             # Zs = np.fft.ifft2(zh*power_spectrum/Ch)
@@ -260,8 +267,13 @@ class RandomPerezSurface(_Surface):
             if len(error['H']) > 2 and (error['H'][-2] - error['H'][-1]) < 0:
                 msg = 'Solution is diverging, solution failed to converge'
                 break
-            if error['H'][-1] < accuracy or (error['PS'][-1] < accuracy and error['PS0'][-1] < accuracy):
+            if error['H'][-1] < accuracy:
                 msg = ''
+                best = 'heights'
+                break
+            if error['PS'][-1] < accuracy and error['PS0'][-1] < accuracy:
+                msg = ''
+                best = 'psd'
                 break  # solution converged
 
         if msg:
@@ -270,7 +282,9 @@ class RandomPerezSurface(_Surface):
             else:
                 raise StopIteration(msg)
 
-        if error['PS'][-1] < accuracy and error['PS0'][-1] < accuracy:
+        exact = self._exact if self._exact != 'best' else best
+
+        if exact == 'psd':
             profile = psd_guess * sq_roughness + mean_height
         else:
             profile = height_guess * sq_roughness + mean_height

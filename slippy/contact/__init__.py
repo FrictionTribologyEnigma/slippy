@@ -115,8 +115,8 @@ from .lubricant import Lubricant
 from .lubrication_steps import IterSemiSystemLoad
 from .materials import Elastic, Rigid, rigid, elastic_influence_matrix
 from .models import ContactModel
-from .outputs import OutputRequest
-from .static_step import StaticNormalLoad, StaticNormalInterference, SurfaceDisplacement, SurfaceLoading
+from .outputs import OutputRequest, OutputReader, OutputSaver, read_output
+from .static_step import StaticStep
 # from .steps import InitialStep
 from .unified_reynolds_solver import UnifiedReynoldsSolver
 from .quasi_static_step import QuasiStaticStep
@@ -125,8 +125,7 @@ from .influence_matrix_utils import guess_loads_from_displacement, bccg, plan_co
 
 __all__ = ['Loads', 'Displacements', 'hertz_full', 'solve_hertz_line', 'solve_hertz_point', 'Lubricant',
            'lubricant_models', 'IterSemiSystemLoad', 'Elastic', 'Rigid', 'rigid', 'elastic_influence_matrix',
-           'ContactModel', 'OutputRequest',
-           'StaticNormalLoad', 'StaticNormalInterference', 'SurfaceDisplacement', 'SurfaceLoading',
-           'UnifiedReynoldsSolver', 'sub_models', 'QuasiStaticStep', 'sub_models',
+           'ContactModel', 'OutputRequest', 'OutputReader', 'OutputSaver', 'read_output',
+           'StaticStep', 'UnifiedReynoldsSolver', 'sub_models', 'QuasiStaticStep', 'sub_models',
            'guess_loads_from_displacement', 'bccg', 'plan_convolve'
            ]

@@ -599,7 +599,7 @@ try:
             if outer_it and (not changed) and upd < tol:
                 break
 
-        return x, failed
+        return x, bool(failed)
 except ImportError:
     _plan_cuda_convolve = None
     _cuda_bccg = None
@@ -849,7 +849,7 @@ try:
 
             if outer_it and (not changed) and upd < tol:
                 break
-        return x, failed
+        return x, bool(failed)
 
 except ImportError:
     _plan_fftw_convolve = None
@@ -987,6 +987,8 @@ def bccg(f: typing.Callable, b: np.ndarray, tol: float, max_it: int, x0: np.ndar
     --------
 
     """
+    if max_it is None:
+        max_it = x0.size
     if slippy.CUDA:
         return _cuda_bccg(f, b, tol, max_it, x0, min_pressure, max_pressure, k_inn)
     return _fftw_bccg(f, b, tol, max_it, x0, min_pressure, max_pressure, k_inn)
