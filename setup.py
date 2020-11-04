@@ -10,12 +10,8 @@ with open('README.rst') as readme_file:
 with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
-requirements = ['sympy',
-                'pytest',
-                'scikit-image',
-                'matplotlib',
-                'numpy',
-                'scipy', ]
+with open('requirements.txt') as req_file:
+    requirements = req_file.read().split('\n')[:-1]
 
 setup_requirements = ['pytest-runner', ]
 
@@ -41,7 +37,7 @@ setup(
     license="MIT license",
     long_description=readme + '\n\n' + history,
     include_package_data=True,
-    keywords='slippy',
+    keywords='tribology',
     name='slippy',
     packages=find_packages(include=['slippy', 'slippy.*']),
     setup_requires=setup_requirements,
