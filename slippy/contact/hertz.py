@@ -11,6 +11,7 @@ import scipy.integrate as integrate
 import scipy.optimize as optimize
 import scipy.special as special
 import sympy as sp
+from sympy.solvers import solve
 
 __all__ = ['hertz_full', 'solve_hertz_line', 'solve_hertz_point', 'HertzLineSolution', 'HertzPointSolution']
 
@@ -119,19 +120,19 @@ def solve_hertz_line(*, r_rel: float = None,
 
     if not der_none[0]:
         # max pressure given
-        _system[is_none] = max(sp.solvers.solve(_system['load'] * _system['e_star'] / np.pi / _system['r_rel'] -
-                                                max_pressure ** 2, _system[is_none]))
+        _system[is_none] = max(solve(_system['load'] * _system['e_star'] / np.pi / _system['r_rel'] -
+                                     max_pressure ** 2, _system[is_none]))
     elif not der_none[1]:
         # max_shear_stress given
-        _system[is_none] = max(sp.solvers.solve(0.3 ** 2 * _system['load'] * _system['e_star'] / np.pi /
-                                                _system['r_rel'] - max_shear_stress ** 2, _system[is_none]))
+        _system[is_none] = max(solve(0.3 ** 2 * _system['load'] * _system['e_star'] / np.pi /
+                                     _system['r_rel'] - max_shear_stress ** 2, _system[is_none]))
     elif not der_none[2]:
         raise NotImplementedError("Not implemented yet, try another stress")
         # max von mises stress given
     elif not der_none[3]:
         # contact width given
-        _system[is_none] = max(sp.solvers.solve(4 * _system['load'] * _system['r_rel'] / np.pi / _system['e_star'] -
-                                                contact_width ** 2, _system[is_none]))
+        _system[is_none] = max(solve(4 * _system['load'] * _system['r_rel'] / np.pi / _system['e_star'] -
+                                     contact_width ** 2, _system[is_none]))
     else:
         raise ValueError("Not enough parameters given!")
     _system[is_none] = float(_system[is_none])
@@ -156,9 +157,9 @@ def solve_hertz_line(*, r_rel: float = None,
                                     if j), None)]
 
             _system[prop_none] = sp.Symbol(prop_none)
-            _system[prop_none] = float(max(sp.solvers.solve((1 - _system['v1'] ** 2) / _system['e1'] +
-                                                            (1 - _system['v2'] ** 2) / _system['e2'] -
-                                                            1 / _system['e_star'], _system[prop_none])))
+            _system[prop_none] = float(max(solve((1 - _system['v1'] ** 2) / _system['e1'] +
+                                                 (1 - _system['v2'] ** 2) / _system['e2'] -
+                                                 1 / _system['e_star'], _system[prop_none])))
         else:
             raise ValueError("Not enough material properties set")
     # recursive call to fill in the rest of the dict
@@ -307,15 +308,13 @@ def solve_hertz_point(*, r_rel=None,
 
     if not der_none[0]:  # done
         # max pressure given
-        _system[is_none] = max(sp.solvers.solve(6 * _system['load'] * _system['e_star'] ** 2 / np.pi ** 3 /
-                                                _system['r_rel'] ** 2 - max_pressure ** 3,
-                                                _system[is_none]))
+        _system[is_none] = max(solve(6 * _system['load'] * _system['e_star'] ** 2 / np.pi ** 3 /
+                                     _system['r_rel'] ** 2 - max_pressure ** 3, _system[is_none]))
     elif not der_none[1]:  # done
         # max_shear_stress given
         # assuming that max shear stress is 0.46*p0 (as in v=0.3)
-        _system[is_none] = max(sp.solvers.solve(0.46 * ((6 * _system['load'] * _system['e_star'] ** 2 / np.pi ** 3 /
-                                                         _system['r_rel'] ** 2) ** (1 / 3)) - max_shear_stress,
-                                                _system[is_none]))
+        _system[is_none] = max(solve(0.46 * ((6 * _system['load'] * _system['e_star'] ** 2 / np.pi ** 3 /
+                                              _system['r_rel'] ** 2) ** (1 / 3)) - max_shear_stress, _system[is_none]))
 
     elif not der_none[2]:  # TODO
         # max von mises stress given
@@ -323,40 +322,38 @@ def solve_hertz_point(*, r_rel=None,
 
     elif not der_none[3]:  # done
         # contact radius given
-        _system[is_none] = max(sp.solvers.solve(3 * _system['load'] * _system['r_rel'] / 4 / _system['e_star'] -
-                                                contact_radius ** 3, _system[is_none]))
+        _system[is_none] = max(solve(3 * _system['load'] * _system['r_rel'] / 4 / _system['e_star'] -
+                                     contact_radius ** 3, _system[is_none]))
     elif not der_none[4]:  # done
         # total deflection given
-        _system[is_none] = max(sp.solvers.solve(9 * _system['load'] ** 2 / 16 / _system['r_rel'] /
-                                                _system['e_star'] ** 2 - total_displacement ** 3, _system[is_none]))
+        _system[is_none] = max(solve(9 * _system['load'] ** 2 / 16 / _system['r_rel'] /
+                                     _system['e_star'] ** 2 - total_displacement ** 3, _system[is_none]))
     elif not der_none[5]:  # done
         # max tensile stress given
         if is_none != 'e_star':
-            _system[is_none] = max(sp.solvers.solve((1 - 2 * _system['v1']) *
-                                                    ((6 * _system['load'] * _system['e_star'] ** 2 /
-                                                      np.pi ** 3 / _system['r_rel'] ** 2) ** (1 / 3)) / 3 -
-                                                    max_tensile_stress, _system[is_none]))
+            _system[is_none] = max(solve((1 - 2 * _system['v1']) * ((6 * _system['load'] * _system['e_star'] ** 2 /
+                                                                     np.pi ** 3 / _system['r_rel'] ** 2) ** (
+                                                                            1 / 3)) / 3 -
+                                         max_tensile_stress, _system[is_none]))
         elif sum(mats_none) == 2:
             is_none = None  # To stop the materials being solved for next
             del _system['e_star']
             if v1 is None and v2 is None:
                 v = sp.Symbol('v')
-                v = max(sp.solvers.solve((1 - 2 * v) * ((6 * _system['load'] *
-                                                         (1 / ((1 - v ** 2) / _system['e1'] +
-                                                               (1 - v ** 2) / _system['e2'])) ** 2 /
-                                                         np.pi ** 3 / _system['r_rel'] ** 2) ** (1 / 3)) / 3 -
-                                         max_tensile_stress, v))
+                v = max(solve((1 - 2 * v) * ((6 * _system['load'] * (1 / ((1 - v ** 2) / _system['e1'] +
+                                                                          (1 - v ** 2) / _system[
+                                                                              'e2'])) ** 2 / np.pi ** 3 /
+                                              _system['r_rel'] ** 2) ** (1 / 3)) / 3 - max_tensile_stress, v))
                 v = float(v)
                 _system['v1'] = v
                 _system['v2'] = v
             elif e1 is None and e2 is None:
                 e = sp.Symbol('e')
-                e = max(sp.solvers.solve((1 - 2 * _system['v1']) *
-                                         ((6 * _system['load'] *
-                                           (1 / ((1 - _system['v1'] ** 2) / e +
-                                                 (1 - _system['v2'] ** 2) / e)) ** 2 /
-                                           np.pi ** 3 / _system['r_rel'] ** 2) ** (1 / 3)) / 3 -
-                                         max_tensile_stress, _system[is_none]))
+                e = max(solve((1 - 2 * _system['v1']) * ((6 * _system['load'] * (1 / ((1 - _system['v1'] ** 2) / e +
+                                                                                      (1 - _system[
+                                                                                          'v2'] ** 2) / e)) ** 2 /
+                                                          np.pi ** 3 / _system['r_rel'] ** 2) ** (1 / 3)) / 3 -
+                              max_tensile_stress, _system[is_none]))
                 e = float(e)
                 _system['e1'] = e
                 _system['e2'] = e
@@ -403,9 +400,9 @@ def solve_hertz_point(*, r_rel=None,
                                     if j), None)]
 
             _system[prop_none] = sp.Symbol(prop_none)
-            _system[prop_none] = max(sp.solvers.solve((1 - _system['v1'] ** 2) / _system['e1'] +
-                                                      (1 - _system['v2'] ** 2) / _system['e2'] -
-                                                      1 / _system['e_star'], _system[prop_none]))
+            _system[prop_none] = max(solve((1 - _system['v1'] ** 2) / _system['e1'] +
+                                           (1 - _system['v2'] ** 2) / _system['e2'] -
+                                           1 / _system['e_star'], _system[prop_none]))
         else:
             raise ValueError("Not enough material properties set")
     # recursive call to fill in the rest of the dict
@@ -832,7 +829,7 @@ def _displacement_elliptical(a, b, p0, alpha, beta, v, modulus):
             l_johnson = np.pi * p0 * b * special.ellipk(e)
             m_johnson = np.pi * p0 * b / e ** 2 / a ** 2 * (special.ellipk(e) - special.ellipe(e))
             n_johnson = np.pi * p0 * b / a ** 2 / e ** 2 * (
-                    (a ** 2 / b ** 2) * special.ellipe(e) - special.ellipk(e))
+                (a ** 2 / b ** 2) * special.ellipe(e) - special.ellipk(e))
 
         if transform:
             x, y = _transform_axes(x, y, [alpha, beta][transform - 1])
