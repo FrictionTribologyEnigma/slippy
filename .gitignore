@@ -109,3 +109,4 @@ ENV/
 
 # slippy results
 *.sdb
+*.sar

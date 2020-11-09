@@ -1,5 +1,5 @@
 import typing
-
+from numba import njit
 import numpy as np
 from scipy.linalg.lapack import dgtsv
 
@@ -97,7 +97,6 @@ class UnifiedReynoldsSolver(_NonDimensionalReynoldSolverABC):
                  hertzian_half_width: float,
                  dimentional_viscosity: float,
                  dimentional_density: float,
-                 rolling_speed: float = None,
                  sweep_direction: str = 'backward'):
         # these automatically calculate the non dimentional versions
         self.grid_spacing = grid_spacing
@@ -109,7 +108,7 @@ class UnifiedReynoldsSolver(_NonDimensionalReynoldSolverABC):
         self.hertzian_half_width = hertzian_half_width
         self.dimentional_viscosity = dimentional_viscosity
         self.dimentional_density = dimentional_density
-        self.rolling_speed = rolling_speed
+        self.rolling_speed = None
 
         # get first 3 components of influence matrix
         def stencil(x, y):
@@ -210,7 +209,7 @@ class UnifiedReynoldsSolver(_NonDimensionalReynoldSolverABC):
         previous_state = set(self.provides)
         return previous_state
 
-    def solve(self, previous_state: dict) -> dict:
+    def solve(self, previous_state: dict, max_pressure: float) -> dict:
         # rumble
         nd_gap = previous_state['nd_gap']
         width, length = nd_gap.shape
@@ -241,49 +240,23 @@ class UnifiedReynoldsSolver(_NonDimensionalReynoldSolverABC):
             else:
                 raise ValueError("Row step must be -1 or 1")
 
+        ak00 = self.ak00
+        ak10 = self.ak10
+        ak20 = self.ak20
+
+        nd_density = previous_state['nd_density']
+        previous_nd_density = previous_state['previous_nd_density']
+        previous_nd_gap = previous_state['previous_nd_gap']
+
         a_all, c_all = np.zeros_like(epsilon[:-1, 0]), np.zeros_like(epsilon[:-1, 0])
         b_all, f_all = np.ones_like(epsilon[:, 0]), np.zeros_like(epsilon[:, 0])
         # solve line by line
         for row in range(self._row_order[0], self._row_order[1], self._step):
-            d1 = 0.5 * (epsilon[1:-1, row] + epsilon[0:-2, row])
-            d2 = 0.5 * (epsilon[1:-1, row] + epsilon[2:, row])
-            d4 = 0.5 * (epsilon[1:-1, row] + epsilon[1:-1, row - 1])
-            d5 = 0.5 * (epsilon[1:-1, row] + epsilon[1:-1, row + 1])
-            d3 = d1 + d2 + d4 + d5
+            a_all, b_all, c_all, f_all = _solve_row(epsilon, row, pressure, recip_dx_squared_rho, recip_dx, recip_dt,
+                                                    a_all, b_all, c_all, f_all, ak00, ak10, ak20, nd_gap, nd_density,
+                                                    previous_nd_density, previous_nd_gap)
 
-            q1 = self.ak10 * pressure[0:-2, row] + self.ak00 * pressure[1:-1, row] + self.ak10 * pressure[2:, row]
-            q2 = self.ak00 * pressure[0:-2, row] + self.ak10 * pressure[1:-1, row] + self.ak20 * pressure[2:, row]
-
-            # Pressure flow terms
-            a_p = d1 * recip_dx_squared_rho[1:-1, row]
-            b_p = -d3 * recip_dx_squared_rho[1:-1, row]
-            c_p = d2 * recip_dx_squared_rho[1:-1, row]
-            f_p = -(d5 * pressure[1:-1, row + 1] + d4 * pressure[1:-1, row - 1]) * recip_dx_squared_rho[1:-1, row]
-
-            # Wedge flow terms
-            a_w = (self.ak00 - self.ak10) * recip_dx
-            b_w = (self.ak10 - self.ak00) * recip_dx
-            c_w = (self.ak20 - self.ak10) * recip_dx
-            f_w = (((nd_gap[1:-1, row] - q1) - (nd_gap[0:-2, row] - q2)) * recip_dx +
-                   nd_gap[1:-1, row] * (1 - (previous_state['nd_density'][0:-2, row] /  #
-                                             previous_state['nd_density'][1:-1, row])) * recip_dx)  # +
-            # recip_dx * (nd_gap[1:-1, row] - nd_gap[0:-2, row]))  # these two gaps were roughness in fortran code
-
-            # squeeze flow terms
-            a_s = -1 * self.ak10 * recip_dt
-            b_s = -1 * self.ak00 * recip_dt
-            c_s = -1 * self.ak10 * recip_dt
-            f_s = ((nd_gap[1:-1, row] - q1) - (previous_state['previous_nd_density'][1: -1, row] /
-                                               previous_state['nd_density'][1:-1, row]) *
-                   previous_state['previous_nd_gap'][1: -1, row]) * recip_dt
-
-            # add and apply boundary conditions here (a[-1] = c[0] = f[0 and -1] = 0, b[0 and -1] = 1)
-            a_all[:-1] = a_p + a_s + a_w
-            b_all[1:-1] = b_p + b_s + b_w
-            c_all[1:] = c_p + c_s + c_w
-            f_all[1:-1] = f_p + f_s + f_w
-
-            p1d = np.clip(thomas_tdma(a_all, b_all, c_all, f_all), 0, np.inf)
+            p1d = np.clip(thomas_tdma(a_all, b_all, c_all, f_all), 0, max_pressure)
 
             pressure[1:-1, row] = p1d[1:-1]
 
@@ -293,7 +266,7 @@ class UnifiedReynoldsSolver(_NonDimensionalReynoldSolverABC):
 
     def _get_epsilon(self, previous_state: dict) -> np.ndarray:
         nd_gap = previous_state['nd_gap']
-        epsilon = previous_state['nd_density'] * nd_gap ** 3 / previous_state['nd_viscosity'] / self.lambda_bar
+        epsilon = previous_state['nd_density'] * nd_gap ** 3 / previous_state['nd_viscosity'] * (1 / self.lambda_bar)
         epsilon[nd_gap < self.dimensionalise_gap(0.47e-9, True)] = 0
         return epsilon
 
@@ -323,6 +296,48 @@ class UnifiedReynoldsSolver(_NonDimensionalReynoldSolverABC):
         return nd_length * self.hertzian_half_width
 
 
+@njit
+def _solve_row(epsilon, row, pressure, recip_dx_squared_rho, recip_dx, recip_dt, a_all, b_all, c_all, f_all,
+               ak00, ak10, ak20, nd_gap, nd_density, previous_nd_density, previous_nd_gap):
+    d1 = 0.5 * (epsilon[1:-1, row] + epsilon[0:-2, row])
+    d2 = 0.5 * (epsilon[1:-1, row] + epsilon[2:, row])
+    d4 = 0.5 * (epsilon[1:-1, row] + epsilon[1:-1, row - 1])
+    d5 = 0.5 * (epsilon[1:-1, row] + epsilon[1:-1, row + 1])
+    d3 = d1 + d2 + d4 + d5
+
+    q1 = ak10 * pressure[0:-2, row] + ak00 * pressure[1:-1, row] + ak10 * pressure[2:, row]
+    q2 = ak00 * pressure[0:-2, row] + ak10 * pressure[1:-1, row] + ak20 * pressure[2:, row]
+
+    # Pressure flow terms
+    a_p = d1 * recip_dx_squared_rho[1:-1, row]
+    b_p = -d3 * recip_dx_squared_rho[1:-1, row]
+    c_p = d2 * recip_dx_squared_rho[1:-1, row]
+    f_p = -(d5 * pressure[1:-1, row + 1] + d4 * pressure[1:-1, row - 1]) * recip_dx_squared_rho[1:-1, row]
+
+    # Wedge flow terms
+    a_w = (ak00 - ak10) * recip_dx
+    b_w = (ak10 - ak00) * recip_dx
+    c_w = (ak20 - ak10) * recip_dx
+    f_w = (((nd_gap[1:-1, row] - q1) - (nd_gap[0:-2, row] - q2)) * recip_dx +
+           nd_gap[1:-1, row] * (1 - (nd_density[0:-2, row] / nd_density[1:-1, row])) * recip_dx)  # +
+    # recip_dx * (nd_gap[1:-1, row] - nd_gap[0:-2, row]))  # these two gaps were roughness in fortran code
+
+    # squeeze flow terms
+    a_s = -1 * ak10 * recip_dt
+    b_s = -1 * ak00 * recip_dt
+    c_s = -1 * ak10 * recip_dt
+    f_s = ((nd_gap[1:-1, row] - q1) - (previous_nd_density[1: -1, row] / nd_density[1:-1, row]) *
+           previous_nd_gap[1: -1, row]) * recip_dt
+
+    # add and apply boundary conditions here (a[-1] = c[0] = f[0 and -1] = 0, b[0 and -1] = 1)
+    a_all[:-1] = a_p + a_s + a_w
+    b_all[1:-1] = b_p + b_s + b_w
+    c_all[1:] = c_p + c_s + c_w
+    f_all[1:-1] = f_p + f_s + f_w
+
+    return a_all, b_all, c_all, f_all
+
+
 def thomas_tdma(lower_diagonal, main_diagonal, upper_diagonal, right_hand_side):
     """The thomas algorithm (TDMA) solution for tri-diagonal matrix inversion
 
@@ -349,42 +364,3 @@ def thomas_tdma(lower_diagonal, main_diagonal, upper_diagonal, right_hand_side):
     """
     _, _, _, x, _ = dgtsv(lower_diagonal, main_diagonal, upper_diagonal, right_hand_side)
     return x
-
-
-if __name__ == '__main__':
-    import slippy.surface as S
-    import slippy.contact as C
-    import numpy as np
-    import matplotlib.pyplot as plt
-
-    def plot_surf(var):
-        x = range(var.shape[0])
-        y = range(var.shape[1])
-        X, Y = np.meshgrid(x, y)
-        fig = plt.figure()
-        ax = fig.gca(projection='3d')
-        ax.plot_trisurf(X.flatten(), Y.flatten(), var.flatten(), cmap=plt.cm.viridis, linewidth=0.2)
-        plt.show()
-
-    radius = 0.01905
-    hertz_result = C.hertz_full([radius, radius], [float('inf'), float('inf')], [200e9, 200e9], [0.3, 0.3], 800)
-    ph = hertz_result['max_pressure']
-    a = hertz_result['contact_radii'][0]
-    ball = S.RoundSurface((radius,) * 3, shape=(65, 65), extent=(a * 4, a * 4), generate=True)
-    flat = S.FlatSurface()
-    steel = C.Elastic('steel', {'E': 200e9, 'v': 0.3})
-    ball.material = steel
-    flat.material = steel
-    oil = C.Lubricant('oil')
-    oil.add_sub_model('nd_viscosity', C.nd_roelands(0.0246, 1 / 5.1e-9, ph, 0.68))
-    oil.add_sub_model('nd_density', C.nd_dowson_higginson(ph))
-    my_model = C.ContactModel('lubrication_test', ball, flat, oil)
-    reynolds = C.UnifiedReynoldsSolver(0, ball.grid_spacing, hertz_result['max_pressure'],
-                                       1, hertz_result['contact_radii'][0], 0.0246, 872, 0.1)
-    X, Y = ball.get_points_from_extent()
-    X, Y = X + ball._total_shift[0], Y + ball._total_shift[1]
-    hertzian_pressure_dist = hertz_result['pressure_f'](X, Y)
-    step = C.IterSemiSystemLoad('main', reynolds, 800, initial_guess=[hertz_result['total_deflection'],
-                                                                      hertzian_pressure_dist])
-    my_model.add_step(step)
-    state = my_model.solve()

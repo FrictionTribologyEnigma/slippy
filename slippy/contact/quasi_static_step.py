@@ -4,11 +4,10 @@ import typing
 import warnings
 
 from scipy.optimize import root_scalar
-from scipy.interpolate import interp1d
 
 from .steps import _ModelStep
 from ._model_utils import get_gap_from_model
-from ._step_utils import HeightOptimisationFunction
+from ._step_utils import HeightOptimisationFunction, make_interpolation_func
 
 __all__ = ['QuasiStaticStep']
 
@@ -153,8 +152,8 @@ class QuasiStaticStep(_ModelStep):
                 raise ValueError("Can not have no time dependence and sliding contact")
             off_set_x = [off_set_x] * 2 if isinstance(off_set_x, Number) else off_set_x
             off_set_y = [off_set_y] * 2 if isinstance(off_set_y, Number) else off_set_y
-            off_set_x_func = _make_interpolation_func(off_set_x, movement_interpolation_mode, 'relative_off_set_x')
-            off_set_y_func = _make_interpolation_func(off_set_y, movement_interpolation_mode, 'relative_off_set_y')
+            off_set_x_func = make_interpolation_func(off_set_x, movement_interpolation_mode, 'relative_off_set_x')
+            off_set_y_func = make_interpolation_func(off_set_y, movement_interpolation_mode, 'relative_off_set_y')
             self._off_set_upd = lambda time: np.array([off_set_x_func(time), off_set_y_func(time)])
             self.update.add('off_set')
             self.off_set = None
@@ -175,8 +174,8 @@ class QuasiStaticStep(_ModelStep):
                 self.normal_load = normal_load
             else:
                 self.normal_load = None
-                self._normal_load_upd = _make_interpolation_func(normal_load, movement_interpolation_mode,
-                                                                 'normal_load')
+                self._normal_load_upd = make_interpolation_func(normal_load, movement_interpolation_mode,
+                                                                'normal_load')
                 self.update.add('normal_load')
             self.load_controlled = True
         else:
@@ -187,8 +186,8 @@ class QuasiStaticStep(_ModelStep):
                 self.interference = interference
             else:
                 self.interference = None
-                self._interference_upd = _make_interpolation_func(interference, movement_interpolation_mode,
-                                                                  'interference')
+                self._interference_upd = make_interpolation_func(interference, movement_interpolation_mode,
+                                                                 'interference')
                 self.update.add('interference')
             self.load_controlled = False
 
@@ -244,9 +243,9 @@ class QuasiStaticStep(_ModelStep):
                                          mode=self.profile_interpolation_mode, periodic=self._periodic_profile)
                 self._just_touching_gap = just_touching_gap
                 self._upper = None
-                current_state = dict(just_touching_gap=just_touching_gap, surface_1_points=surface_1_points,
-                                     surface_2_points=surface_2_points, off_set=self.off_set,
-                                     time_step=self.time_step)
+            current_state = dict(just_touching_gap=just_touching_gap, surface_1_points=surface_1_points,
+                                 surface_2_points=surface_2_points, off_set=self.off_set,
+                                 time_step=self.time_step)
             if i == 0:
                 current_state['new_step'] = True
             else:
@@ -364,35 +363,3 @@ class QuasiStaticStep(_ModelStep):
 
     def __repr__(self):
         return f'{self.name}: QuasiStaticStep'
-
-
-def _make_interpolation_func(values, kind, name):
-    """
-
-    Parameters
-    ----------
-    values: sequence of floats
-        Either [start, finish] or [position, time] where position and time are equal length sequences of floats.
-
-    Returns
-    -------
-    interpolation_function: callable
-    """
-    try:
-        values = np.asarray(values, dtype=float)
-        assert not np.any(np.isnan(values))
-    except ValueError:
-        raise ValueError(f"Could not convert values for {name} to an valid format")
-    except AssertionError:
-        raise ValueError(f"Could not convert values for {name} to an valid format")
-
-    if values.size == 2:
-        position = values
-        time = np.array([0, 1])
-    elif values.shape[0] == 2:
-        position = values[0]
-        time = values[1]
-    else:
-        raise ValueError(f"Values for {name} are an invalid shape, should be 2 values (start, finish) or two equally "
-                         f"sized sequences of values (position, time: shape 2 by n). Input shape was {values.shape}")
-    return interp1d(time, position, kind, bounds_error=True)
