@@ -15,7 +15,7 @@ Types of Contributions
 Report Bugs
 ~~~~~~~~~~~
 
-Report bugs at https://github.com/mikeWShef/slippy/issues.
+Report bugs at https://github.com/FrictionTribologyEnigma/SlipPY/issues.
 
 If you are reporting a bug, please include:
 
@@ -33,20 +33,22 @@ Implement Features
 ~~~~~~~~~~~~~~~~~~
 
 Look through the GitHub issues for features. Anything tagged with "enhancement"
-and "help wanted" is open to whoever wants to implement it.
+and "help wanted" is open to whoever wants to implement it. Alternatively if you have
+a working code example of a feature you would like added please file an issue with
+the code attached.
 
 Write Documentation
 ~~~~~~~~~~~~~~~~~~~
 
 SlipPY could always use more documentation, whether as part of the
 official SlipPY docs, in docstrings, or even on the web in blog posts,
-articles, and such. We also have a set of examples any contribution to 
+articles, and such. We also have a set of examples any contribution to
 these would be greatly appreciated.
 
 Submit Feedback
 ~~~~~~~~~~~~~~~
 
-The best way to send feedback is to file an issue at https://github.com/mikeWShef/slippy/issues.
+The best way to send feedback is to file an issue at https://github.com/FrictionTribologyEnigma/SlipPY/issues.
 
 If you are proposing a feature:
 
@@ -54,6 +56,7 @@ If you are proposing a feature:
 * Keep the scope as narrow as possible, to make it easier to implement.
 * Remember that this is a volunteer-driven project, and that contributions
   are welcome :)
+* A working example of the functionality in any language will help
 
 Get Started!
 ------------
@@ -77,7 +80,7 @@ Ready to contribute? Here's how to set up `slippy` for local development.
 
    Now you can make your changes locally.
 
-5. When you're done making changes, check that your changes pass flake8 and the
+5. When you're done making changes, check that your changes pass flake8 (code style checks) and the
    tests, including testing other Python versions with tox::
 
     $ flake8 slippy tests
@@ -99,21 +102,14 @@ Pull Request Guidelines
 
 Before you submit a pull request, check that it meets these guidelines:
 
-1. The pull request should include tests.
+1. The pull request should include tests of the functionality you added or
+   the bug which was fixed, this will ensure that it is not accidentally
+   broken in future releases.
 2. If the pull request adds functionality, the docs should be updated. Put
    your new functionality into a function with a docstring, and add the
    feature to the list in README.rst.
-3. The pull request should work for Python 3.7 and 3.8, and for PyPy. Check
-   https://travis-ci.com/FrictionTribologyEnigma/slippy/pull_requests
-   and make sure that the tests pass for all supported Python versions.
-
-Tips
-----
-
-To run a subset of tests::
-
-$ pytest tests.test_slippy
-
+3. Flake8 and pytest tests all pass, please run tests locally to reduce the
+   load/ cost of the automated testing service.
 
 Deploying
 ---------

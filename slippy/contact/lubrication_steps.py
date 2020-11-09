@@ -2,65 +2,100 @@
 Model steps for lubricated contacts
 """
 import typing
-from collections import namedtuple
+import warnings
 from collections.abc import Sequence
 from numbers import Number
 
 import numpy as np
+import slippy
 
 from slippy.abcs import _NonDimensionalReynoldSolverABC
 from ._material_utils import Loads, Displacements
 from ._model_utils import get_gap_from_model
-from ._step_utils import OffSetOptions, solve_normal_loading
+from ._step_utils import make_interpolation_func, solve_normal_loading
+from .influence_matrix_utils import plan_convolve
 from .steps import _ModelStep
+from .materials import _IMMaterial
 
-__all__ = ['IterSemiSystemLoad']
-
-IterSemiSystemOptions = namedtuple('IterSemiSystemOptions', ['pressure_it', 'pressure_rtol', 'load_it', 'load_rtol',
-                                                             'relaxation_factor'])
+__all__ = ['IterSemiSystem']
 
 
-class IterSemiSystemLoad(_ModelStep):
+class IterSemiSystem(_ModelStep):
     """
     Parameters
     ----------
     step_name: str
-        The name of the step, used for outputs
+        An identifying name for the step used for errors and outputs
     reynolds_solver: _NonDimensionalReynoldSolverABC
-        A reynolds solver object that will be used to find pressures
-    load_z: float
-        The normal load on the contact
-    relative_off_set: tuple, optional (None)
-        The relative off set between the surface origins in the x and y directions, relative to the last step, only one
-        off set method can be used
-    absolute_off_set: tuple, optional (None)
-        The absolute off set between the surface origins in the x and y directions, only one off set method can be used
-    max_pressure_it: int, optional (100)
+        A reynolds solver object which will be used to solve for pressures
+    rolling_speed: float or Sequence of float, optional (None)
+        The mean speed of the surfaces (u1+u2)/2 parameters can be:
+        - A constant (float) value, indicating a constant rolling speed.
+        - A two element sequence of floats, indicating the the start and finish rolling speed, if this is used, the
+          movement_interpolation_mode will be used to generate intermediate values
+        - A 2 by n array of n rolling speed and n time values normalised to a 0-1 scale. array[0] should be
+          position values and array[1] should be time values, time values must be between 0 and 1. The
+          movement_interpolation_mode will be used to generate intermediate values
+    number_of_steps: int
+        The number of sub steps the problem will be split into, together with the time_period this controls the duration
+        of the time steps used
+    no_time: bool, optional (False)
+        Set to true if there is no time dependence and the time steps can be solved in any order (no permanent changes
+        between steps such as plastic deformation or heat generation), if True the model will be solved more efficiently
+    time_period: float, optional (1.0)
+        The total time period of this model step, used for solving sub-models and writing outputs
+    off_set_x, off_set_y: float or Sequence of float, optional (0.0)
+        The off set between the surfaces in the x and y directions, this can be a relative off set or an absolute off
+        set, controlled by the relative_loading parameter:
+        - A constant (float) value, indicating a constant offset between the surfaces (no relative movement of profiles)
+        - A two element sequence of floats, indicating the the start and finish offsets, if this is used, the
+          movement_interpolation_mode will be used to generate intermediate values
+        - A 2 by n array of n absolute position values and n time values normalised to a 0-1 scale. array[0] should be
+          position values and array[1] should be time values, time values must be between 0 and 1. The
+          movement_interpolation_mode will be used to generate intermediate values
+    interference, normal_load: float or Sequence of float, optional (None)
+        The interference and normal load between the surfaces, only one of these can be set (the other will be solved
+        for) setting neither keeps the interference as it is at the start of this model step. As above for the off sets,
+        either of these parameters can be:
+        - A constant (float) value, indicating a constant load/ interference between the surfaces.
+        - A two element sequence of floats, indicating the the start and finish load. interference, if this is used, the
+          movement_interpolation_mode will be used to generate intermediate values
+        - A 2 by n array of n absolute position values and n time values normalised to a 0-1 scale. array[0] should be
+          position values and array[1] should be time values, time values must be between 0 and 1. The
+          movement_interpolation_mode will be used to generate intermediate values
+    relative_loading: bool, optional (False)
+        If True the load or displacement and off set will be applied relative to the value at the start of the step,
+        otherwise the absolute value will be used. eg, if the previous step ended with a load of 10N and this step ramps
+        from 0 to 10N setting relative_loading to True will ramp the total load form 10 to 20N over this step.
+    movement_interpolation_mode: str or int, optional ('linear')
+        Any valid input to scipy.interpolate.interp1d as the 'kind' parameter, using 'nearest', 'previous' or 'next'
+        will cause a warning. This parameter controls how the offset and loading is interpolated over the step
+    profile_interpolation_mode: {'nearest', 'linear'}, optional ('nearest')
+        Used to generate the grid points for the second surface at the location of the grid points for the first
+        surface, nearest ensures compatibility with sub models which change the profile, if the grid spacings of the
+        surfaces match
+    periodic_geometry: bool, optional (False)
+        If True the surface profile will warp when applying the off set between the surfaces
+    periodic_axes: tuple, optional ((False, False))
+        For each True value the corresponding axis will be solved by circular convolution, meaning the result is
+        periodic in that direction
+    max_it_pressure: int, optional (100)
         The maximum number of iterations in the fluid pressure calculation loop
-    pressure_rtol: float, optional (1e-7)
+    rtol_pressure: float, optional (1e-7)
         The relative tolerance for the fluid pressure calculation loop
-    max_interference_it: int, optional (100)
+    max_it_interference: int, optional (100)
         The maximum number of iterations in the loop that finds the interference between the surfaces
-    load_rtol: float, optional (1e-7)
+    rtol_interference: float, optional (1e-7)
         The relative tolerance on the total load (integral of the pressure solution minus the applied load)
-    interpolation_mode: str, optional ('nearest')
-        The interpolation mode used to find the points on the second surface, only used if an off set is applied between
-        the surfaces or if they have incompatible grid_spacings
-    periodic: bool, optional (False)
-        If true the surfaces are treated as periodic for the off set application, note this has no effect on the
-        solver. To apply periodicity to the solver, this should be specified in the material options and the reynolds
-        solver object.
-    material_options: list, optional (None)
-        a list of material options dicts which will be passed to the materials displacement_from_surface_loading method
-        the first item in the list will be passed to the first material the second item will be passed to the second
-        material. If no options are specified the default for the material is used.
-    initial_guess: {callable, 'previous', list}, optional (None)
+    initial_guess: {callable, 'previous', list}, optional ('previous')
         The initial guess for the interference, and/ or pressure profile between the surfaces, any callable will be
         called with the contact model and the undeformed nd_gap as positional arguments, it must return the interference
         and the pressure profile. 'previous' will use the result(s) from the previous step, if results are not found the
         interference and pressure profile will be set to 0. Can also be a 2 element list, the first element being the
         interference and the second being the pressure profile as an array, if this is the wrong shape zeros wil be
         used.
+    no_update_warning: bool, optional (True)
+        Change to False to suppress warning given when no movement or loading changes are specified
 
     Attributes
     ----------
@@ -83,48 +118,132 @@ class IterSemiSystemLoad(_ModelStep):
     _reynolds: typing.Optional[_NonDimensionalReynoldSolverABC] = None
     initial_guess: typing.Optional[typing.Union[typing.Callable, list, str]]
 
-    def __init__(self, step_name: str, reynolds_solver: _NonDimensionalReynoldSolverABC, load_z: float,
-                 relative_off_set: tuple = None, absolute_off_set: typing.Optional[tuple] = None,
-                 max_pressure_it: int = 100, pressure_rtol: float = 1e-5,
-                 max_interference_it: int = 3000, load_rtol: float = 1e-3,
-                 relaxation_factor: float = 0.05,
-                 interpolation_mode: str = 'nearest', periodic: bool = False,
-                 material_options: list = None,
-                 initial_guess: typing.Union[typing.Callable, list, str] = None):
+    def __init__(self, step_name: str, reynolds_solver: _NonDimensionalReynoldSolverABC,
+                 rolling_speed: typing.Union[float, typing.Sequence[float]],
+                 number_of_steps: int = 1,
+                 no_time: bool = False, time_period: float = 1.0,
+                 off_set_x: typing.Union[float, typing.Sequence[float]] = 0.0,
+                 off_set_y: typing.Union[float, typing.Sequence[float]] = 0.0,
+                 interference: typing.Union[float, typing.Sequence[float]] = None,
+                 normal_load: typing.Union[float, typing.Sequence[float]] = None,
+                 relative_loading: bool = False,
+                 movement_interpolation_mode: str = 'linear',
+                 profile_interpolation_mode: str = 'nearest',
+                 periodic_geometry: bool = False, periodic_axes: tuple = (False, False),
+                 max_it_pressure: int = 5000, rtol_pressure: float = 2e-6,
+                 max_it_interference: int = 5000,
+                 rtol_interference: float = 1e-4,
+                 relaxation_factor: float = 0.1,
+                 initial_guess: typing.Union[typing.Callable, str, typing.Sequence] = 'previous',
+                 no_update_warning: bool = True):
 
-        self.adjust_height_every_step = True
-        self.initial_guess = initial_guess
+        self._adjust_height_every_step = True
+        self._initial_guess = initial_guess
+        self._no_time = no_time
+        self.total_time = time_period
+        self._relative_loading = relative_loading
+        self.profile_interpolation_mode = profile_interpolation_mode
+        self._periodic_profile = periodic_geometry
+        self._periodic_axes = periodic_axes
 
-        self.load = load_z
+        self._max_it_pressure = max_it_pressure
+        self._max_it_interference = max_it_interference
+        self._rtol_pressure = rtol_pressure
+        self._rtol_interference = rtol_interference
+        self._max_pressure = np.inf
+
         self.reynolds = reynolds_solver
-
-        self._material_options = [{}, {}] or material_options
-
-        if relative_off_set is None:
-            if absolute_off_set is None:
-                off_set = (0, 0)
-                abs_off_set = False
-            else:
-                off_set = absolute_off_set
-                abs_off_set = True
-        else:
-            if absolute_off_set is not None:
-                raise ValueError("Only one mode of off set can be specified, both the absolute and relative off set "
-                                 "were given")
-            off_set = relative_off_set
-            abs_off_set = False
 
         if relaxation_factor <= 0 or relaxation_factor > 1:
             raise ValueError("Relaxation factor must be greater than 0 and less than or equal to 1")
+        self._relaxation_factor = relaxation_factor
 
-        self._off_set_options = OffSetOptions(off_set=off_set, abs_off_set=abs_off_set,
-                                              periodic=periodic, interpolation_mode=interpolation_mode)
+        self.time_step = time_period / number_of_steps
+        self.number_of_steps = number_of_steps
 
-        self._solver_options = IterSemiSystemOptions(pressure_it=max_pressure_it, pressure_rtol=pressure_rtol,
-                                                     load_it=max_interference_it, load_rtol=load_rtol,
-                                                     relaxation_factor=relaxation_factor)
+        self.update = set()
 
-        super().__init__(step_name)
+        if not isinstance(off_set_x, Number) or not isinstance(off_set_y, Number):
+            if no_time:
+                raise ValueError("Can not have no time dependence and sliding contact")
+            off_set_x = [off_set_x] * 2 if isinstance(off_set_x, Number) else off_set_x
+            off_set_y = [off_set_y] * 2 if isinstance(off_set_y, Number) else off_set_y
+            off_set_x_func = make_interpolation_func(off_set_x, movement_interpolation_mode, 'relative_off_set_x')
+            off_set_y_func = make_interpolation_func(off_set_y, movement_interpolation_mode, 'relative_off_set_y')
+            self._off_set_upd = lambda time: np.array([off_set_x_func(time), off_set_y_func(time)])
+            self.update.add('off_set')
+            self.off_set = None
+        else:
+            self.off_set = np.array([off_set_x, off_set_y])
+
+        if normal_load is not None and interference is not None:
+            raise ValueError("Both normal_load and interference are set, only one of these can be set")
+        if normal_load is None and interference is None:
+            if relative_loading:
+                interference = 0
+            else:
+                raise ValueError("Cannot have no set load or interference and not relative loading, set either the"
+                                 "normal load, normal interference or change relative_loading to True")
+
+        if isinstance(rolling_speed, Number):
+            self.rolling_speed = rolling_speed
+        else:
+            self.rolling_speed = None
+            self._rolling_speed_upd = make_interpolation_func(rolling_speed, movement_interpolation_mode,
+                                                              'rolling_speed')
+            self.update.add('rolling_speed')
+
+        if normal_load is not None:
+            if isinstance(normal_load, Number):
+                self.normal_load = normal_load
+            else:
+                self.normal_load = None
+                self._normal_load_upd = make_interpolation_func(normal_load, movement_interpolation_mode,
+                                                                'normal_load')
+                self.update.add('normal_load')
+            self.load_controlled = True
+        else:
+            self.normal_load = None
+
+        if interference is not None:
+            if isinstance(interference, Number):
+                self.interference = interference
+            else:
+                self.interference = None
+                self._interference_upd = make_interpolation_func(interference, movement_interpolation_mode,
+                                                                 'interference')
+                self.update.add('interference')
+            self.load_controlled = False
+
+        if not self.update and no_update_warning:
+            warnings.warn("Nothing set to update")
+
+        self._provides = None
+
+        base_provides = {'just_touching_gap', 'surface_1_points', 'surface_2_points', 'off_set', 'time_step', 'time',
+                         'interference', 'total_normal_load', 'pressure', 'nd_pressure', 'loads',
+                         'surface_1_displacement', 'surface_2_displacement', 'total_displacement', 'converged',
+                         'gap', 'nd_gap'}
+
+        provides = base_provides.union(reynolds_solver.provides).union(reynolds_solver.requires)
+
+        super().__init__(step_name, time_period, provides)
+
+    @property
+    def provides(self):
+        results_set = self._provides
+        if self.model is None:
+            return results_set
+        if self.model.lubricant_model is None:
+            return results_set
+        return results_set.union(set(self.model.lubricant_model.sub_models.keys()))
+
+    @provides.setter
+    def provides(self, value):
+        if self._provides is None:
+            self._provides = value
+        else:
+            raise ValueError("The provides property can only be set during instantiation")
 
     @property
     def reynolds(self):
@@ -144,212 +263,258 @@ class IterSemiSystemLoad(_ModelStep):
         self._reynolds = None
 
     def data_check(self, previous_state: set):
-        # check if there is a lubricant defined for the model
-        if self.model.lubricant_model is None:
-            raise ValueError('Error: No lubricant model set for the contact model, lubrication based steps will not '
-                             'solve')
-        if self.reynolds is None:
-            raise ValueError('No reynolds solver is set for the lubrication step, step will not solve')
-        current_state = {'nd_pressure', 'pressure', 'previous_nd_density', 'previous_nd_gap', 'nd_density', 'nd_gap',
-                         'just_touching_gap', 'total_displacement', 'surface_1_displacement', 'surface_2_displacement'}
+        pass
 
-        current_state = self.model.lubricant_model.data_check(current_state)
-
-        current_state = self.reynolds.data_check(current_state)
-
-        current_state = self.model.lubricant_model.data_check(current_state)
-
-        current_state.update({'interference', 'surface_1_points', 'surface_2_points'})
-        current_state = self.check_sub_models(current_state)
-        # noinspection PyTypeChecker
-        current_state = self.check_outputs(current_state)
-        return current_state
+    def update_movement(self, relative_time, original):
+        for name in self.update:
+            if self._relative_loading:
+                self.__setattr__(name, original[name] + self.__getattribute__(f'_{name}_upd')(relative_time))
+            else:
+                self.__setattr__(name, self.__getattribute__(f'_{name}_upd')(relative_time))
 
     def solve(self, previous_state: dict, output_file):
+        cuda = slippy.CUDA
+        slippy.CUDA = False
+        start_time = previous_state['time']
         gs = self.model.surface_1.grid_spacing
 
-        if self._off_set_options.abs_off_set:
-            off_set = self._off_set_options.off_set
-        else:
-            off_set = tuple(current + change for current, change in zip(previous_state['off_set'],
-                                                                        self._off_set_options.off_set))
+        im_mats = (isinstance(self.model.surface_1.material, _IMMaterial) and
+                   isinstance(self.model.surface_2.material, _IMMaterial))
+        surf_1_material = self.model.surface_1.material
+        surf_2_material = self.model.surface_2.material
 
-        just_touching_gap, surf_1_pts, surf_2_pts = get_gap_from_model(self.model, interference=0,
-                                                                       off_set=off_set,
-                                                                       mode=self._off_set_options.interpolation_mode,
-                                                                       periodic=self._off_set_options.periodic)
+        for s in self.sub_models:
+            s.no_time = self._no_time
 
-        # Sorting out the initial guess:
-        initial_guess = self.initial_guess
+        relative_time = np.linspace(0, 1, self.number_of_steps)
+        just_touching_gap = None
 
-        if initial_guess is None:
-            initial_guess = [self.reynolds.dimensionalise_gap(0.01),
-                             self.reynolds.dimensionalise_pressure(0.05)]
-        if isinstance(initial_guess, Sequence):
-            interference = initial_guess[0]
-            if isinstance(initial_guess[1], Number):
-                pressure = initial_guess[1] * np.ones_like(just_touching_gap)
+        original = dict()
+
+        if self._relative_loading:
+            original['normal_load'] = previous_state['total_normal_load'] if 'total_normal_load' in previous_state \
+                else 0
+            original['interference'] = previous_state['interference'] if 'interference' in previous_state else 0
+            original['off_set'] = np.array(previous_state['off_set']) if 'off_set' in previous_state else \
+                np.array([0, 0])
+
+        previous_gap_shape = None  # shape of just touching gap array
+
+        for i in range(self.number_of_steps):
+            self.update_movement(relative_time[i], original)
+            self.reynolds.rolling_speed = self.rolling_speed
+            # find overlapping nodes
+            if 'off_set' in self.update or just_touching_gap is None or not self._no_time:
+                just_touching_gap, surface_1_points, surface_2_points \
+                    = get_gap_from_model(self.model, interference=0, off_set=self.off_set,
+                                         mode=self.profile_interpolation_mode, periodic=self._periodic_profile)
+
+            time_step_current_state = dict(just_touching_gap=just_touching_gap, surface_1_points=surface_1_points,
+                                           surface_2_points=surface_2_points, off_set=self.off_set,
+                                           time_step=self.time_step, time=start_time+(i+1)*self.time_step)
+
+            # make a new loads function if we need it
+            if (previous_gap_shape is None or previous_gap_shape != just_touching_gap.shape) and im_mats:
+                span = just_touching_gap.shape
+                max_pressure = min([surf_1_material.max_load, surf_2_material.max_load])
+                self._max_pressure = max_pressure
+                im1 = surf_1_material.influence_matrix(span=span, grid_spacing=[gs] * 2,
+                                                       components=['zz'])['zz']
+                im2 = surf_2_material.influence_matrix(span=span, grid_spacing=[gs] * 2,
+                                                       components=['zz'])['zz']
+                total_im = im1 + im2
+                loads_func = plan_convolve(just_touching_gap, total_im, circular=self._periodic_axes)
+                previous_gap_shape = just_touching_gap.shape
+
+            elif not im_mats:
+                def loads_func(loads):
+                    return solve_normal_loading(loads=Loads(z=loads, x=None, y=None), model=self.model,
+                                                deflections='z', current_state=time_step_current_state)[0].z
+            # sort out initial guess
+            if i >= 0:
+                initial_guess = 'previous'
             else:
-                try:
-                    pressure = np.asarray(initial_guess[1], dtype=np.float)
-                    assert (pressure.shape == just_touching_gap.shape)
-                except ValueError:
-                    raise ValueError('Initial guess for pressure could not be converted to a numeric array')
-                except AssertionError:
-                    # noinspection PyUnboundLocalVariable
-                    raise ValueError("Initial guess for pressure produced an array of the wrong size:"
-                                     f"expected {just_touching_gap.shape}, got: {pressure.shape}")
-        elif isinstance(initial_guess, str) and initial_guess.lower() == 'previous':
-            pressure = np.zeros_like(just_touching_gap) if 'pressure' not in previous_state else \
-                previous_state['pressure']
-            interference = 0.0 if 'interference' not in previous_state else previous_state['interference']
-        elif hasattr(initial_guess, '__call__'):
-            interference, pressure = initial_guess(self.model, just_touching_gap)
-        else:
-            raise ValueError('Unsupported type for initial guess')
+                initial_guess = self.initial_guess
 
-        previous_state = {'nd_pressure': self.reynolds.dimensionalise_pressure(pressure, True),
-                          'just_touching_gap': just_touching_gap,
-                          'interference': interference,
-                          'pressure': pressure}
-
-        # we have the interference, and the pressure initial guesses, find the initial displacement before solving RE
-
-        if 'total_displacement' in previous_state:
-            pass
-        elif not (previous_state['nd_pressure'] == 0).all():
-            disp = solve_normal_loading(loads=Loads(z=previous_state['pressure'],
-                                                    x=None, y=None), model=self.model,
-                                        deflections='z', material_options=self._material_options)
-            previous_state['total_displacement'] = disp[0]
-
-        else:
-            previous_state['total_displacement'] = Displacements(np.zeros_like(just_touching_gap),
-                                                                 np.zeros_like(just_touching_gap),
-                                                                 np.zeros_like(just_touching_gap))
-        previous_state = self.model.lubricant_model.solve_sub_models(previous_state)
-        # main loops
-        it_num = 0
-        # Find the gap and non denationalise it
-        gap = just_touching_gap + previous_state['total_displacement'].z - previous_state['interference']
-        previous_state['nd_interference'] = self.reynolds.dimensionalise_gap(previous_state['interference'], True)
-        previous_state['gap'] = gap
-        # flag = False
-        while True:
-            nd_gap = self.reynolds.dimensionalise_gap(previous_state['gap'], True)
-            previous_state['nd_gap'] = nd_gap
-            # if flag:
-            #     return locals()
-            # else:
-            #     flag = True
-            # solve reynolds equation
-            current_state = self.reynolds.solve(previous_state)
-
-            # add just touching gap, needed for sub models
-            current_state['just_touching_gap'] = just_touching_gap
-
-            # check for pressure convergence
-            change_in_pressures = current_state['nd_pressure'] - previous_state['nd_pressure']
-            total_nd_pressure = np.sum(previous_state['nd_pressure'])  # use previous state here as it is more stable
-            if total_nd_pressure > 0:
-                pressure_relative_error = np.sum(np.abs(change_in_pressures)) / total_nd_pressure
+            if initial_guess is None:
+                initial_guess = [self.reynolds.dimensionalise_gap(0.01),
+                                 self.reynolds.dimensionalise_pressure(0.05)]
+            if isinstance(initial_guess, str) and initial_guess.lower() == 'previous':
+                pressure = np.zeros_like(just_touching_gap) if 'pressure' not in previous_state else \
+                    previous_state['pressure']
+                interference = 0.0 if 'interference' not in previous_state else previous_state['interference']
+            elif isinstance(initial_guess, Sequence):
+                interference = initial_guess[0]
+                if isinstance(initial_guess[1], Number):
+                    pressure = initial_guess[1] * np.ones_like(just_touching_gap)
+                else:
+                    try:
+                        pressure = np.asarray(initial_guess[1], dtype=np.float)
+                        assert (pressure.shape == just_touching_gap.shape)
+                    except ValueError:
+                        raise ValueError('Initial guess for pressure could not be converted to a numeric array')
+                    except AssertionError:
+                        # noinspection PyUnboundLocalVariable
+                        raise ValueError("Initial guess for pressure produced an array of the wrong size:"
+                                         f"expected {just_touching_gap.shape}, got: {pressure.shape}")
+            elif hasattr(initial_guess, '__call__'):
+                interference, pressure = initial_guess(self.model, just_touching_gap)
             else:
-                pressure_relative_error = 1
-            pressure_converged = pressure_relative_error < self._solver_options.pressure_rtol
+                raise ValueError('Unsupported type for initial guess')
 
-            # apply the relaxation factor to the pressure result
-            current_state['nd_pressure'] = (previous_state['nd_pressure'] +
-                                            self._solver_options.relaxation_factor * change_in_pressures)
+            results_last_it = {'nd_pressure': self.reynolds.dimensionalise_pressure(pressure, True),
+                               'just_touching_gap': just_touching_gap,
+                               'interference': interference,
+                               'pressure': pressure}
 
-            # solve contact geometry
-            current_state['pressure'] = self.reynolds.dimensionalise_pressure(current_state['nd_pressure'])
-            total_displacement, surface_1_displacement, surface_2_displacement = \
-                solve_normal_loading(Loads(z=current_state['pressure']), self.model)
-            current_state['total_displacement'] = total_displacement
-            current_state['surface_1_displacement'] = surface_1_displacement
-            current_state['surface_2_displacement'] = surface_2_displacement
+            # we have the interference, and the pressure initial guesses, find the initial displacement before solving
 
-            # find gap
-            gap = just_touching_gap + current_state['total_displacement'].z - previous_state['interference']
-            current_state['gap'] = gap
+            if not (results_last_it['nd_pressure'] == 0).all():
+                # noinspection PyUnboundLocalVariable
+                results_last_it['total_displacement_z'] = loads_func(previous_state['pressure'])
 
-            # solve lubricant sub models
-            current_state = self.model.lubricant_model.solve_sub_models(current_state)
-
-            # check for load convergence
-            total_load = np.sum(current_state['pressure']) * gs ** 2
-            load_relative_error = (total_load / self.load) - 1
-            load_converged = abs(load_relative_error) < self._solver_options.load_rtol
-
-            # print(f'{total_load}\t{self.load}\t{load_relative_error}')
-
-            current_state['nd_gap'] = self.reynolds.dimensionalise_gap(current_state['gap'], True)
-            current_state['interference'] = previous_state['interference']
-
-            # escape the loop if it converged
-            if pressure_converged and load_converged:
-                print(f"Step {self.name} converged successfully after {it_num} iterations.")
-                print(f"Converged load is {total_load}, last change in pressure was {pressure_relative_error}\n")
-                break
-
-            # escape the loop it if failed
-            if it_num > self._solver_options.load_it:  # this logic has changed used to just check the error
-                print(f"Step {self.name} failed to converge after {it_num} iterations.\n")
-                print("Consider increasing the maximum number of iterations or reducing the relaxation factor")
-                print(f"Converged load is {total_load}, last change in pressure was {pressure_relative_error}")
-                break
-
-            # adjust height for load balance
-
-            if self.adjust_height_every_step:  # and not load_converged:
-                # adjust height based on load balance
-                new_nd_interference = self.update_interference(it_num, pressure_relative_error,
-                                                               load_relative_error,
-                                                               previous_state['nd_interference'],
-                                                               np.mean(current_state['nd_gap']),
-                                                               np.min(current_state['nd_gap']))
-                interference_updated = True
-
-            elif pressure_converged:
-                # adjust height based on load balance
-                new_nd_interference = self.update_interference(it_num, pressure_relative_error,
-                                                               load_relative_error,
-                                                               previous_state['nd_interference'],
-                                                               np.mean(current_state['nd_gap']),
-                                                               np.min(current_state['nd_gap']))
-                interference_updated = True
             else:
-                new_nd_interference = 0
-                interference_updated = False
+                results_last_it['total_displacement_z'] = np.zeros_like(just_touching_gap)
+            results_last_it = self.model.lubricant_model.solve_sub_models(results_last_it)
+            # main loops
+            it_num = 0
+            # Find the gap and non denationalise it
+            gap = just_touching_gap + results_last_it['total_displacement_z'] - results_last_it['interference']
+            results_last_it['nd_interference'] = self.reynolds.dimensionalise_gap(results_last_it['interference'], True)
+            results_last_it['gap'] = gap
 
-            if interference_updated:
-                current_state['nd_interference'] = new_nd_interference
-                current_state['interference'] = self.reynolds.dimensionalise_gap(new_nd_interference)
-                gap = (just_touching_gap + current_state['total_displacement'].z - current_state['interference'])
-                current_state['gap'] = gap
-                # print summary of iteration to log file
-                old_int = previous_state['nd_interference']
-                print(f'{it_num}\ter_load: {load_relative_error:.4g}\t'
-                      f'er_press: {pressure_relative_error:.4g}\t'
-                      f'old_int: {old_int:.6g}\t'
-                      f'new_int: {new_nd_interference:.6g}')
+            while True:
+                nd_gap = self.reynolds.dimensionalise_gap(results_last_it['gap'], True)
+                results_last_it['nd_gap'] = nd_gap
+                # if flag:
+                #     return locals()
+                # else:
+                #     flag = True
+                # solve reynolds equation
+                results_this_it = self.reynolds.solve(results_last_it, self._max_pressure)
+
+                # add just touching gap, needed for sub models
+                results_this_it['just_touching_gap'] = just_touching_gap
+
+                # check for pressure convergence
+                change_in_pressures = results_this_it['nd_pressure'] - results_last_it['nd_pressure']
+                total_nd_pressure = np.sum(results_last_it['nd_pressure'])  # use previous state here ... more stable
+                if total_nd_pressure > 0:
+                    pressure_relative_error = np.sum(np.abs(change_in_pressures)) / total_nd_pressure
+                else:
+                    pressure_relative_error = 1
+                pressure_converged = pressure_relative_error < self._rtol_pressure
+
+                # apply the relaxation factor to the pressure result
+                results_this_it['nd_pressure'] = (results_last_it['nd_pressure'] +
+                                                  self._relaxation_factor * change_in_pressures)
+
+                # solve contact geometry
+                results_this_it['pressure'] = self.reynolds.dimensionalise_pressure(results_this_it['nd_pressure'])
+                results_this_it['total_displacement_z'] = loads_func(results_this_it['pressure'])
+
+                # find gap
+                gap = just_touching_gap + results_this_it['total_displacement_z'] - results_last_it['interference']
+                results_this_it['gap'] = gap
+
+                # solve lubricant sub models
+                results_this_it = self.model.lubricant_model.solve_sub_models(results_this_it)
+
+                # check for load convergence
+                total_load = np.sum(results_this_it['pressure']) * gs ** 2
+
+                if self.load_controlled:
+                    load_relative_error = (total_load / self.normal_load) - 1
+                    load_converged = abs(load_relative_error) < self._rtol_pressure
+                else:
+                    load_converged = True
+                    load_relative_error = 0.0
+
+                results_this_it['nd_gap'] = self.reynolds.dimensionalise_gap(results_this_it['gap'], True)
+                results_this_it['interference'] = results_last_it['interference']
+
+                # escape the loop if it converged
+                if pressure_converged and load_converged:
+                    converged = True
+                    print(f"Step {self.name} converged successfully after {it_num} iterations.")
+                    print(f"Converged load is {total_load}, last change in pressure was {pressure_relative_error}\n")
+                    break
+
+                # escape the loop it if failed
+                if it_num > self._max_it_pressure:  # this logic has changed used to just check the error
+                    converged = False
+                    print(f"Step {self.name} failed to converge after {it_num} iterations.\n")
+                    print("Consider increasing the maximum number of iterations or reducing the relaxation factor")
+                    print(f"Converged load is {total_load}, last change in pressure was {pressure_relative_error}")
+                    break
+
+                # adjust height for load balance
+
+                if self._adjust_height_every_step and self.load_controlled:
+                    # adjust height based on load balance
+                    new_nd_interference = self.update_interference(it_num, pressure_relative_error,
+                                                                   load_relative_error,
+                                                                   results_last_it['nd_interference'],
+                                                                   np.mean(results_this_it['nd_gap']),
+                                                                   np.min(results_this_it['nd_gap']))
+                    interference_updated = True
+
+                elif pressure_converged:
+                    # adjust height based on load balance
+                    new_nd_interference = self.update_interference(it_num, pressure_relative_error,
+                                                                   load_relative_error,
+                                                                   results_last_it['nd_interference'],
+                                                                   np.mean(results_this_it['nd_gap']),
+                                                                   np.min(results_this_it['nd_gap']))
+                    interference_updated = True
+                else:
+                    new_nd_interference = 0
+                    interference_updated = False
+
+                if interference_updated:
+                    results_this_it['nd_interference'] = new_nd_interference
+                    results_this_it['interference'] = self.reynolds.dimensionalise_gap(new_nd_interference)
+                    gap = (just_touching_gap + results_this_it['total_displacement_z'] - results_this_it['interference'])
+                    results_this_it['gap'] = gap
+                    # print summary of iteration to log file
+                    old_int = results_last_it['nd_interference']
+                    print(f'{it_num}\ter_load: {load_relative_error:.4g}\t'
+                          f'er_press: {pressure_relative_error:.4g}\t'
+                          f'old_int: {old_int:.6g}\t'
+                          f'new_int: {new_nd_interference:.6g}')
+                else:
+                    results_this_it['nd_interference'] = results_last_it['nd_interference']
+                    results_this_it['interference'] = results_last_it['interference']
+
+                it_num += 1
+                results_last_it = results_this_it
+
+            # clean up after it has converged
+            current_state = {**time_step_current_state, **results_this_it}
+            pressure = current_state['pressure']
+            if im_mats:
+                current_state['surface_1_displacement'] = \
+                    Displacements(z=plan_convolve(pressure, im1, circular=self._periodic_axes)(pressure))
+                current_state['surface_2_displacement'] = \
+                    Displacements(z=plan_convolve(pressure, im2, circular=self._periodic_axes)(pressure))
+                current_state['total_displacement'] = Displacements(z=current_state['total_displacement_z'])
+
             else:
-                current_state['nd_interference'] = previous_state['nd_interference']
-                current_state['interference'] = previous_state['interference']
+                all_disp = solve_normal_loading(Loads(z=pressure), self.model, current_state, 'z')
+                current_state['total_displacement'] = all_disp[0]
+                current_state['surface_1_displacement'] = all_disp[1]
+                current_state['surface_2_displacement'] = all_disp[2]
 
-            it_num += 1
+            del current_state['total_displacement_z']
+            current_state['total_normal_load'] = total_load
+            current_state['loads'] = Loads(z=current_state['pressure'])
+            current_state['converged'] = converged
+            current_state = self.solve_sub_models(current_state)
+            self.save_outputs(current_state, output_file)
+
             previous_state = current_state
 
-        gap = just_touching_gap + current_state['total_displacement'].z - current_state['interference']
-        nd_gap = self.reynolds.dimensionalise_gap(gap, True)
-        current_state['nd_gap'] = nd_gap
-        current_state['gap'] = gap
-
-        current_state['surface_1_points'] = surf_1_pts
-        current_state['surface_2_points'] = surf_2_pts
-
-        current_state = self.solve_sub_models(current_state)
-        self.save_outputs(current_state, output_file)
+        slippy.CUDA = cuda
 
         return current_state
 
@@ -386,7 +551,7 @@ class IterSemiSystemLoad(_ModelStep):
 
         If updated only when the solver converges, the Regula-Falsi method is used
         """
-        if self.adjust_height_every_step:
+        if self._adjust_height_every_step:
             new_interference = current_interference - 0.1 * load_error_rel
             return new_interference
 
@@ -419,33 +584,3 @@ class IterSemiSystemLoad(_ModelStep):
         print(f'Adjusting interference, new interference is {new_interference}')
 
         return new_interference
-
-    @classmethod
-    def new_step(cls, model):
-        pass
-
-
-def plot_surf(values: dict):
-    import matplotlib.pyplot as plt
-    while True:
-        name = input("Enter name to plot:")
-        if name == 'c':
-            break
-        if name == 'x':
-            raise ValueError("")
-        if name not in values:
-            continue
-        value = values[name]
-        if isinstance(value, (Displacements, Loads)):
-            value = value.z
-        if not hasattr(value, 'shape') or value.size == 1:
-            print(value)
-            continue
-        x = range(value.shape[0])
-        y = range(value.shape[1])
-        X, Y = np.meshgrid(x, y)
-        fig = plt.figure()
-        ax = fig.gca(projection='3d')
-        ax.plot_trisurf(X.flatten(), Y.flatten(), value.flatten(), cmap=plt.cm.viridis, linewidth=0.2)
-        plt.show()
-        print(np.min(value), np.max(value))

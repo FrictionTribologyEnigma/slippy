@@ -7,6 +7,7 @@ import warnings
 import bisect
 from collections import namedtuple
 from numbers import Number
+from scipy.interpolate import interp1d
 
 import numpy as np
 from scipy.signal import fftconvolve
@@ -23,9 +24,44 @@ from .influence_matrix_utils import bccg, plan_convolve, guess_loads_from_displa
 from .materials import _IMMaterial  # noqa: E402
 
 __all__ = ['solve_normal_interference', 'get_next_file_num', 'OffSetOptions', 'solve_normal_loading',
-           'HeightOptimisationFunction']
+           'HeightOptimisationFunction', 'make_interpolation_func']
 
 OffSetOptions = namedtuple('off_set_options', ['off_set', 'abs_off_set', 'periodic', 'interpolation_mode'])
+
+
+def make_interpolation_func(values, kind, name: str):
+    """
+
+    Parameters
+    ----------
+    values: sequence of floats
+        Either [start, finish] or [position, time] where position and time are equal length sequences of floats.
+    kind: any kind compatible with scipy.interpolate.interp1d
+    name: str
+        The name of the parameter being interpolated used for errors
+
+    Returns
+    -------
+    interpolation_function: callable
+    """
+    try:
+        values = np.asarray(values, dtype=float)
+        assert not np.any(np.isnan(values))
+    except ValueError:
+        raise ValueError(f"Could not convert values for {name} to an valid format")
+    except AssertionError:
+        raise ValueError(f"Could not convert values for {name} to an valid format")
+
+    if values.size == 2:
+        position = values
+        time = np.array([0, 1])
+    elif values.shape[0] == 2:
+        position = values[0]
+        time = values[1]
+    else:
+        raise ValueError(f"Values for {name} are an invalid shape, should be 2 values (start, finish) or two equally "
+                         f"sized sequences of values (position, time: shape 2 by n). Input shape was {values.shape}")
+    return interp1d(time, position, kind, bounds_error=True)
 
 
 class HeightOptimisationFunction:

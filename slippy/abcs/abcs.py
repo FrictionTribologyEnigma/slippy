@@ -89,7 +89,7 @@ class _ACFABC(abc.ABC):
 class _ReynoldsSolverABC(abc.ABC):
 
     @abc.abstractmethod
-    def solve(self, previous_state: dict) -> dict:
+    def solve(self, previous_state: dict, max_pressure: float) -> dict:
         pass
 
     @abc.abstractmethod
@@ -98,6 +98,10 @@ class _ReynoldsSolverABC(abc.ABC):
 
 
 class _NonDimensionalReynoldSolverABC(_ReynoldsSolverABC):
+    provides: set
+    requires: set
+    rolling_speed: float
+
     @abc.abstractmethod
     def dimensionalise_pressure(self, nd_pressure, un_dimensionalise: bool = False):
         pass

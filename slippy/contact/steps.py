@@ -200,6 +200,8 @@ class _ModelStep(_StepABC):
         -------
 
         """
+        if not self.outputs:
+            return
         params_to_save = {'time'}
         for output in self.outputs:
             if output.is_active(current_state['time'], self.max_time):
