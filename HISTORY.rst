@@ -1,4 +1,3 @@
-=======
 History
 =======
 
@@ -11,6 +10,6 @@ History
 * converted IterSemiSystem to quasi static
 
 0.1.0 (2020-11-7)
-------------------
+-----------------
 
 * First release on PyPI.

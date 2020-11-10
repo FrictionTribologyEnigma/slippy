@@ -5,7 +5,8 @@
 |pypi| |citest| |docs|
 
 .. |SlipPY| image:: logo.svg
-        :target: https://github.com/FrictionTribologyEnigma/SlipPY
+        :target: https://github.com/FrictionTribologyEnigma/slippy
+        :alt: Slippy
 
 .. |pypi| image:: https://img.shields.io/pypi/v/slippy.svg
         :target: https://pypi.python.org/pypi/slippy
@@ -17,9 +18,13 @@
         :target: https://slippy.readthedocs.io/en/latest/?badge=latest
         :alt: Documentation Status
 .. |solution| image:: solving.svg
+        :alt: Solving schematic
+        :target: https://github.com/FrictionTribologyEnigma/slippy
 
 .. |results| image:: results.png
-    :scale: 32
+        :scale: 32
+        :alt: Example results
+        :target: https://github.com/FrictionTribologyEnigma/slippy
 
 A python package for tribologists. Including:
 
