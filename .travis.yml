@@ -5,6 +5,7 @@ python:
 install: pip install -U tox-travis
 script: tox
 deploy:
+  skip_existing: true
   provider: pypi
   distributions: sdist bdist_wheel
   user: __token__
