@@ -24,51 +24,69 @@ class ContactStiffness(_SubModelABC):
         z (normal) component
     tol: float, optional (1e-6)
         Tolerance to us for the BCCG iterations
-    max_it: int, optional (300)
-        The maximum number of BCCG iterations
-    definition: {'mean lines', 'far points', 'far points minus uniform'}, optional ('mean lines')
+    max_it: int, optional (None)
+        The maximum number of BCCG iterations, None defaults to the size of the problem (contact_nodes.size)
+    definition: {'mean lines', 'far points', 'both'}, optional ('mean lines')
         The definition of contact stiffness to use:
         - 'mean lines' the change in average gap height per unit force.
         - 'far points' the approach of points infinitely deep in each half space per unit of force
-        - 'far points minus uniform' as above minus the approach for the same force applied uniformly over the region
+        - 'both' will find both of the above
 
-    Returns
-    -------
+    Notes
+    -----
     Results are added to current state dict as:
-    's_contact_stiffness_unloading_{direction}' or
-    's_contact_stiffness_loading_{direction}'
-    For example the normal contact stiffness in the loading direction will be
+    's_contact_stiffness_unloading_{ml or fp}_{direction}' or
+    's_contact_stiffness_loading_{ml or fp}_{direction}'
+    For example the normal contact stiffness in the loading direction will be:
+
     """
     requires = {'contact_nodes'}
     provides = set()
 
     def __init__(self, name: str, loading: bool = True, unloading: bool = True, direction: str = 'z', tol: float = 1e-6,
-                 max_it: int = 300, definition: str = 'mean lines'):
+                 max_it: int = None, definition: str = 'mean lines'):
         super().__init__(name)
+
+        if type(definition) is not str:
+            raise ValueError(f"Definition of stiffness must be a string received {type(definition)}")
+
+        definition = definition.lower()
+        valid_defs = {'mean lines', 'far points', 'both'}
+        if definition not in valid_defs:
+            raise ValueError(f'Definition not recognised must be one of {valid_defs}, received: {definition}')
+
+        if definition == 'both':
+            definition = ['ml', 'fp']
+        elif definition == 'mean lines':
+            definition = ['ml']
+        else:
+            definition = ['fp']
+
+        self.definition = definition
+
         if direction not in ['x', 'y', 'z']:
             raise ValueError('direction should be one of x, y or z')
         self.component = direction * 2
 
         self.loading = loading
-        if loading:
-            self.provides.add(f's_contact_stiffness_loading_{direction}')
         self.unloading = unloading
-        if unloading:
-            self.provides.add(f's_contact_stiffness_unloading_{direction}')
+        for defin in definition:
+            if loading:
+                self.provides.add(f's_contact_stiffness_loading_{defin}_{direction}')
+            if unloading:
+                self.provides.add(f's_contact_stiffness_unloading_{defin}_{direction}')
+
         if not (loading or unloading):
             raise ValueError("No output requested")
 
-        valid_defs = {'mean lines', 'far points', 'far points minus uniform'}
-        if definition not in valid_defs:
-            raise ValueError(f'Definition not recognised must be one of {valid_defs}, received: {definition}')
-
-        self.definition = definition
         self.tol = tol
         self.max_it = max_it
         self.k_smooth = None
         self.last_converged_result = {True: None, False: None}
 
     def _solve(self, current_state, loading):
+        rtn_dict = dict()
+
         surf_1 = self.model.surface_1
         surf_2 = self.model.surface_2
 
@@ -107,7 +125,7 @@ class ContactStiffness(_SubModelABC):
             initial_guess = None
 
         if initial_guess is None:
-            initial_guess = displacement
+            initial_guess = displacement * (1 / np.sum(total_im.flatten()))
 
         loads_in_domain, failed = bccg(convolution_func, displacement[contact_nodes], self.tol,
                                        self.max_it, x0=initial_guess[contact_nodes],
@@ -123,12 +141,17 @@ class ContactStiffness(_SubModelABC):
 
         k_rough = float(np.sum(loads_in_domain))
 
-        if self.definition == 'far points':
-            return k_rough/contact_nodes.size, failed
+        load_str = 'loading' if loading else 'unloading'
 
-        if self.definition == 'mean lines':
-            k_rough / (k_rough / contact_nodes.size - 1) / contact_nodes.size, failed
+        if 'fp' in self.definition:
+            rtn_dict[f's_contact_stiffness_{load_str}_fp_'] = k_rough/contact_nodes.size
 
+        if 'ml' in self.definition:
+            all_disp = convolution_func(loads_in_domain, ignore_domain=True)
+            rtn_dict[f's_contact_stiffness_{load_str}_ml_'] = (k_rough / (np.mean(all_disp) - 1)) / contact_nodes.size
+
+        return rtn_dict, failed
+        '''
         if self.k_smooth is None:
             convolution_func = plan_convolve(displacement, total_im, np.ones_like(contact_nodes))
             loads_in_domain, failed = bccg(convolution_func, displacement.flatten(), self.tol,
@@ -144,6 +167,7 @@ class ContactStiffness(_SubModelABC):
         cs_normalised = contact_stiffness/contact_nodes.size  # again grid spacings cancel here
 
         return cs_normalised, failed
+        '''
 
     def solve(self, current_state):
         print(f"SUB MODEL: {self.name}")
@@ -151,10 +175,12 @@ class ContactStiffness(_SubModelABC):
         direction = self.component[0]
         if self.loading:
             sl, failed = self._solve(current_state, True)
-            print(f"Contact stiffness in loading direction, success: {not failed}, stiffness: {sl:.4}")
-            results[f's_contact_stiffness_loading_{direction}'] = sl
+            print(f"Contact stiffness in loading direction, success: {not failed}, stiffness: {sl}")
+            for key, value in sl.items():
+                results[key + direction] = value
         if self.unloading:
             su, failed = self._solve(current_state, False)
-            print(f"Contact stiffness in unloading direction, success: {not failed}, stiffness: {su:.4}")
-            results[f's_contact_stiffness_unloading_{direction}'] = su
+            print(f"Contact stiffness in unloading direction, success: {not failed}, stiffness: {su}")
+            for key, value in su.items():
+                results[key + direction] = value
         return results

@@ -199,9 +199,6 @@ class QuasiStaticStep(_ModelStep):
                     'surface_2_points', 'time', 'time_step', 'new_step', 'converged', 'gap', 'total_normal_load'}
         super().__init__(step_name, time_period, provides)
 
-    def data_check(self, previous_state: set):
-        pass
-
     def solve(self, previous_state, output_file):
         current_time = previous_state['time']
         if self._fast_ld:

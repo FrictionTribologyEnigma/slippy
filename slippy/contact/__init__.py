@@ -29,12 +29,10 @@ require a Lubricant to be defined.
 .. autosummary::
    :toctree: generated
 
-   SurfaceDisplacement      -- Specified displacements on each grid point of a surface
-   SurfaceLoading           -- Specified pressures on each grid point of a surface
-   StaticNormalInterference -- Specified interference between two surfaces
-   StaticNormalLoad         -- Specified loading between two surfaces
+   StaticStep               -- A step for solving a single time point of a static model
+   QuasiStaticStep          -- A step for solving multiple time points with changes in load, location or geometry
 
-   IterSemiSystemLoad       -- Iterative semi system lubrication step
+   IterSemiSystem           -- Iterative semi system lubrication step
 
 Materials
 =========

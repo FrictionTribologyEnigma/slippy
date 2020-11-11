@@ -119,13 +119,6 @@ class StaticStep(_ModelStep):
 
         super().__init__(step_name, time_period, provides)
 
-    def data_check(self, previous_state: set):
-        # check that both surfaces are defined, both materials are defined, if there is a tangential load check that
-        # there is a friction model defined, print all of this to console, update the previous_state set, delete the
-        # previous state?
-        current_state = self.provides
-        return current_state
-
     def solve(self, previous_state: dict, output_file) -> dict:
         """
         Solve this model step

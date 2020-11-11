@@ -14,6 +14,9 @@ except ImportError:
 
 CORES = multiprocessing.cpu_count()
 OUTPUT_DIR = os.getcwd()
+ERROR_IF_MISSING_MODEL = True
+ERROR_IF_MISSING_SUB_MODEL = True
+ERROR_IN_DATA_CHECK = True
 
 
 class OverRideCuda:

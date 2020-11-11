@@ -1,11 +1,12 @@
 import abc
-import inspect
 import typing
+import slippy
+import warnings
 
 from slippy.abcs import _ContactModelABC, _StepABC, _SubModelABC
 from .outputs import OutputRequest
 
-__all__ = ['step', '_ModelStep', 'InitialStep']
+__all__ = ['_ModelStep', 'InitialStep']
 
 """
 Steps including solve functions, each actual step is a subclass of ModelStep should provide an __init__, solve
@@ -13,29 +14,11 @@ Steps including solve functions, each actual step is a subclass of ModelStep sho
 """
 
 
-def step(model: _ContactModelABC):
-    """ A text based interface for generating steps
-
-    Returns
-    -------
-    model_step: _ModelStep
-        A model step object with the requested parameters
-    """
-    prompt = 'Please select one of the following step types but entering the number next to the item:'
-    list_of_step_types = [f'\n{num}\t{item.__name__}\t{item.__doc__}' for num, item in
-                          enumerate(_ModelStep._subclass_registry)]
-    item = -1
-    while True:
-        try:
-            item = int(input(prompt + ''.join(list_of_step_types)))
-        except ValueError:
-            print("Please only enter the number of the item in the list")
-            continue
-        if len(list_of_step_types) > item >= 0:
-            break
-        else:
-            print("Please only enter the number of the item in the list")
-    return _ModelStep._subclass_registry[item].new_step(model)
+def _data_check_error_or_warn(msg: str):
+    if slippy.ERROR_IN_DATA_CHECK:
+        raise ValueError(msg)
+    else:
+        warnings.warn(msg)
 
 
 class _ModelStep(_StepABC):
@@ -92,8 +75,7 @@ class _ModelStep(_StepABC):
         else:
             raise ValueError("Supplied model is not a contact model or no contact model supplied")
 
-    @abc.abstractmethod
-    def data_check(self, previous_state: set):
+    def _data_check(self, previous_state: set):
         """
         Produce errors for predicted errors during simulation
 
@@ -111,9 +93,21 @@ class _ModelStep(_StepABC):
         -----
         The methods check_sub_models and check_outputs should be called as part of this method
         """
-        raise NotImplementedError("Data check have not been implemented for this step type!")
+        print(f"Checking step: {self.name}")
+        self.data_check(previous_state)
+        current_state = self.provides
+        if 'time' not in current_state:
+            _data_check_error_or_warn("All steps must provide a time")
+        print(f"Checking sub models for step {self.name}")
+        self.check_sub_models(current_state)
+        print(f"Checking outputs for step {self.name}")
+        self.check_outputs(current_state)
 
-    def check_outputs(self, current_state: set) -> set:
+    def data_check(self, current_state):
+        """To be overwritten by steps that need more complicated checking"""
+        pass
+
+    def check_outputs(self, current_state: set):
         """Data check all outputs
 
         Parameters
@@ -130,11 +124,32 @@ class _ModelStep(_StepABC):
         -----
         This should be called by each step in it's data check method
         """
+        params_to_save = {'time'}
         for output in self.outputs:
-            if output.parameters not in current_state:
-                raise ValueError(f"Output request {output.name}, requires {output.parameters} but this is not in the "
-                                 "current state")
-        return current_state
+            params_to_save.update(output.parameters)
+
+        expanded_state = current_state.copy()
+        for param in ['loads', 'total_displacement', 'surface_1_displacement', 'surface_2_displacement']:
+            if param in expanded_state:
+                expanded_state.add(param+'_x')
+                expanded_state.add(param + '_y')
+                expanded_state.add(param + '_z')
+                expanded_state.remove(param)
+            if param in params_to_save:
+                params_to_save.update({param + '_x', param + '_y', param + '_z'})
+                params_to_save.remove(param)
+        if 'all' in params_to_save:
+            params_to_save.update(expanded_state)
+            params_to_save.remove('all')
+
+        missing_outputs = params_to_save - set(expanded_state)
+
+        for mo in missing_outputs:
+            if mo.startswith('surface') and ';' not in mo:
+                warnings.warn(f"Could not check output: {mo}, not possible to check surface outputs at this time")
+            else:
+                _data_check_error_or_warn(f"Could not find output {mo} in state for step {self.name}.\n"
+                                          f"State will be: {current_state}")
 
     def check_sub_models(self, current_state: set) -> set:
         """ Check all the sub models of the current step
@@ -154,13 +169,13 @@ class _ModelStep(_StepABC):
         This should be called by each step in it's data check method
         """
         for model in self.sub_models:
-            full_arg_spec = inspect.getfullargspec(model.solve)
-            args = full_arg_spec.args
-            for requirement in args:
-                if requirement not in current_state:
-                    raise ValueError(f"Model step doesn't find required inputs for model: {model.name}")
-                current_state.update(model.provides)
-
+            if model.requires - current_state:
+                _data_check_error_or_warn(f"Model step: {self.name} doesn't find required inputs for "
+                                          f"model: {model.name}:\n"
+                                          f"State will be: {current_state}\n"
+                                          f"Model requires: {model.requires}")
+            print(f"Passed: sub_model {model.name} in step {self.name}")
+            current_state.update(model.provides)
         return set(current_state)
 
     def add_sub_model(self, sub_model: _SubModelABC):
@@ -255,14 +270,24 @@ class _ModelStep(_StepABC):
         output_file.write(output_dict)
 
     def solve_sub_models(self, current_state: dict):
-        if self.provides != set(current_state):
-            diff = self.provides-set(current_state)
-            diff.update(set(current_state)-self.provides)
+        if self.provides != set(current_state) and not slippy.ERROR_IF_MISSING_MODEL:
+            missing = self.provides-set(current_state)
+            unexpected = set(current_state)-self.provides
             raise ValueError(f"Step {self.name} dosn't provide what it should or provides things which are not "
                              f"declared, \nprovides = {self.provides} \ncurrent_state: {set(current_state)}"
-                             f"\ndifference = {diff}")
+                             f"\nMissing from current state = {missing}"
+                             f"\nUnexpected in current state = {unexpected}"
+                             f"\nTo suppress this error set slippy.ERROR_IF_MISSING_MODEL to False")
         for model in self.sub_models:
             found_params = model.solve(current_state)
+            if model.provides != set(found_params) and not slippy.ERROR_IF_MISSING_SUB_MODEL:
+                unexpected = self.provides - set(current_state)
+                missing = set(current_state) - self.provides
+                raise ValueError(f"Sub model {model.name} dosn't provide what it should or provides things which are "
+                                 f"not declared, \nprovides = {self.provides} \nresults: {set(current_state)}"
+                                 f"\nMissing from results = {missing}"
+                                 f"\nUnexpected in results = {unexpected}"
+                                 f"\nTo suppress this error set slippy.ERROR_IF_MISSING_SUB_MODEL to False")
             current_state.update(found_params)
         return current_state
 
@@ -285,7 +310,7 @@ class InitialStep(_ModelStep):
         if separation is not None:
             self.separation = float(separation)
 
-    def data_check(self, current_state: set):
+    def _data_check(self, current_state: set):
         """
         Just check if this is the first step in the model
         """

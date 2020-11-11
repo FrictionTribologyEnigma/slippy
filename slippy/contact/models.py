@@ -4,13 +4,14 @@ model object, just a container for step object that do the real work
 import os
 import typing
 import slippy
+import warnings
 from collections import OrderedDict
 from contextlib import redirect_stdout, ExitStack
 from datetime import datetime
 from .outputs import OutputSaver, OutputRequest
 
 from slippy.abcs import _SurfaceABC, _LubricantModelABC, _ContactModelABC
-from slippy.contact.steps import _ModelStep, InitialStep, step
+from slippy.contact.steps import _ModelStep, InitialStep
 
 __all__ = ['ContactModel']
 
@@ -28,10 +29,9 @@ class ContactModel(_ContactModelABC):
         surface 1.
     lubricant: _LubricantModelABC
         A lubricant model
-    log_file_name: str
-        The name of the log file to use, if not set the model name will be used instead
-    output_file_name: str
-        The name of the output file to use, if not set the model name will be used, can also be set when solve is called
+    output_dir: str, optional (None)
+        Path to an output directory can be relative or absolute, slippy will attempt to make directory if it does not
+        exist, defaults to slippy.OUTPUT_DIR, which defaults to the current working directory.
 
     Attributes
     ----------
@@ -39,10 +39,8 @@ class ContactModel(_ContactModelABC):
         The model steps in the order they will be solved in, each value will be a ModelStep object.
     surface_1, surface_2: _SurfaceABC
         Surface objects of the two model surfaces
-    history_outputs: dict
-        Output request for history data from the model, non spatially resolved results such as total load etc.
-    field_outputs: dict
-        Output request for field data (spatial data from the results)
+    lubricant_model: _LubricantModelABC
+        A lubricant model
 
     Methods
     -------
@@ -95,8 +93,8 @@ class ContactModel(_ContactModelABC):
         ----------
         step_instance: _ModelStep
             An instance of a model step
-        position : {int, 'last'}, optional ('last')
-            The position of the step in the existing order
+        position : {int, None}, optional (None)
+            The position of the step in the existing order, if None will add step to the end
 
         See Also
         --------
@@ -111,16 +109,7 @@ class ContactModel(_ContactModelABC):
         --------
         >>> #TODO
         """
-        # note to self
-        """
-        New steps should be bare bones, all the relevant information should be
-        added to the steps at the data check stage, essentially there should be
-        nothing you can do to make a nontrivial error here.
-        """
-        if step_instance is None:
-            new_step = step(self)
-        else:
-            new_step = step_instance
+        new_step = step_instance
 
         step_name = step_instance.name
         step_instance.model = self
@@ -166,27 +155,34 @@ class ContactModel(_ContactModelABC):
     def data_check(self):
         print("Data check started at:")
         print(datetime.now().strftime('%H:%M:%S %d-%m-%Y'))
-
+        print(f"Checking model {self.name}:")
         self._model_check()
 
         current_state = None
 
         for this_step in self.steps:
-            print(f"Checking step: {this_step}")
-            current_state = self.steps[this_step].data_check(current_state)
+            current_state = self.steps[this_step]._data_check(current_state)
 
     def _model_check(self):
         """
         Checks the model for possible errors (the model steps are checked independently)
         """
-        # check that if only one surface is provided this is ok with all steps
-        # check if one of the surfaces is rigid, make sure both are not rigid
-        # if one is rigid it must be the second one
-        # check all have materials
-        # check all are discrete
-        # check all steps use the same number of surfaces
-        pass
-        # TODO
+        def warn_or_error(msg):
+            if slippy.ERROR_IN_DATA_CHECK:
+                raise ValueError(msg)
+            else:
+                warnings.warn(msg)
+
+        if self.surface_1 is None:
+            warn_or_error("Master surface is not set")
+        if not self.surface_1.is_discrete:
+            warn_or_error("Master is not discrete, only secondary surface may be analytic")
+        if self.surface_1.material is None:
+            warn_or_error("Material for master surface is not set")
+        if self.surface_2 is None:
+            warn_or_error("Secondary surface is not set")
+        if self.surface_2.material is None:
+            warn_or_error("Material for second surface is not set, for a rigid surface use the Rigid material")
 
     def solve(self, verbose: bool = False, skip_data_check: bool = False):
         """

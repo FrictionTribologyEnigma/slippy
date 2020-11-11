@@ -262,8 +262,16 @@ class IterSemiSystem(_ModelStep):
     def reynolds(self):
         self._reynolds = None
 
-    def data_check(self, previous_state: set):
-        pass
+    def data_check(self, current_state):
+        if self.reynolds is None:
+            _data_check_error_or_warn(f"Reynolds solver not set for step {self.name}")
+        if self.model.lubricant_model is None:
+            _data_check_error_or_warn(f"Step {self.name} requires a lubricant to be defined in the contact model")
+        if (self.reynolds.requires - set(self.model.lubricant_model.sub_models)) - {'nd_gap', 'nd_pressure'}:
+            _data_check_error_or_warn(f"Reynolds solve in step {self.name} has requirements which are not provided by"
+                                      f" the lubricant sub models:\n"
+                                      f"Requires: {self.reynolds.requires}\n"
+                                      f"Sub models provide: {set(self.model.lubricant_model.sub_models)}")
 
     def update_movement(self, relative_time, original):
         for name in self.update:
@@ -584,3 +592,9 @@ class IterSemiSystem(_ModelStep):
         print(f'Adjusting interference, new interference is {new_interference}')
 
         return new_interference
+
+def _data_check_error_or_warn(msg: str):
+    if slippy.ERROR_IN_DATA_CHECK:
+        raise ValueError(msg)
+    else:
+        warnings.warn(msg)

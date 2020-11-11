@@ -28,11 +28,13 @@ class EPPWear(_SubModelABC):
         super().__init__(name)
         self.p_surf_1 = proportion_surface_1
         self.requires = {'interference', 'total_displacement', 'just_touching_gap'}
-        self.provides = set()
+        self.provides = {'total_plastic_deformation'}
         if proportion_surface_1 > 0:
             self.requires.add('surface_1_points')
+            self.provides.add('s_wear_plastic_surface_1')
         if proportion_surface_1 < 1:
             self.requires.add('surface_2_points')
+            self.provides.add('s_wear_plastic_surface_2')
         self.plastic_def_this_step = None
         self.no_time = no_time
 
@@ -61,16 +63,21 @@ class EPPWear(_SubModelABC):
 
         if self.no_time:
             self.plastic_def_this_step[idx] += total_wear
-
+        tpd = np.sum(total_wear) * self.model.surface_1.grid_spacing ** 2
+        results = {'total_plastic_deformation': tpd}
         if self.p_surf_1 > 0:
             y_pts = current_state['surface_1_points'][0][idx]
             x_pts = current_state['surface_1_points'][1][idx]
-            self.model.surface_1.wear(self.name, x_pts, y_pts, total_wear * self.p_surf_1)
+            surface_1_wear = total_wear * self.p_surf_1
+            results['s_wear_plastic_surface_1'] = surface_1_wear
+            self.model.surface_1.wear(self.name, x_pts, y_pts, surface_1_wear)
         if self.p_surf_1 < 1:
             y_pts = current_state['surface_2_points'][0][idx]
             x_pts = current_state['surface_2_points'][1][idx]
-            self.model.surface_2.wear(self.name, x_pts, y_pts, total_wear * (1 - self.p_surf_1))
-        tpd = np.sum(total_wear)*self.model.surface_1.grid_spacing**2
+            surface_2_wear = total_wear * (1 - self.p_surf_1)
+            results['s_wear_plastic_surface_2'] = surface_2_wear
+            self.model.surface_2.wear(self.name, x_pts, y_pts, surface_2_wear)
+
         print(f"SUB MODEL: {self.name}, total deformation: {tpd}")
-        current_state['total_plastic_deformation'] = tpd
-        return current_state
+
+        return results
