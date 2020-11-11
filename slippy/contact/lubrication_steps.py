@@ -593,6 +593,7 @@ class IterSemiSystem(_ModelStep):
 
         return new_interference
 
+
 def _data_check_error_or_warn(msg: str):
     if slippy.ERROR_IN_DATA_CHECK:
         raise ValueError(msg)
