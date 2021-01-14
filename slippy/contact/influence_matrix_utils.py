@@ -434,9 +434,16 @@ try:
 
         def inner_no_domain(full_loads):
             full_loads = cp.asarray(full_loads)
+            if full_loads.shape == shape:
+                flat = False
+            else:
+                full_loads = cp.reshape(full_loads, loads.shape)
+                flat = True
             fft_loads = forward_trans(full_loads, s=input_shape)
             full = norm_inv * cp.real(backward_trans(fft_loads * fft_im))
             full = full[:full_loads.shape[0], :full_loads.shape[1]]
+            if flat:
+                full = full.flatten()
             return full
 
         if domain is None:
@@ -445,7 +452,8 @@ try:
             return inner_with_domain
 
     def _cuda_bccg(f: typing.Callable, b: typing.Sequence, tol: float, max_it: int, x0: typing.Sequence,
-                   min_pressure: float = 0.0, max_pressure: float = cp.inf, k_inn=1) -> typing.Tuple[cp.ndarray, bool]:
+                   min_pressure: float = 0.0, max_pressure: typing.Union[float, typing.Sequence] = cp.inf,
+                   k_inn=1) -> typing.Tuple[cp.ndarray, bool]:
         """
         The Bound-Constrained Conjugate Gradient Method for Non-negative Matrices
         CUDA implementation
@@ -502,6 +510,12 @@ try:
 
         """
         # if you use np or most built ins in this function at all it will slow it down a lot!
+        try:
+            float(max_pressure)
+            max_is_float = True
+        except TypeError:
+            max_is_float = False
+            max_pressure = cp.array(max_pressure)
 
         # initialize
         b = cp.asarray(b)
@@ -517,6 +531,7 @@ try:
         it_inn = 0
         rho_prev = cp.nan
         rho = 0.0
+        r, p, r_prev = 0, 0, 0
         failed = False
 
         while True:
@@ -524,14 +539,15 @@ try:
             it_inn += 1
             x_prev = x
             if it > 1:
+                r_prev = r
                 rho_prev = rho
             r = -g
             r[msk_bnd_0] = 0
             r[msk_bnd_max] = 0
             rho = cp.dot(r, r)
             if it > 1:
-                beta_pr = (rho - cp.dot(r, r)) / rho_prev
-                p = r + np.max([beta_pr, 0])  # np ok here they are both just scalars
+                beta_pr = (rho - cp.dot(r, r_prev)) / rho_prev
+                p = r + max([beta_pr, 0])*p
             else:
                 p = r
             p[msk_bnd_0] = 0
@@ -540,7 +556,7 @@ try:
             q = f(p)
             if it_inn < k_inn:
                 q[msk_bnd_0] = cp.nan
-                p[msk_bnd_max] = cp.nan
+                q[msk_bnd_max] = cp.nan
             alpha = cp.dot(r, p) / cp.dot(p, q)
             x = x + alpha * p
 
@@ -560,7 +576,10 @@ try:
                     changed = True
                 msk_prj_max = x >= max_pressure * (1 + small)
                 if cp.any(msk_prj_max):
-                    x[msk_prj_max] = max_pressure
+                    if max_is_float:
+                        x[msk_prj_max] = max_pressure
+                    else:
+                        x[msk_prj_max] = max_pressure[msk_prj_max]
                     msk_bnd_max[msk_prj_max] = True
                     changed = True
 
@@ -685,13 +704,21 @@ try:
 
         shape_diff_loads = [[0, (b - a)] for a, b in zip(loads.shape, input_shape)]
 
-        def inner_no_domain(full_loads):
-            loads_pad = np.pad(full_loads, shape_diff_loads, 'constant')
-            full = backward_trans(forward_trans(loads_pad) * fft_im)
-            return norm_inv * full[:full_loads.shape[0], :full_loads.shape[1]]
-
         shape = loads.shape
         dtype = loads.dtype
+
+        def inner_no_domain(full_loads):
+            if full_loads.shape == shape:
+                flat = False
+            else:
+                full_loads = np.reshape(full_loads, loads.shape)
+                flat = True
+            loads_pad = np.pad(full_loads, shape_diff_loads, 'constant')
+            full = backward_trans(forward_trans(loads_pad) * fft_im)
+            full = norm_inv * full[:full_loads.shape[0], :full_loads.shape[1]]
+            if flat:
+                full = full.flatten()
+            return full
 
         def inner_with_domain(sub_loads, ignore_domain=False):
             full_loads = np.zeros(shape, dtype=dtype)
@@ -709,7 +736,8 @@ try:
             return inner_with_domain
 
     def _fftw_bccg(f: typing.Callable, b: np.ndarray, tol: float, max_it: int, x0: np.ndarray,
-                   min_pressure: float = 0, max_pressure: float = np.inf, k_inn=1) -> typing.Tuple[np.ndarray, bool]:
+                   min_pressure: float = 0, max_pressure: typing.Union[float, typing.Sequence] = np.inf,
+                   k_inn=1) -> typing.Tuple[np.ndarray, bool]:
         """
         The Bound-Constrained Conjugate Gradient Method for Non-negative Matrices
         FFTW implementation
@@ -755,6 +783,12 @@ try:
         --------
 
         """
+        try:
+            float(max_pressure)
+            max_is_float = True
+        except TypeError:
+            max_is_float = False
+
         # initialize
         x = np.clip(x0, min_pressure, max_pressure)
         g = f(x) - b
@@ -768,6 +802,7 @@ try:
         it_inn = 0
         rho_prev = np.nan
         rho = 0.0
+        r, p, r_prev = 0, 0, 0
         failed = False
 
         while True:
@@ -775,14 +810,15 @@ try:
             it_inn += 1
             x_prev = x
             if it > 1:
+                r_prev = r
                 rho_prev = rho
             r = -g
             r[msk_bnd_0] = 0
             r[msk_bnd_max] = 0
             rho = np.dot(r, r)
             if it > 1:
-                beta_pr = (rho - np.dot(r, r)) / rho_prev
-                p = r + np.max([beta_pr, 0])
+                beta_pr = (rho - np.dot(r, r_prev)) / rho_prev
+                p = r + np.max([beta_pr, 0])*p
             else:
                 p = r
             p[msk_bnd_0] = 0
@@ -791,7 +827,7 @@ try:
             q = f(p)
             if it_inn < k_inn:
                 q[msk_bnd_0] = np.nan
-                p[msk_bnd_max] = np.nan
+                q[msk_bnd_max] = np.nan  # changed from p[... to q[... 8/12/20
             alpha = np.dot(r, p) / np.dot(p, q)
             x = x + alpha * p
 
@@ -805,13 +841,16 @@ try:
 
             if outer_it:
                 msk_prj_0 = x < -small
-                if any(msk_prj_0):
+                if np.any(msk_prj_0):
                     x[msk_prj_0] = 0
                     msk_bnd_0[msk_prj_0] = True
                     changed = True
                 msk_prj_max = x >= max_pressure * (1 + small)
-                if any(msk_prj_max):
-                    x[msk_prj_max] = max_pressure
+                if np.any(msk_prj_max):
+                    if max_is_float:
+                        x[msk_prj_max] = max_pressure
+                    else:
+                        x[msk_prj_max] = max_pressure[msk_prj_max]
                     msk_bnd_max[msk_prj_max] = True
                     changed = True
 
@@ -824,7 +863,7 @@ try:
 
             if check_grad:
                 msk_rel = np.logical_and(msk_bnd_0, g < -small) + np.logical_and(msk_bnd_max, g > small)
-                if any(msk_rel):
+                if np.any(msk_rel):
                     msk_bnd_0[msk_rel] = False
                     msk_bnd_max[msk_rel] = False
                     changed = True

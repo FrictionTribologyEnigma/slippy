@@ -78,7 +78,9 @@ class IterSemiSystem(_ModelStep):
         If True the surface profile will warp when applying the off set between the surfaces
     periodic_axes: tuple, optional ((False, False))
         For each True value the corresponding axis will be solved by circular convolution, meaning the result is
-        periodic in that direction
+        periodic in that direction. NOTE: this only controls the deformation result from the materials, ensure that the
+        reynolds equation solver used supports periodic solutions and is set to produce a periodic solution to the
+        pressure equation. Additionally, ensure that the axes of periodicity match.
     max_it_pressure: int, optional (100)
         The maximum number of iterations in the fluid pressure calculation loop
     rtol_pressure: float, optional (1e-7)
@@ -150,7 +152,7 @@ class IterSemiSystem(_ModelStep):
         self._max_it_interference = max_it_interference
         self._rtol_pressure = rtol_pressure
         self._rtol_interference = rtol_interference
-        self._max_pressure = np.inf
+        self._nd_max_pressure = None
 
         self.reynolds = reynolds_solver
 
@@ -223,7 +225,7 @@ class IterSemiSystem(_ModelStep):
         base_provides = {'just_touching_gap', 'surface_1_points', 'surface_2_points', 'off_set', 'time_step', 'time',
                          'interference', 'total_normal_load', 'pressure', 'nd_pressure', 'loads',
                          'surface_1_displacement', 'surface_2_displacement', 'total_displacement', 'converged',
-                         'gap', 'nd_gap'}
+                         'gap', 'nd_gap', 'rolling_speed'}
 
         provides = base_provides.union(reynolds_solver.provides).union(reynolds_solver.requires)
 
@@ -324,8 +326,9 @@ class IterSemiSystem(_ModelStep):
             # make a new loads function if we need it
             if (previous_gap_shape is None or previous_gap_shape != just_touching_gap.shape) and im_mats:
                 span = just_touching_gap.shape
-                max_pressure = min([surf_1_material.max_load, surf_2_material.max_load])
-                self._max_pressure = max_pressure
+                max_pressure = self.reynolds.dimensionalise_pressure(min([surf_1_material.max_load,
+                                                                          surf_2_material.max_load]), True)
+                self._nd_max_pressure = max_pressure
                 im1 = surf_1_material.influence_matrix(span=span, grid_spacing=[gs] * 2,
                                                        components=['zz'])['zz']
                 im2 = surf_2_material.influence_matrix(span=span, grid_spacing=[gs] * 2,
@@ -399,7 +402,7 @@ class IterSemiSystem(_ModelStep):
                 # else:
                 #     flag = True
                 # solve reynolds equation
-                results_this_it = self.reynolds.solve(results_last_it, self._max_pressure)
+                results_this_it = self.reynolds.solve(results_last_it, self._nd_max_pressure)
 
                 # add just touching gap, needed for sub models
                 results_this_it['just_touching_gap'] = just_touching_gap
@@ -414,8 +417,13 @@ class IterSemiSystem(_ModelStep):
                 pressure_converged = pressure_relative_error < self._rtol_pressure
 
                 # apply the relaxation factor to the pressure result
-                results_this_it['nd_pressure'] = (results_last_it['nd_pressure'] +
-                                                  self._relaxation_factor * change_in_pressures)
+                if self._nd_max_pressure is not None:
+                    results_this_it['nd_pressure'] = np.clip(results_last_it['nd_pressure'] +
+                                                             self._relaxation_factor * change_in_pressures, None,
+                                                             self._nd_max_pressure)
+                else:
+                    results_this_it['nd_pressure'] = (results_last_it['nd_pressure'] +
+                                                      self._relaxation_factor * change_in_pressures)
 
                 # solve contact geometry
                 results_this_it['pressure'] = self.reynolds.dimensionalise_pressure(results_this_it['nd_pressure'])
@@ -517,6 +525,7 @@ class IterSemiSystem(_ModelStep):
             current_state['total_normal_load'] = total_load
             current_state['loads'] = Loads(z=current_state['pressure'])
             current_state['converged'] = converged
+            current_state['rolling_speed'] = self.rolling_speed
             current_state = self.solve_sub_models(current_state)
             self.save_outputs(current_state, output_file)
 

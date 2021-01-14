@@ -9,8 +9,11 @@ __version__ = '0.1.1'
 try:
     import cupy  # noqa: F401
     CUDA = True
+    asnumpy = cupy.asnumpy
 except ImportError:
     CUDA = False
+    import numpy
+    asnumpy = numpy.asarray
 
 CORES = multiprocessing.cpu_count()
 OUTPUT_DIR = os.getcwd()

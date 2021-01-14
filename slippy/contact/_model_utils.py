@@ -128,7 +128,7 @@ def get_gap_from_model(model: _ContactModelABC, interference: float = 0,
             sub_1 = model.surface_1.profile[slice_x[0]:slice_x[1], slice_y[0]:slice_y[1]]
             assert sub_1.shape == contact_points_1.shape == contact_points_2.shape
         # interpolate using the required technique
-        sub_2 = model.surface_2.interpolate(*contact_points_2, mode=mode)
+        sub_2 = model.surface_2.interpolate(*contact_points_2, mode=mode, remake_interpolator=True)
         point_wise_interference = -sub_2 - sub_1
         point_wise_interference -= min(point_wise_interference.flatten()) + interference
 

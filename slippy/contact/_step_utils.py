@@ -125,7 +125,6 @@ class HeightOptimisationFunction:
         self._original_set_load = max_set_load
         self._set_load = float(max_set_load)
         self._periodic_axes = periodic_axes
-        # these should really be a sorted dict but it seems like the added dependencies are not worth it atm
         self.cache_heights = [0.0]
         self.cache_total_load = [0.0]
         self.cache_surface_loads = [xp.zeros(just_touching_gap.shape)]
@@ -157,11 +156,11 @@ class HeightOptimisationFunction:
 
             if use_cache and max_pressure != np.inf:
                 max_loads = max_pressure * xp.ones(just_touching_gap.shape)
-                self.cache_surface_loads.append(max_loads)
                 self.cache_total_load.append(max_pressure * just_touching_gap.size * surf_1.grid_spacing ** 2)
+                max_elastic_disp = self.conv_func(max_loads)
+                self.cache_heights.append(xp.max(max_elastic_disp + xp.asarray(just_touching_gap)))
                 if cache_loads:
-                    max_elastic_disp = fftconvolve(max_loads, total_im, 'same')
-                    self.cache_heights.append(np.max(max_elastic_disp + just_touching_gap))
+                    self.cache_surface_loads.append(max_loads)
 
     @property
     def contact_nodes(self):
@@ -190,7 +189,7 @@ class HeightOptimisationFunction:
             xp = cp
         else:
             xp = np
-        if self.im_mats:
+        if self.im_mats and 'surface_1_displacement' not in self._results:
             # need to put the loads into an np array of right shape
             # find the full displacements (and convert to np array)
             # find disp on surface 1 and surface 2
@@ -203,7 +202,8 @@ class HeightOptimisationFunction:
             # noinspection PyUnresolvedReferences
             im2 = surf_2.material.influence_matrix(span=span, grid_spacing=[surf_1.grid_spacing] * 2,
                                                    components=['zz'])['zz']
-            full_loads = np.zeros(self._just_touching_gap.shape)
+            full_loads = xp.zeros(self._just_touching_gap.shape)
+
             if slippy.CUDA:
                 full_loads[xp.asnumpy(self._results['domain'])] = xp.asnumpy(self._results['loads_in_domain'])
                 full_disp = xp.asnumpy(self.conv_func(self._results['loads_in_domain'], ignore_domain=True))
@@ -214,8 +214,15 @@ class HeightOptimisationFunction:
             conv_func_1 = plan_convolve(full_loads, im1, None, circular=self._periodic_axes)
             conv_func_2 = plan_convolve(full_loads, im2, None, circular=self._periodic_axes)
 
-            disp_1 = Displacements(z=conv_func_1(full_loads))
-            disp_2 = Displacements(z=conv_func_2(full_loads))
+            disp_1 = conv_func_1(full_loads)
+            disp_2 = conv_func_2(full_loads)
+
+            if slippy.CUDA:
+                disp_1, disp_2 = xp.asnumpy(disp_1), xp.asnumpy(disp_2)
+                full_loads = xp.asnumpy(full_loads)
+
+            disp_1 = Displacements(z=disp_1)
+            disp_2 = Displacements(z=disp_2)
 
             total_load = float(xp.sum(self._results['loads_in_domain']) * self._grid_spacing ** 2)
 
@@ -223,6 +230,7 @@ class HeightOptimisationFunction:
                        'surface_1_displacement': disp_1, 'surface_2_displacement': disp_2,
                        'contact_nodes': full_loads > 0, 'total_normal_load': total_load,
                        'interference': self._results['interference']}
+            self._results = results
             return results
         else:
             return self._results
@@ -255,8 +263,7 @@ class HeightOptimisationFunction:
             return lower, upper
         index = bisect.bisect_left(self.cache_total_load, self._set_load)
         try:
-            upper_est = self.cache_heights[index]
-            upper_bound = min(upper_est, upper)
+            upper_bound = self.cache_heights[index]
         except IndexError:
             upper_bound = upper
 
@@ -266,7 +273,11 @@ class HeightOptimisationFunction:
         else:
             lower_bound = lower
 
-        return lower_bound, upper_bound
+        if abs(upper_bound - lower_bound)/upper_bound < 1e-10 or upper_bound < lower_bound:
+            interpolator = interp1d(self.cache_total_load, self.cache_heights, kind='cubic', assume_sorted=True)
+            upper_bound = interpolator(self._set_load * 2)
+
+        return float(lower_bound), float(upper_bound)
 
     def __call__(self, height, current_state):
         if slippy.CUDA:

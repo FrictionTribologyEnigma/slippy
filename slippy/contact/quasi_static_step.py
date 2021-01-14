@@ -92,6 +92,10 @@ class QuasiStaticStep(_ModelStep):
         The norm of the residual used to declare convergence of the bccg iterations
     no_update_warning: bool, optional (True)
         Change to False to suppress warning given when no movement or loading changes are specified
+    upper: float, optional (4.0)
+        For load controlled contact the upper bound for the interference between the bodies will be this factor
+        multiplied by the largest just touching gap. 4 is suitable for flat on flat contacts but for ball on flat
+        contacts a lower value will give faster converging solutions
 
     Examples
     --------
@@ -118,7 +122,8 @@ class QuasiStaticStep(_ModelStep):
                  profile_interpolation_mode: str = 'nearest',
                  periodic_geometry: bool = False, periodic_axes: tuple = (False, False),
                  max_it_interference: int = 100, rtol_interference=1e-3,
-                 max_it_displacement: int = None, rtol_displacement=1e-5, no_update_warning: bool = True):
+                 max_it_displacement: int = None, rtol_displacement=1e-5, no_update_warning: bool = True,
+                 upper: float = 4.0):
 
         # movement interpolation mode sort out movement interpolation mode make array of values
         if impact_properties is not None:
@@ -141,6 +146,7 @@ class QuasiStaticStep(_ModelStep):
         self._height_optimisation_func = None
         self._adhesion = adhesion
         self._unloading = unloading
+        self._upper_factor = upper
 
         self.time_step = time_period / number_of_steps
 
@@ -273,7 +279,7 @@ class QuasiStaticStep(_ModelStep):
     @property
     def upper(self):
         if self._upper is None:
-            self._upper = np.max(self._just_touching_gap)*2
+            self._upper = np.max(self._just_touching_gap)*self._upper_factor
         return self._upper
 
     def update_movement(self, relative_time, original):

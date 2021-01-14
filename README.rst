@@ -42,42 +42,51 @@ A python package for tribologists. Including:
 Installation
 ============
 To install slippy, you need to have python installed. If you are not familiar with python, we recommend installing the
-anaconda_ distribution, as it comes with many other usefull tools. We also recommend installing slippy in a virtual
-environment. If you are using anaconda you can create a suitable virtual environment, and enter it, by running the
-following in the anaconda prompt:
+anaconda_ distribution, as it comes with many other useful tools. We also recommend installing slippy in a virtual
+environment. If you are using anaconda you can create a suitable virtual environment, install python and pip, and
+activate the environment, by running the following in the **anaconda prompt**:
 
 .. code-block:: bash
 
     conda create -n name_of_env python==3.8 pip
     conda activate name_of_env
 
-When you have python and pip installed there are two ways to install slippy:
+Once activated, you should see the name of the environment in brackets in the command prompt. Packages are only
+installed for the currently active environment. When you have python and pip installed there are two ways to install
+slippy:
 
-With pip_ from PyPI_:
----------------------
+From PyPI_:
+-----------
 The last released version can be installed from the python package index PyPI:
 
 .. code-block:: bash
 
     python -m pip install slippy
 
-With pip_ from github:
-----------------------
+From github:
+------------
 The latest version can be installed from github, this version will gain functionality first but may be unstable during
 development:
 
 .. code-block::bash
 
-    python -m pip install git+https://github.com/phac-nml/biohansel.git@master
+    python -m pip install git+https://github.com/FrictionTribologyEnigma/slippy.git@master
 
 **If you are working on linux you may have to replace 'python' with 'python3' in the installation commands.**
 
+You are now ready to run models using CPU backend, if you are unfamiliar with slippy a good place to start would be the
+examples folder in the github repository, these show working code examples for some common problems. They can be viewed
+online or downloaded and run locally. Running locally requires you to install jupyter ('python -m pip install jupyter'
+in anaconda prompt) in the same environment as slippy is installed in. You can then start a notebook server ('jupyter
+notebook' in anaconda prompt) and open the .ipynb file through the webpage this opens.
+
 Installing the GPU backend:
 ---------------------------
-Slippy can run simulations of the GPU of your machine, this is often much faster for large simulations. However, this
-functionallity is not possible on all computers. Because of this we don't attempt to install the GPU backend with the
+Slippy can run simulations on Nvidia GPUs, this is often much faster for large simulations. However, this
+functionality is not possible on all computers. Because of this we don't attempt to install the GPU backend with the
 requirements as this would make it impossible for many users to install slippy. In order to run models on the GPU you
-must also install cupy_, instructions for installing cupy can be found here_.
+must also install cupy_, instructions for installing cupy can be found here_. This step is optional, if cupy is
+installed slippy will use the GPU by default, otherwise it will use the CPU backend.
 
 
 Citation
@@ -103,7 +112,7 @@ will follow a standard work flow:
 
 In this simple example a rough cylinder is pressed into a flat plane, materials are elastic but with a maximum
 allowable pressure to simulate an elastic perfectly plastic material. Where the loads is equal to this maximum load
-the surfaces are allowed to penetrate each other, here a wear submodel is used to remove this overlap as wear, this
+the surfaces are allowed to penetrate each other, here a wear sub-model is used to remove this overlap as wear, this
 permanently changes the surface profiles.
 
 A more detailed description of the decisions behind the code can be found in the example_:
@@ -114,15 +123,16 @@ A more detailed description of the decisions behind the code can be found in the
     import slippy.surface as s
     import slippy.contact as c
     # define contact geometry
-    cylinder = s.RoundSurface((1,np.inf,1), shape=(256,256), grid_spacing=0.001)
-    roughness = s.HurstFractalSurface(1,0.2,1000, shape=(256, 256), grid_spacing=0.001,
-                                  generate = True)
+    cylinder = s.RoundSurface((1 ,np.inf, 1), shape=(256, 256), grid_spacing=0.001)
+    roughness = s.HurstFractalSurface(1, 0.2, 1000, shape=(256, 256), grid_spacing=0.001,
+                                      generate = True)
     combined = cylinder + roughness * 0.00001
     flat = s.FlatSurface(shape=(256, 256), grid_spacing=0.001, generate = True)
 
     # define material behaviour and assign to surfaces
-    yield_stress = 3*np.exp(0.736*0.3)*705e6
-    material = c.Elastic('steel', properties = {'E':200e9, 'v':0.3}, max_load = yield_stress
+    yield_stress = 3 * np.exp(0.736 * 0.3) * 705e6
+    material = c.Elastic('steel', properties = {'E':200e9, 'v':0.3},
+                         max_load = yield_stress)
     combined.material = material
     flat.material = material
 
@@ -133,7 +143,7 @@ A more detailed description of the decisions behind the code can be found in the
     max_int = 0.002
     n_time_steps = 20
     my_step = c.QuasiStaticStep('loading', n_time_steps, no_time=True,
-                                interference = [max_int*0.001,max_int],
+                                interference = [max_int*0.001, max_int],
                                 periodic_geometry=True, periodic_axes = (False, True))
 
     # add the steps to the model
@@ -167,7 +177,7 @@ coupled, for example fluid pressures and deformation in a EHL step.
 After this the sub-models are solved, these are one way coupled to the contact mechanics problem in this time step.
 This means that the result of the contact model can be used in their solution but they cannot impact the solution of
 the contact mechanics problem in a single time step. Processes like wear, film growth, temperature change, and in some
-cases tangential contact can be solved in submodels.
+cases tangential contact can be solved in sub-models.
 
 Finally the requested outputs are written to file so they can be post processed at a later time. Depending on the step
 this process can repeat for the same step or the model can move on to the next step:

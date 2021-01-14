@@ -129,18 +129,20 @@ class _ModelStep(_StepABC):
             params_to_save.update(output.parameters)
 
         expanded_state = current_state.copy()
+
+        if 'all' in params_to_save:
+            params_to_save.update(expanded_state)
+            params_to_save.remove('all')
+
         for param in ['loads', 'total_displacement', 'surface_1_displacement', 'surface_2_displacement']:
             if param in expanded_state:
-                expanded_state.add(param+'_x')
+                expanded_state.add(param + '_x')
                 expanded_state.add(param + '_y')
                 expanded_state.add(param + '_z')
                 expanded_state.remove(param)
             if param in params_to_save:
                 params_to_save.update({param + '_x', param + '_y', param + '_z'})
                 params_to_save.remove(param)
-        if 'all' in params_to_save:
-            params_to_save.update(expanded_state)
-            params_to_save.remove('all')
 
         missing_outputs = params_to_save - set(expanded_state)
 
@@ -232,6 +234,16 @@ class _ModelStep(_StepABC):
             if param in params_to_save:
                 params_to_save.update({param + '_x', param + '_y', param + '_z'})
                 params_to_save.remove(param)
+
+        for param in ['surface_1_points', 'surface_2_points']:
+            if param in expanded_state:
+                expanded_state[param + '_y'] = expanded_state[param][0]
+                expanded_state[param + '_x'] = expanded_state[param][1]
+                del expanded_state[param]
+            if param in params_to_save:
+                params_to_save.update({param + '_x', param + '_y'})
+                params_to_save.remove(param)
+
         # if all in extended params to save
         if 'all' in params_to_save:
             params_to_save.update(expanded_state)
@@ -239,7 +251,9 @@ class _ModelStep(_StepABC):
 
         missing_outputs = params_to_save - set(expanded_state)
 
-        for mo in missing_outputs:
+        missing_outputs_copy = missing_outputs.copy()
+
+        for mo in missing_outputs_copy:
             if mo.startswith('surface') and ';' not in mo:
                 try:
                     exec('param = self.model.' + mo)

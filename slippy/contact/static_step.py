@@ -165,7 +165,8 @@ class StaticStep(_ModelStep):
                                               initial_contact_nodes=initial_contact_nodes,
                                               max_it_inner=self._max_it_displacement, tol_inner=self._rtol_displacement,
                                               max_set_load=max_load,
-                                              tolerance=self._rtol_interference, material_options=None)
+                                              tolerance=self._rtol_interference, material_options=None,
+                                              periodic_axes=self._periodic_axes, )
 
         if self._unloading and 'contact_nodes' in current_state:
             contact_nodes = current_state['contact_nodes']

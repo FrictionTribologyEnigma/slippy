@@ -5,6 +5,7 @@ import tinydb
 import slippy
 import os
 import numpy as np
+from collections.abc import Sequence
 if slippy.CUDA:
     import cupy as cp
 
@@ -128,6 +129,9 @@ class OutputRequest:
         valid_modes = ('interval', 'time_interval', 'n_outputs_per_step', 'step_times', 'global_times')
         if timing_mode not in valid_modes:
             raise ValueError(f"Unrecognised timing mode: {timing_mode}, should be one of {', '.join(valid_modes)}")
+
+        if not isinstance(parameters, Sequence) or isinstance(parameters, str):
+            raise ValueError("Parameters must be a sequence of strings")
 
         self.timing = timing_mode
         if timing_mode == 'interval':
@@ -328,7 +332,7 @@ class OutputReader:
     def __repr__(self):
         return (f"OutputReader \n"
                 f"fields: {', '.join(self.fields)} \n"
-                f"time points {', '.join(self.time_points)}")
+                f"time points {', '.join([str(tp) for tp in self.time_points])}")
 
 
 def _array_gen(output_dict, array_file_name):

@@ -19,12 +19,16 @@ Currently implemented sub models are:
 .. autosummary::
    :toctree: generated
 
-   ContactStiffnessSubModel   -- Find contact stiffness in any direction
-   EPPWear                    -- Wear the surfaces where there is excess interference after elastic deformation
+   ResultContactStiffness       -- Find contact stiffness in any direction
+   WearElasticPerfectlyPlastic  -- Wear the surfaces where there is excess interference after elastic deformation
 
 """
 
-from .contact_stiffness import ContactStiffness
-from .epp_wear import EPPWear
+from .contact_stiffness import ResultContactStiffness
+from .epp_wear import WearElasticPerfectlyPlastic
+from .friction_coulomb_model import FrictionCoulombSimple
+from .tangential_pure_sliding import TangentialPureSliding
+from .tangential_partial_slip import TangentialPartialSlip
 
-__all__ = ['ContactStiffness', 'EPPWear']
+__all__ = ['ResultContactStiffness', 'WearElasticPerfectlyPlastic', 'FrictionCoulombSimple', 'TangentialPureSliding',
+           'TangentialPartialSlip']

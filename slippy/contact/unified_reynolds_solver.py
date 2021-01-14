@@ -1,7 +1,7 @@
 import typing
 from numba import njit
 import numpy as np
-from scipy.linalg.lapack import dgtsv
+from ._lubrication_utils import tdma
 
 from slippy.abcs import _NonDimensionalReynoldSolverABC
 
@@ -32,10 +32,11 @@ class UnifiedReynoldsSolver(_NonDimensionalReynoldSolverABC):
             The viscosity used to non-dimentionalise the problem, usually the viscosity when the pressure is 0.
         dimentional_density: float
             The density used to non-dimentionalise the problem, usually the density when the pressure is 0.
-        rolling_speed: float, optional (None)
-            The dimentional mean speed of the surfaces (u1+u2)/2, this is normally set by the step
         sweep_direction: str {'forward', 'backward'}, optional ('forward')
             The direction which the reynolds solver moves through the pressure array.
+        periodic: bool, optional (False)
+            Controls if the pressure soltuion is periodic or not, if it is, the material deformation solution must also
+            be periodic for proper results, this shoudl be set by the model step. This feature is experimental.
 
         Attributes
         ----------
@@ -97,11 +98,12 @@ class UnifiedReynoldsSolver(_NonDimensionalReynoldSolverABC):
                  hertzian_half_width: float,
                  dimentional_viscosity: float,
                  dimentional_density: float,
-                 sweep_direction: str = 'backward'):
+                 sweep_direction: str = 'backward',
+                 periodic: bool = False):
         # these automatically calculate the non dimentional versions
         self.grid_spacing = grid_spacing
         self.time_step = time_step
-
+        self.periodic = periodic
         # find lambda bar (all of these are properties apart from dimentional_density)
         self.radius = radius_in_rolling_direction
         self.hertzian_pressure = hertzian_pressure
@@ -239,6 +241,9 @@ class UnifiedReynoldsSolver(_NonDimensionalReynoldSolverABC):
                 self._row_order = [length - 2, 0]
             else:
                 raise ValueError("Row step must be -1 or 1")
+            if self.periodic:
+                self._row_order[0] = self._row_order[0] - self._step
+                self._row_order[1] = self._row_order[1] + self._step
 
         ak00 = self.ak00
         ak10 = self.ak10
@@ -248,15 +253,30 @@ class UnifiedReynoldsSolver(_NonDimensionalReynoldSolverABC):
         previous_nd_density = previous_state['previous_nd_density']
         previous_nd_gap = previous_state['previous_nd_gap']
 
+        #  if self.periodic:
+        # a_all, c_all = np.zeros_like(epsilon[:, 0]), np.zeros_like(epsilon[:, 0])
+        # b_all, f_all = np.ones_like(epsilon[:, 0]), np.zeros_like(epsilon[:, 0])
+        # for row in range(self._row_order[0]-self._step, self._row_order[1]+self._step, self._step):
+        #     a_all, b_all, c_all, f_all = _solve_row_cyclic(epsilon, row, pressure, recip_dx_squared_rho, recip_dx,
+        #                                                    recip_dt, a_all, b_all, c_all, f_all, ak00, ak10, ak20,
+        #                                                    nd_gap, nd_density, previous_nd_density, previous_nd_gap)
+        #
+        #     p1d = cyclic_tdma(a_all, b_all, c_all, f_all)
+        #     #p1d = np.clip(raw_pressure, 0, max_pressure)
+        #
+        #     pressure[:, row] = p1d[:]
+        #
+        # solve line by line
+
         a_all, c_all = np.zeros_like(epsilon[:-1, 0]), np.zeros_like(epsilon[:-1, 0])
         b_all, f_all = np.ones_like(epsilon[:, 0]), np.zeros_like(epsilon[:, 0])
-        # solve line by line
-        for row in range(self._row_order[0], self._row_order[1], self._step):
-            a_all, b_all, c_all, f_all = _solve_row(epsilon, row, pressure, recip_dx_squared_rho, recip_dx, recip_dt,
-                                                    a_all, b_all, c_all, f_all, ak00, ak10, ak20, nd_gap, nd_density,
-                                                    previous_nd_density, previous_nd_gap)
 
-            p1d = np.clip(thomas_tdma(a_all, b_all, c_all, f_all), 0, max_pressure)
+        for row in range(self._row_order[0], self._row_order[1], self._step):
+            a_all, b_all, c_all, f_all = _solve_row(epsilon, row, pressure, recip_dx_squared_rho, recip_dx,
+                                                    recip_dt, a_all, b_all, c_all, f_all, ak00, ak10, ak20, nd_gap,
+                                                    nd_density, previous_nd_density, previous_nd_gap)
+
+            p1d = np.clip(tdma(a_all, b_all, c_all, f_all), 0, max_pressure)
 
             pressure[1:-1, row] = p1d[1:-1]
 
@@ -299,10 +319,11 @@ class UnifiedReynoldsSolver(_NonDimensionalReynoldSolverABC):
 @njit
 def _solve_row(epsilon, row, pressure, recip_dx_squared_rho, recip_dx, recip_dt, a_all, b_all, c_all, f_all,
                ak00, ak10, ak20, nd_gap, nd_density, previous_nd_density, previous_nd_gap):
+    row_plus_1 = row + 1 if (row + 1) < len(epsilon[0, :]) else 0
     d1 = 0.5 * (epsilon[1:-1, row] + epsilon[0:-2, row])
     d2 = 0.5 * (epsilon[1:-1, row] + epsilon[2:, row])
     d4 = 0.5 * (epsilon[1:-1, row] + epsilon[1:-1, row - 1])
-    d5 = 0.5 * (epsilon[1:-1, row] + epsilon[1:-1, row + 1])
+    d5 = 0.5 * (epsilon[1:-1, row] + epsilon[1:-1, row_plus_1])
     d3 = d1 + d2 + d4 + d5
 
     q1 = ak10 * pressure[0:-2, row] + ak00 * pressure[1:-1, row] + ak10 * pressure[2:, row]
@@ -312,7 +333,7 @@ def _solve_row(epsilon, row, pressure, recip_dx_squared_rho, recip_dx, recip_dt,
     a_p = d1 * recip_dx_squared_rho[1:-1, row]
     b_p = -d3 * recip_dx_squared_rho[1:-1, row]
     c_p = d2 * recip_dx_squared_rho[1:-1, row]
-    f_p = -(d5 * pressure[1:-1, row + 1] + d4 * pressure[1:-1, row - 1]) * recip_dx_squared_rho[1:-1, row]
+    f_p = -(d5 * pressure[1:-1, row_plus_1] + d4 * pressure[1:-1, row - 1]) * recip_dx_squared_rho[1:-1, row]
 
     # Wedge flow terms
     a_w = (ak00 - ak10) * recip_dx
@@ -338,29 +359,44 @@ def _solve_row(epsilon, row, pressure, recip_dx_squared_rho, recip_dx, recip_dt,
     return a_all, b_all, c_all, f_all
 
 
-def thomas_tdma(lower_diagonal, main_diagonal, upper_diagonal, right_hand_side):
-    """The thomas algorithm (TDMA) solution for tri-diagonal matrix inversion
+@njit
+def _solve_row_cyclic(epsilon, row, pressure, recip_dx_squared_rho, recip_dx, recip_dt, a_all, b_all, c_all, f_all,
+                      ak00, ak10, ak20, nd_gap, nd_density, previous_nd_density, previous_nd_gap):
+    row_plus_1 = row + 1 if (row + 1) <= len(epsilon[0, :]) else 0
+    d1 = 0.5 * (epsilon[:, row] + np.roll(epsilon[:, row], 1))
+    d2 = 0.5 * (epsilon[:, row] + np.roll(epsilon[:, row], -1))
+    d4 = 0.5 * (epsilon[:, row] + epsilon[:, row - 1])
+    d5 = 0.5 * (epsilon[:, row] + epsilon[:, row_plus_1])
+    d3 = d1 + d2 + d4 + d5
 
-    Parameters
-    ----------
-    lower_diagonal: np.ndarray
-        The lower diagonal of the matrix length n-1
-    main_diagonal: np.ndarray
-        The main diagonal of the matrix length n
-    upper_diagonal: np.ndarray
-        The upper diagonal of the matrix length n-1
-    right_hand_side: np.ndarray
-        The array bof size max(1, ldb*n_rhs) for column major layout and max(1, ldb*n) for row major layout contains the
-        matrix B whose columns are the right-hand sides for the systems of equations.
+    q1 = ak10 * np.roll(pressure[:, row], 1) + ak00 * pressure[:, row] + ak10 * np.roll(pressure[:, row], -1)
+    q2 = ak00 * np.roll(pressure[:, row], 1) + ak10 * pressure[:, row] + ak20 * np.roll(pressure[:, row], -1)
 
-    Returns
-    -------
-    x: np.ndarray
-        The solution array length n
+    # Pressure flow terms
+    a_p = d1 * recip_dx_squared_rho[:, row]
+    b_p = -d3 * recip_dx_squared_rho[:, row]
+    c_p = d2 * recip_dx_squared_rho[:, row]
+    f_p = -(d5 * pressure[:, row_plus_1] + d4 * pressure[:, row - 1]) * recip_dx_squared_rho[:, row]
 
-    Notes
-    -----
-    Nothing is mutated by this function
-    """
-    _, _, _, x, _ = dgtsv(lower_diagonal, main_diagonal, upper_diagonal, right_hand_side)
-    return x
+    # Wedge flow terms
+    a_w = (ak00 - ak10) * recip_dx
+    b_w = (ak10 - ak00) * recip_dx
+    c_w = (ak20 - ak10) * recip_dx
+    f_w = (((nd_gap[:, row] - q1) - (np.roll(nd_gap[:, row], 1) - q2)) * recip_dx +
+           nd_gap[:, row] * (1 - (np.roll(nd_density[:, row], 1) / nd_density[:, row])) * recip_dx)  # +
+    # recip_dx * (nd_gap[1:-1, row] - nd_gap[0:-2, row]))  # these two gaps were roughness in fortran code
+
+    # squeeze flow terms
+    a_s = -1 * ak10 * recip_dt
+    b_s = -1 * ak00 * recip_dt
+    c_s = -1 * ak10 * recip_dt
+    f_s = ((nd_gap[:, row] - q1) - (previous_nd_density[:, row] / nd_density[:, row]) *
+           previous_nd_gap[:, row]) * recip_dt
+
+    # add and apply boundary conditions here (a[-1] = c[0] = f[0 and -1] = 0, b[0 and -1] = 1)
+    a_all[:] = a_p + a_s + a_w
+    b_all[:] = b_p + b_s + b_w
+    c_all[:] = c_p + c_s + c_w
+    f_all[:] = f_p + f_s + f_w
+
+    return a_all, b_all, c_all, f_all

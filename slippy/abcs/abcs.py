@@ -130,9 +130,21 @@ class _SubModelABC(abc.ABC):
     model: _ContactModelABC = None
     no_time: bool = False
 
-    def __init__(self, name: str):
-        self.name = name
+    def __init__(self, name: str, requires: set, provides: set):
+        if isinstance(name, str):
+            self.name = name
+        else:
+            raise ValueError(f"Name of sub model must be a string, received: {type(name)}")
+        if isinstance(requires, set):
+            self.requires = requires
+        else:
+            raise ValueError(f"Requires property must be a set, received: {type(requires)}")
+        if isinstance(provides, set):
+            self.provides = provides
+        else:
+            raise ValueError(f"Requires property must be a set, received: {type(provides)}")
 
+    @abc.abstractmethod
     def solve(self, current_state: dict) -> dict:
         """Solve the sub model
 

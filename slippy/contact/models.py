@@ -147,6 +147,7 @@ class ContactModel(_ContactModelABC):
         """
         if active_steps == 'all':
             active_steps = set(self.steps)
+            active_steps.remove('Initial')
         if isinstance(active_steps, str):
             active_steps = [active_steps, ]
         for this_step in active_steps:
