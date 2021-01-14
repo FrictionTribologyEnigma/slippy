@@ -28,7 +28,7 @@ def solve_hertz_line(*, r_rel: float = None,
                      max_shear_stress: float = None,
                      max_von_mises: float = None,
                      contact_width: float = None,
-                     _system: dict = None):
+                     _system: dict = None) -> HertzLineSolution:
     """
     Finds remaining hertz parameter for a line contact
 
@@ -333,7 +333,7 @@ def solve_hertz_point(*, r_rel=None,
         if is_none != 'e_star':
             _system[is_none] = max(solve((1 - 2 * _system['v1']) * ((6 * _system['load'] * _system['e_star'] ** 2 /
                                                                      np.pi ** 3 / _system['r_rel'] ** 2) ** (
-                                                                            1 / 3)) / 3 -
+                                                                        1 / 3)) / 3 -
                                          max_tensile_stress, _system[is_none]))
         elif sum(mats_none) == 2:
             is_none = None  # To stop the materials being solved for next
@@ -514,10 +514,7 @@ def hertz_full(r1: typing.Union[typing.Sequence, float], r2: typing.Union[typing
     Returns
     -------
     results : dict
-        Dictionary of the results:
-            line contact : True is it is a line contact
-            r_eff : The effective radius of the contact
-
+        Dictionary of the results the keys available in the dictionary will depend on the contact solved.
 
     See Also
     --------
@@ -530,7 +527,7 @@ def hertz_full(r1: typing.Union[typing.Sequence, float], r2: typing.Union[typing
     radii should be given in mm and the load should be given in N. etc.
 
     The range for the k parameter (ratio of the contact radii) for elliptical
-    contacts is set to 10e-5, practically contacts which are more smaller
+    contacts is set to 1e-4, practically contacts which are more smaller
     ratios will not converge, in these cases consider treating as a line
     contact.
 
@@ -656,13 +653,14 @@ def hertz_full(r1: typing.Union[typing.Sequence, float], r2: typing.Union[typing
                                                _displacement_spherical_contact(moduli[1], v[1], a, p0)]
         results['pressure_f'] = _pressure_spherical_contact(a, p0)
         results['max_tensile_stress_b'] = [(1 - 2 * v1) * p0 / 3 for v1 in v]
-        results['stress_z_axis_b'] = [_stress_z_axis_spherical(a, p0, v1)
-                                      for v1 in v]
+        results['stress_z_axis_b_f'] = [_stress_z_axis_spherical(a, p0, v1) for v1 in v]
 
         # The following is taken from Deeg
         results['max_von_mises_stress_b'] = [p0 * (1.30075 + 0.87825 * v1 +
                                                    0.54373 * v1 ** 2) for v1 in v]
         results['max_von_mises_depth_b'] = [a * (0.38167 + 0.33136 * v1) for v1 in v]
+
+        results['stress_surface_axis_b_f'] = [_stress_surface_spherical(a, p0, v1) for v1 in v]
 
         shear_opts = [
             optimize.minimize(lambda psi: -0.5 * (-1 + 3 / 2 / (1 + psi ** 2) + psi * (1 + v1) * np.arctan(1 / psi)),
@@ -1053,13 +1051,59 @@ def _stress_z_axis_spherical(a, p0, v):
         Returns
         -------
         stress : dict
-            The stresses at the points of interest with keys: {'sigma_r',
-            'sigma_theta', 'sigma_z'}
+            The stresses at the points of interest with keys: {'sigma_r', 'sigma_theta', 'sigma_z'}
+            each value will be an array with the same shape as r
         """
         z = np.asarray(z)
-        sig_r = -1 * p0 * (1 + v) * (1 - (z / a) * np.arctan(a / z)) + 1 / (0.5 * (1 + z ** 2 / a ** 2))
+        sig_r = p0 * (- (1 + v) * (1 - (z / a) * np.arctan(a / z)) + 0.5 * 1 / (1 + z ** 2 / a ** 2))
         sig_theta = sig_r.copy()
-        sig_z = -1 * p0 * (1 + z ** 2 / a ** 2) ** -1
+        sig_z = -p0 / (1 + z ** 2 / a ** 2)
+        return {'sigma_r': sig_r, 'sigma_theta': sig_theta, 'sigma_z': sig_z}
+
+    return stress
+
+
+def _stress_surface_spherical(a, p0, v):
+    """ Gives a list of closures for the stresses on each surface
+
+    Parameters
+    ----------
+    a : float
+        The contact radius
+    p0 : float
+        The maximum contact pressure
+    v : float
+        The possions ratio of the surface
+    """
+
+    def stress(r):
+        """Stresses on the surface for a spherical contact
+
+        Parameters
+        ----------
+        r : array-like
+            The radial coordinate of the points of interest
+
+        Returns
+        -------
+        stresses : dict
+            The stresses at each point on the surface,  with keys: {'sigma_r', 'sigma_theta', 'sigma_z'}
+            each value will be an array with the same shape as r
+        """
+        r = np.asarray(r)
+        r2 = r ** 2
+        r2a2 = r2 / a ** 2
+        inside = r <= a
+        sig_r, sig_theta, sig_z = np.zeros_like(r), np.zeros_like(r), np.zeros_like(r)
+        sig_r[inside] = p0 * ((1 - 2 * v) / 3 * (a ** 2 / r[inside] ** 2) * (1 - (1 - r2a2[inside]) ** (3 / 2)) -
+                              np.sqrt(1 - r2a2[inside]))
+        sig_theta[inside] = -p0 * ((1 - 2 * v) / 3 * (a ** 2 / r[inside] ** 2) * (1 - (1 - r2a2[inside]) ** (3 / 2)) -
+                                   2 * v * np.sqrt(1 - r2a2[inside]))
+        sig_z[inside] = -np.sqrt(1 - r2a2[inside]) * p0
+        outside = np.logical_not(inside)
+        sr_out = p0*(1-2*v)*a**2/3/r2[outside]
+        sig_r[outside] = sr_out
+        sig_theta[outside] = -sr_out
         return {'sigma_r': sig_r, 'sigma_theta': sig_theta, 'sigma_z': sig_z}
 
     return stress
