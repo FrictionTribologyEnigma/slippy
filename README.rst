@@ -68,7 +68,7 @@ From github:
 The latest version can be installed from github, this version will gain functionality first but may be unstable during
 development:
 
-.. code-block::bash
+.. code-block:: bash
 
     python -m pip install git+https://github.com/FrictionTribologyEnigma/slippy.git@master
 
