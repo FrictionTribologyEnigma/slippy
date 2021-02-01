@@ -936,6 +936,8 @@ class _Surface(_SurfaceABC):
 
         if self.profile is None:
             raise AttributeError('The profile of the surface must be set before it can be shown')
+        if self.grid_spacing is None:
+            raise AttributeError("The grid spacing of the surface must be set before it can be shown")
 
         types2d = ['profile', 'fft2d', 'psd', 'acf', 'apsd', 'unworn_profile']
         types1d = ['histogram', 'fft1d', 'qq', 'hist']
@@ -1233,7 +1235,7 @@ class _Surface(_SurfaceABC):
 
 
 class Surface(_Surface):
-    """ Object for reading, manipulating and plotting surfaces
+    r""" Object for reading, manipulating and plotting surfaces
 
         The Surface class contains methods for setting properties,
         examining measures of roughness and descriptions of surfaces, plotting,
@@ -1281,8 +1283,35 @@ class Surface(_Surface):
 
         Examples
         --------
+        Making a surface from a numpy array:
 
+        >>> import slippy.surface as s
+        >>> import numpy as np
+        >>> profile = np.random.rand(10,10)
+        >>> my_surface = s.Surface(profile = profile, grid_spacing = 1)
 
+        Making a surface from a csv file:
+
+        >>> my_surface = s.Surface(file_name='surface.csv', grid_spacing = 1)
+
+        Note that variations on csv files can be handled by passing a CSV dialect object from the csv package, this can
+        also be automatically detected by passing 'sniff' as the dialect.
+
+        Making a surface from an alicona file:
+
+        >>> path = r'path\to\alicona\file'
+        >>> my_surface = s.Surface(file_name=path+r'\dem.al3d')
+
+        This will extract the surface profile and grid spacing from the .al3d file. More parameters can be extracted by
+        using the alicona_read function.
+
+        Making a surface from a matlab file:
+
+        >>> my_surface = s.Surface(file_name='saved profiles.mat', grid_spacing = 1)
+
+        If the profile parameter in the matlab file is not called 'profile' this can be set:
+
+        >>> my_surface = s.Surface(file_name='saved profiles.mat', mat_profile_name='profile_b', grid_spacing = 1)
         """
 
     def rotate(self, radians):
@@ -1315,6 +1344,8 @@ class Surface(_Surface):
                 self.read_al3d(file_name)
             elif file_ext == '.txt' or file_ext == '.csv':
                 self.read_csv(file_name, delimiter=csv_delimiter, dialect=csv_dialect, sniff_bytes=csv_sniffer_n_bytes)
+            else:
+                raise ValueError(f"File extension not recognised: {file_ext}")
             # read file replace profile
 
         super().__init__(grid_spacing=grid_spacing, extent=extent, shape=shape, is_discrete=True)
@@ -1414,6 +1445,9 @@ class Surface(_Surface):
         an error is raised
 
         """
+        if profile_name is None:
+            profile_name = 'profile'
+
         from scipy.io import loadmat
         # load file
         mat = loadmat(path)

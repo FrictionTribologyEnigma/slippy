@@ -1,4 +1,4 @@
-slippy.surface.PyramidSurface
+﻿slippy.surface.PyramidSurface
 =============================
 
 .. currentmodule:: slippy.surface
@@ -33,6 +33,7 @@ slippy.surface.PyramidSurface
       ~PyramidSurface.shift
       ~PyramidSurface.show
       ~PyramidSurface.subtract_polynomial
+      ~PyramidSurface.wear
    
    
 
@@ -57,6 +58,6 @@ slippy.surface.PyramidSurface
       ~PyramidSurface.shape
       ~PyramidSurface.size
       ~PyramidSurface.surface_type
-      ~PyramidSurface.worn_profile
+      ~PyramidSurface.unworn_profile
    
    

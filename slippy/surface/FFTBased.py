@@ -19,7 +19,6 @@ Classes for generating pseudo-random surfaces based on description of FFT:
     ===========================================================================
     ===========================================================================
 
-#TODO: doc strings
 """
 
 import typing

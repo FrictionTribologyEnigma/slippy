@@ -80,11 +80,13 @@ Output requests for long simulations
 
 By default a contact model will return the final state when .solve() is called on it. However often this is not
 sufficient. Output requests allow the user to save all or part of the model state at set time points or after set steps.
+The OutputReader allows the user to read these files back in conveniently.
 
 .. autosummary::
    :toctree: generated
 
    OutputRequest
+   OutputReader
 
 Analytical solutions to common problems
 =======================================

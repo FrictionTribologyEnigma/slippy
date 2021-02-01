@@ -1,4 +1,4 @@
-slippy.surface.Surface
+﻿slippy.surface.Surface
 ======================
 
 .. currentmodule:: slippy.surface
@@ -34,6 +34,7 @@ slippy.surface.Surface
       ~Surface.roughness
       ~Surface.show
       ~Surface.subtract_polynomial
+      ~Surface.wear
    
    
 
@@ -58,6 +59,6 @@ slippy.surface.Surface
       ~Surface.shape
       ~Surface.size
       ~Surface.surface_type
-      ~Surface.worn_profile
+      ~Surface.unworn_profile
    
    

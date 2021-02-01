@@ -57,10 +57,6 @@ class FlatSurface(_AnalyticalSurface):
     Attributes
     ----------
 
-    Methods
-    -------
-    height
-
     See Also
     --------
     Surface
@@ -72,6 +68,25 @@ class FlatSurface(_AnalyticalSurface):
 
     All keyword arguments allowed for Surface are also
     allowed on instantiation of this class apart from the profile key word.
+
+    If the extent is findable on instantiation the surface will be shifted so the natural origin is in the centre
+    of the extent. If the extent is not findable the natural origin will be at (0,0)
+
+    Examples
+    --------
+
+    Make an analytically defined flat surface with no slope:
+
+    >>> import slippy.surface as s
+    >>> my_surface = s.FlatSurface()
+
+    Make a discretely defined flat surface with no slope:
+
+    >>> my_surface = s.FlatSurface(grid_spacing = 1e-6, shape = (256, 256), generate=True)
+
+    Alternatively, any two of: shape, extent and grid_spacing can be set, eg:
+
+    >>> my_surface = s.FlatSurface(extent = (1e-5, 1e-5), shape = (256, 256), generate=True)
 
     """
     surface_type = 'flat'
@@ -148,13 +163,6 @@ class RoundSurface(_AnalyticalSurface):
         The number of grid points in each direction on the surface
 
 
-    Attributes
-    ----------
-
-    Methods
-    -------
-    height
-
     See Also
     --------
     Surface
@@ -166,6 +174,26 @@ class RoundSurface(_AnalyticalSurface):
 
     All keyword arguments allowed for Surface are also
     allowed on instantiation of this class apart from the profile key word.
+
+    If the extent is findable on instantiation the surface will be shifted so the natural origin is in the centre
+    of the extent. If the extent is not findable the natural origin will be at (0,0).
+    For a round surface the natural origin is the centre of the ball.
+
+    Examples
+    --------
+    Making an analytically defined spherical surface with radius 1:
+
+    >>> import slippy.surface as s
+    >>> my_surface = s.RoundSurface((1,1,1), extent=(0.5,0.5))
+
+    Making a discretely defined cylindrical surface:
+
+    >>> my_surface = s.RoundSurface((1,float('inf'),1), extent=(0.5,0.5), grid_spacing=0.001, generate = True)
+
+    Making a discretely defined cylindrical surface which is rotated 45 degrees:
+
+    >>> my_surface = s.RoundSurface((1,float('inf'),1), extent=(0.5, 0.5), shape=(512, 512), generate = True,
+    >>>                             rotation=3.14/4)
 
     """
     radius: tuple
@@ -255,6 +283,20 @@ class PyramidSurface(_AnalyticalSurface):
     All keyword arguments allowed for Surface are also
     allowed on instantiation of this class apart from the profile key word.
 
+    If the extent is findable on instantiation the surface will be shifted so the natural origin is in the centre
+    of the extent. If the extent is not findable the natural origin will be at (0,0).
+    For a round surface the natural origin is the centre of the ball.
+
+    Examples
+    --------
+    Making an analytically defined square based pyramid:
+
+    >>> import slippy.surface as s
+    >>> my_surface = s.PyramidSurface((1,1,1), extent=(0.5,0.5))
+
+    Making a discretely defined square based pyramid:
+
+    >>> my_surface = s.PyramidSurface((1, 1, 3), extent=(0.5,0.5), grid_spacing=0.001, generate = True)
     """
     surface_type = 'pyramid'
 
@@ -270,7 +312,7 @@ class PyramidSurface(_AnalyticalSurface):
                 self._lengths = lengths
             else:
                 msg = ('Lengths must be either scalar or list of Lengths equal'
-                       ' in length to number of dinmetions of the surface +1')
+                       ' in length to number of dimensions of the surface +1')
                 raise ValueError(msg)
         super().__init__(generate=generate, rotation=rotation, shift=shift,
                          grid_spacing=grid_spacing, extent=extent, shape=shape)

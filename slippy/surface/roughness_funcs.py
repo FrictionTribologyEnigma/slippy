@@ -784,27 +784,27 @@ def subtract_polynomial(profile: np.ndarray, order: int = 1,
 
     Examples
     --------
-    >>> import slippy.surface as s
-    >>> import numpy as np
-    >>>my_surface = s.assurface(np.random.rand(10,10))
-    >>>flat_profile, coefs = subtract_polynomial(my_surface, 2)
     Subtract a quadratic polynomial from the profile of my_surface the result
     is returned but the profile property of the surface is not updated
 
-    >>>flat_profile, coefs = subtract_polynomial(my_surface.profile, 2)
-    Identical to the above operation
+    >>> import slippy.surface as s
+    >>> import numpy as np
+    >>> profile = np.random.rand(10,10)
+    >>> flat_profile, coefs = subtract_polynomial(profile, 2)
 
-    >>>profile_2 = np.random.rand(100,100)
-    >>>flat_profile_2, coefs = subtract_polynomial(profile_2, 1)
-    Subtract a plane of best fit from profile_2 and return the result
+        Subtract a plane of best fit from profile and return the result
 
-    >>>flat_profile, coefs = subtract_polynomial(profile_2, 1, mask=float('nan'))
+    >>> flat_profile, coefs = subtract_polynomial(profile, 1)
+
     Subtract the profile from the surface ignoring nan height values
 
-    >>>mask=np.zeros_like(profile, dtype=bool)
-    >>>mask[5:-5,5:-5]=True
-    >>>flat_profile, coefs = subtract_polynomial(profile_2, 1, mask=mask)
+    >>> flat_profile, coefs = subtract_polynomial(profile_2, 1, mask=float('nan'))
+
     Subtract a polynomial from the surface ignoring a 5 deep boarder
+
+    >>> mask=np.zeros_like(profile, dtype=bool)
+    >>> mask[5:-5,5:-5]=True
+    >>> flat_profile, coefs = subtract_polynomial(profile_2, 1, mask=mask)
 
     See Also
     --------
@@ -813,8 +813,7 @@ def subtract_polynomial(profile: np.ndarray, order: int = 1,
 
     Notes
     -----
-    In principal polynomials of any integer order are supported however higher
-    order polynomials will take more time to fit
+    Polynomials of any integer order are supported.
 
     """
 

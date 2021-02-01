@@ -73,7 +73,27 @@ class StaticStep(_ModelStep):
 
     Examples
     --------
+    In this example we will recreate the hertz solution using a numerical solver.
 
+    >>> import slippy.surface as s
+    >>> import slippy.contact as c
+    >>> # make surface geometry
+    >>> flat_surface = s.FlatSurface(shift=(0,0))
+    >>> round_surface = s.RoundSurface((1,1,1), extent = (0.006, 0.006),
+    >>>                                shape = (255, 255), generate = True)
+    >>> # make and set materials
+    >>> steel = c.Elastic('Steel', {'E': 200e9, 'v':0.3})
+    >>> aluminum = c.Elastic('Aluminum', {'E': 70e9, 'v':0.33})
+    >>> flat_surface.material = aluminum
+    >>> round_surface.material = steel
+    >>> # make contact model
+    >>> my_model = c.ContactModel('model-1', round_surface, flat_surface)
+    >>> # make and add step
+    >>> total_load = 100
+    >>> my_step = c.StaticStep('contact', normal_load=total_load, rtol_interference=1e-2)
+    >>> my_model.add_step(my_step)
+    >>> # solve the model
+    >>> result = my_model.solve()
     """
 
     def __init__(self, step_name: str, time_period: float = 1.0,

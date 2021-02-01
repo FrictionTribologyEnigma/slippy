@@ -1,4 +1,4 @@
-slippy.surface.FlatSurface
+﻿slippy.surface.FlatSurface
 ==========================
 
 .. currentmodule:: slippy.surface
@@ -33,6 +33,7 @@ slippy.surface.FlatSurface
       ~FlatSurface.shift
       ~FlatSurface.show
       ~FlatSurface.subtract_polynomial
+      ~FlatSurface.wear
    
    
 
@@ -58,6 +59,6 @@ slippy.surface.FlatSurface
       ~FlatSurface.shape
       ~FlatSurface.size
       ~FlatSurface.surface_type
-      ~FlatSurface.worn_profile
+      ~FlatSurface.unworn_profile
    
    

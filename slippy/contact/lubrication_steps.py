@@ -22,6 +22,8 @@ __all__ = ['IterSemiSystem']
 
 class IterSemiSystem(_ModelStep):
     """
+    Lubrication solutions by iteration of semi systems
+
     Parameters
     ----------
     step_name: str
@@ -30,10 +32,11 @@ class IterSemiSystem(_ModelStep):
         A reynolds solver object which will be used to solve for pressures
     rolling_speed: float or Sequence of float, optional (None)
         The mean speed of the surfaces (u1+u2)/2 parameters can be:
-        - A constant (float) value, indicating a constant rolling speed.
-        - A two element sequence of floats, indicating the the start and finish rolling speed, if this is used, the
+
+        * A constant (float) value, indicating a constant rolling speed.
+        * A two element sequence of floats, indicating the the start and finish rolling speed, if this is used, the
           movement_interpolation_mode will be used to generate intermediate values
-        - A 2 by n array of n rolling speed and n time values normalised to a 0-1 scale. array[0] should be
+        * A 2 by n array of n rolling speed and n time values normalised to a 0-1 scale. array[0] should be
           position values and array[1] should be time values, time values must be between 0 and 1. The
           movement_interpolation_mode will be used to generate intermediate values
     number_of_steps: int
@@ -47,20 +50,22 @@ class IterSemiSystem(_ModelStep):
     off_set_x, off_set_y: float or Sequence of float, optional (0.0)
         The off set between the surfaces in the x and y directions, this can be a relative off set or an absolute off
         set, controlled by the relative_loading parameter:
-        - A constant (float) value, indicating a constant offset between the surfaces (no relative movement of profiles)
-        - A two element sequence of floats, indicating the the start and finish offsets, if this is used, the
+
+        * A constant (float) value, indicating a constant offset between the surfaces (no relative movement of profiles)
+        * A two element sequence of floats, indicating the the start and finish offsets, if this is used, the
           movement_interpolation_mode will be used to generate intermediate values
-        - A 2 by n array of n absolute position values and n time values normalised to a 0-1 scale. array[0] should be
+        * A 2 by n array of n absolute position values and n time values normalised to a 0-1 scale. array[0] should be
           position values and array[1] should be time values, time values must be between 0 and 1. The
           movement_interpolation_mode will be used to generate intermediate values
     interference, normal_load: float or Sequence of float, optional (None)
         The interference and normal load between the surfaces, only one of these can be set (the other will be solved
         for) setting neither keeps the interference as it is at the start of this model step. As above for the off sets,
         either of these parameters can be:
-        - A constant (float) value, indicating a constant load/ interference between the surfaces.
-        - A two element sequence of floats, indicating the the start and finish load. interference, if this is used, the
+
+        * A constant (float) value, indicating a constant load/ interference between the surfaces.
+        * A two element sequence of floats, indicating the the start and finish load. interference, if this is used, the
           movement_interpolation_mode will be used to generate intermediate values
-        - A 2 by n array of n absolute position values and n time values normalised to a 0-1 scale. array[0] should be
+        * A 2 by n array of n absolute position values and n time values normalised to a 0-1 scale. array[0] should be
           position values and array[1] should be time values, time values must be between 0 and 1. The
           movement_interpolation_mode will be used to generate intermediate values
     relative_loading: bool, optional (False)
@@ -99,17 +104,83 @@ class IterSemiSystem(_ModelStep):
     no_update_warning: bool, optional (True)
         Change to False to suppress warning given when no movement or loading changes are specified
 
-    Attributes
-    ----------
-
-    Methods
-    -------
-
     Notes
     -----
     The solver iterates through a 'pressure loop' until the solution has converged to a set of pressure values, then the
     loading is checked, if the total pressure is too low the surfaces are brought closer together. This is continued
     until the total load has converged to the set value. This outer loop is referred to as the interference loop.
+
+    Examples
+    --------
+    In this example we will model smooth surface EHL with a non newtonian fluid:
+
+    >>> import slippy
+    >>> slippy.CUDA = False  # Note: we are using a reynolds solver which does not currently support the CUDA back end
+    >>> import slippy.surface as s
+    >>> import slippy.contact as c
+    >>>
+    >>> radius = 0.01905       # The radius of the ball
+    >>> load = 800             # The load on the ball in N
+    >>> rolling_speed = 4      # The rolling speed in m/s (The mean speed of the surfaces)
+    >>> youngs_modulus = 200e9 # The youngs modulus of the surfaces
+    >>> p_ratio = 0.3          # The poission's ratio of the surfaces
+    >>> grid_size = 65         # The number of points in the descretisation grid
+    >>> eta_0 = 0.096          # Coefficient in the roelands pressure-viscosity equation
+    >>> roelands_p_0 = 1/5.1e-9# Coefficient in the roelands pressure-viscosity equation
+    >>> roelands_z = 0.68      # Coefficient in the roelands pressure-viscosity equation
+    >>>
+    >>> # Solving the hertzian contact to get the domain size and the initial guess
+    >>> hertz_result = c.hertz_full([radius, radius], [float('inf'), float('inf')],
+    >>>                             [youngs_modulus, youngs_modulus],
+    >>>                             [p_ratio, p_ratio], load)
+    >>> hertz_pressure = hertz_result['max_pressure']
+    >>> hertz_a = hertz_result['contact_radii'][0]
+    >>> hertz_deflection = hertz_result['total_deflection']
+    >>> hertz_pressure_function = hertz_result['pressure_f']
+    >>>
+    >>> # make the surfaces
+    >>> ball = s.RoundSurface((radius,)*3, shape = (grid_size, grid_size),
+    >>>                       extent=(hertz_a*4,hertz_a*4), generate = True)
+    >>> flat = s.FlatSurface()
+    >>>
+    >>> # assigning materials
+    >>> steel = c.Elastic('steel', {'E' : youngs_modulus, 'v' : p_ratio})
+    >>> ball.material = steel
+    >>> flat.material = steel
+    >>>
+    >>> # make the non newtonian fluid
+    >>> oil = c.Lubricant('oil') # Making a lubricant object to contain our sub models
+    >>> oil.add_sub_model('nd_viscosity', c.lubricant_models.nd_roelands(eta_0, roelands_p_0, hertz_pressure, roelands_z))
+    >>> oil.add_sub_model('nd_density', c.lubricant_models.nd_dowson_higginson(hertz_pressure))
+    >>>
+    >>> # make the contact model
+    >>> my_model = c.ContactModel('lubrication_test', ball, flat, oil)
+    >>>
+    >>> # make a reynolds solver
+    >>> reynolds = c.UnifiedReynoldsSolver(time_step = 0,
+    >>>                                    grid_spacing = ball.grid_spacing,
+    >>>                                    hertzian_pressure = hertz_pressure,
+    >>>                                    radius_in_rolling_direction=radius,
+    >>>                                    hertzian_half_width=hertz_a,
+    >>>                                    dimentional_viscosity=eta_0,
+    >>>                                    dimentional_density=872)
+    >>>
+    >>> # Find the hertzian pressure distribution as an initial guess
+    >>> X, Y = ball.get_points_from_extent()
+    >>> X, Y = X + ball._total_shift[0], Y + ball._total_shift[1]
+    >>> hertzian_pressure_dist = hertz_pressure_function(X, Y)
+    >>>
+    >>> # Making the step
+    >>> step = c.IterSemiSystem('main', reynolds, rolling_speed, 1, no_time=True, normal_load=load,
+    >>>                         initial_guess=[hertz_deflection, hertzian_pressure_dist],
+    >>>                         relaxation_factor=0.05, max_it_interference=3000)
+    >>>
+    >>> # Adding the step to the contact model
+    >>> my_model.add_step(step)
+    >>>
+    >>> # solve the model:
+    >>> state = my_model.solve()
+
     """
     "The minimum number of iterations in the reynolds solving loop"
     _dh = 0

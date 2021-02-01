@@ -1,4 +1,4 @@
-slippy.surface.get\_height\_of\_mat\_vr
+﻿slippy.surface.get\_height\_of\_mat\_vr
 =======================================
 
 .. currentmodule:: slippy.surface

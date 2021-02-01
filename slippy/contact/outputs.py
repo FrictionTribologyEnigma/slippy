@@ -84,47 +84,64 @@ class OutputSaver:
 
 
 class OutputRequest:
+    """An output request for a multi step contact model
+
+    Parameters
+    ----------
+    name: str
+        The name of the output request, used for debugging
+    parameters: list[str]
+        A list of parameters to be saved as part of the output, check step and sub-model descriptions for valid
+        names, alternatively ['all'] will save the entire model state
+    timing_mode: {'interval', 'time_interval', 'n_outputs_per_step', 'step_times', 'global_times'},
+    optional ('interval')
+        The timing mode used to control when this output is written to file, the value parameter controls how each
+        method is executed:
+
+        * 'interval' the output is written every n time points during execution, using this with value set to 1
+           (as is the default behaviour) writes the output on every sub step / time point.
+        * 'time_interval' the output is written every n units of time, for example if value is set to 0.25 a step
+          which is 1 unit of time long will output 4 times [t = 0.25, 0.5, 0.75, 1]. This is reset at the
+          beginning of each model step.
+        * 'n_outputs_per_step' the output is written n times in each step it is active in regardless of the length
+          of each step, the time points are evenly spaced. value is the number of outputs to be recorded
+        * 'step times' the output is written at specific times measured from the beginning of the steps which the
+          output is active in, this resets for every model step which uses this output. value should be a sorted
+          list of relative times
+        * 'global_times' the output is written at specific times measured from the start of model execution, no
+          output will be written from steps where this output is not active. value should be a sorted list of
+          absolute times
+
+
+    value: Union[list, float], optional (1)
+        Either a float or list of floats, as defined above
+
+    Notes
+    -----
+    Outputs cannot be requested from the start of a step.
+
+    Outputs will only be written from steps which have the output added, this can be done through the individual
+    steps or the contact model.
+
+    See Also
+    --------
+    OutputReader - A class for easily reading output files
+
+    Examples
+    --------
+    An output request that will save everything at all time points:
+
+    >>> OutputRequest('output-0', ['all'])
+
+    An output request that will save 'contact_nodes' and normal load for every time step:
+
+    >>> OutputRequest('output-1', ['contact_nodes', 'loads_z'])
+    """
     parameters: typing.Sequence[str]
 
     def __init__(self, name: str, parameters: typing.Sequence[str], timing_mode: str = 'interval',
                  value: typing.Union[typing.Sequence, float] = 1):
-        """An output request for a multi step contact model
 
-        Parameters
-        ----------
-        name: str
-            The name of the output request, used for debugging
-        parameters: list[str]
-            A list of parameters to be saved as part of the output, check step and sub-model descriptions for valid
-            names, alternatively ['all'] will save the entire model state
-        timing_mode: {'interval', 'time_interval', 'n_outputs_per_step', 'step_times', 'global_times'},
-        optional ('interval')
-            The timing mode used to control when this output is written to file, the value parameter controls how each
-            method is executed:
-            - 'interval' the output is written every n time points during execution, using this with value set to 1
-               (as is the default behaviour) writes the output on every sub step / time point.
-            - 'time_interval' the output is written every n units of time, for example if value is set to 0.25 a step
-              which is 1 unit of time long will output 4 times [t = 0.25, 0.5, 0.75, 1]. This is reset at the
-              beginning of each model step.
-            - 'n_outputs_per_step' the output is written n times in each step it is active in regardless of the length
-              of each step, the time points are evenly spaced. value is the number of outputs to be recorded
-            - 'step times' the output is written at specific times measured from the beginning of the steps which the
-              output is active in, this resets for every model step which uses this output. value should be a sorted
-              list of relative times
-            - 'global_times' the output is written at specific times measured from the start of model execution, no
-              output will be written from steps where this output is not active. value should be a sorted list of
-              absolute times
-        value: Union[list, float], optional (1)
-            Either a float or list of floats, as defined above
-
-        Notes
-        -----
-        Outputs cannot be requested from the start of a step, outputs will only be written from steps which have the
-        output added, this can be done through the individual steps or the contact model
-
-        Example
-        -------
-        """
         self.name = name
         valid_modes = ('interval', 'time_interval', 'n_outputs_per_step', 'step_times', 'global_times')
         if timing_mode not in valid_modes:
@@ -224,38 +241,67 @@ class OutputReader:
     time_points: list
         A list of the all the time points in the output file
 
-
     See Also
     --------
+    OutputSaver
+    OutputRequest
 
     Notes
     -----
     All arrays in the output will be lazily read from the array file. These will not be read until the data from the
     array is requested. However, the lazy array objects are written so that numpy functions can use them as if they are
     arrays and they can be indexed as if they are arrays. Indexing the array will read the entire array into memory.
+    For many uses this is good enough, however sometimes it is necessary to explicitly convert the lazy array into a
+    numpy array using numpy.asarray(lazy_array).
 
     Examples
     --------
-    >>> with OutputSaver('test') as output:
-    >>>     output.write({'time':0,'a':5, 'b':np.array([1,2,3,4]), 'c':np.array([1,2,3,4])})
-    >>>     output.write({'time':1,'a':10, 'c':np.array([1,2,3,4])})
-    >>>     output.write({'time':2,'a':15, 'b':np.array([1,2,3,4]), })
-    >>>     output.write({'time':3,'a':20, 'b':np.array([1,2,3,4]), 'c':np.array([1,2,3,4])})
-    >>> output = OutputReader('test')
+    Making an output file to test:
+
+    >>> import slippy.contact as c
+    >>> with c.OutputSaver('test') as output_s:
+    >>>     output_s.write({'time':0,'a':5, 'b':np.array([1,2,3,4]), 'c':np.array([1,2,3,4])})
+    >>>     output_s.write({'time':1,'a':10, 'c':np.array([1,2,3,4])})
+    >>>     output_s.write({'time':2,'a':15, 'b':np.array([1,2,3,4]), })
+    >>>     output_s.write({'time':3,'a':20, 'b':np.array([1,2,3,4]), 'c':np.array([1,2,3,4])})
+
+    The file can then be read in using an output reader:
+
+    >>> output = c.OutputReader('test')
+
+    We can find the time points and fields saved:
+
     >>> output.time_points
-    [0,1,2,3]
-    >>> output[1]
-    {'time': 1, 'a': 10, 'c': array, shape:(4,), dtype:int32}
+    [0, 1, 2, 3]
     >>> output.fields
     {'a', 'b', 'c', 'time'}
+
+    The output reader can be indexed by a time point or a field:
+
+    >>> output[1]
+    {'time': 1, 'a': 10, 'c': array, shape:(4,), dtype:int32}
     >>> output['a']
     {0: 5, 1: 10, 2: 15, 3: 20}
+
+    The result of this index is a dictionary of the results from a single time point or all the results from a field,
+    indexing again will give the result for a specific field at a specific time point.
+
     >>> output['a'][1] == output[1]['a']
     True
+
+    For plotting etc. all of the values can be accessed:
+
+    >>> all_times = list(output['time'].values())
+
+    You can also query the results data base directly using tinydb, note that this will not work with array items.
+
     >>> from tinydb import Query
     >>> result = Query()
     >>> output.search(result.a == 10)
     [{'time': 1, 'a': 10, 'c': array, shape:(4,), dtype:int32}]
+
+    The output reader can also be use to iterate through the results from each time point:
+
     >>> for result_from_time_point in output:
     >>>     print(result_from_time_point['time'])
     0

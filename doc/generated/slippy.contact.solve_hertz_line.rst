@@ -1,4 +1,4 @@
-slippy.contact.solve\_hertz\_line
+﻿slippy.contact.solve\_hertz\_line
 =================================
 
 .. currentmodule:: slippy.contact

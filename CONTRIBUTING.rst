@@ -80,19 +80,18 @@ Ready to contribute? Here's how to set up `slippy` for local development.
 
    Now you can make your changes locally.
 
-5. When you're done making changes, check that your changes pass flake8 (code style checks) and the
-   tests, including testing other Python versions with tox::
+5. When you're done making changes, check that your changes pass flake8 (code style), the tests (code functionality) and test that the documentations will still compile::
 
     $ flake8 slippy tests
     $ python setup.py test or pytest
-    $ tox
+    $ sphinx-build doc build
 
-   To get flake8 and tox, just pip install them into your virtualenv.
+   To get flake8, pytest and sphinx, just pip install them into your virtualenv.
 
 6. Commit your changes and push your branch to GitHub::
 
     $ git add .
-    $ git commit -m "Your detailed description of your changes."
+    $ git commit -m "A detailed description of your changes."
     $ git push origin name-of-your-bugfix-or-feature
 
 7. Submit a pull request through the GitHub website.
@@ -106,8 +105,9 @@ Before you submit a pull request, check that it meets these guidelines:
    the bug which was fixed, this will ensure that it is not accidentally
    broken in future releases.
 2. If the pull request adds functionality, the docs should be updated. Put
-   your new functionality into a function with a docstring, and add the
-   feature to the list in README.rst.
+   your new functionality into a function or class with a docstring, add a reference
+   to it in the docstring of slippy.surface.__init__.py or slippy.contact.__init__.py
+   and add the feature to the list in README.rst.
 3. Flake8 and pytest tests all pass, please run tests locally to reduce the
    load/ cost of the automated testing service.
 
@@ -119,7 +119,6 @@ Make sure all your changes are committed (including an entry in HISTORY.rst).
 Then run::
 
 $ bump2version patch # possible: major / minor / patch
-$ git push
-$ git push --tags
+$ git push --follow-tags
 
 Travis will then deploy to PyPI if tests pass.

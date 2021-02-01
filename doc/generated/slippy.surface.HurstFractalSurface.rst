@@ -1,4 +1,4 @@
-slippy.surface.HurstFractalSurface
+﻿slippy.surface.HurstFractalSurface
 ==================================
 
 .. currentmodule:: slippy.surface
@@ -36,6 +36,7 @@ slippy.surface.HurstFractalSurface
       ~HurstFractalSurface.shift
       ~HurstFractalSurface.show
       ~HurstFractalSurface.subtract_polynomial
+      ~HurstFractalSurface.wear
    
    
 
@@ -60,6 +61,6 @@ slippy.surface.HurstFractalSurface
       ~HurstFractalSurface.shape
       ~HurstFractalSurface.size
       ~HurstFractalSurface.surface_type
-      ~HurstFractalSurface.worn_profile
+      ~HurstFractalSurface.unworn_profile
    
    

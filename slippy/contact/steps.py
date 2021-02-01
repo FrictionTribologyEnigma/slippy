@@ -22,19 +22,6 @@ def _data_check_error_or_warn(msg: str):
 
 
 class _ModelStep(_StepABC):
-    """ A step in a contact mechanics problem
-
-    Parameters
-    ----------
-
-    Attributes
-    ----------
-
-    Methods
-    -------
-
-
-    """
 
     name = None
     """The name of the step"""
@@ -181,6 +168,11 @@ class _ModelStep(_StepABC):
         return set(current_state)
 
     def add_sub_model(self, sub_model: _SubModelABC):
+        """
+        Add a sub model to be exec
+        :param sub_model:
+        :return:
+        """
         if self.model is not None:
             sub_model.model = self.model
         self.sub_models.append(sub_model)

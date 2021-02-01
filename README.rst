@@ -150,7 +150,7 @@ A more detailed description of the decisions behind the code can be found in the
     my_model.add_step(my_step)
 
     # add sub models
-    wear_submodel = c.sub_models.EPPWear('wear_l', 0.5, True)
+    wear_submodel = c.sub_models.WearElasticPerfectlyPlastic('wear_l', 0.5, True)
     my_step.add_sub_model(wear_submodel)
 
     # add output requests

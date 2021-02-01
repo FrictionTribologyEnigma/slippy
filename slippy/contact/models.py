@@ -46,10 +46,8 @@ class ContactModel(_ContactModelABC):
     -------
     add_step
         Adds a step object to the model
-    add_field_output
-        Adds a field output to the model
-    add_history_output
-        Adds a history output to the model
+    add_output
+        Adds an output request to the model or selected steps
     data_check
         Performs analysis checks for each of the steps and the model as a whole, prints the results to the log file
     solve
@@ -200,6 +198,10 @@ class ContactModel(_ContactModelABC):
         -------
         current_state: dict
             A dictionary containing the final state of the model
+
+        Notes
+        -----
+        Most steps produce detailed logging information that can be found in the log file.
 
         """
         if os.path.exists(self.log_file_name):

@@ -9,7 +9,9 @@ __all__ = ['WearElasticPerfectlyPlastic']
 
 
 class WearElasticPerfectlyPlastic(_SubModelABC):
-    """
+    r"""
+    Remove overlap between surfaces left after contact with a maximum load
+
     Parameters
     ----------
     name: str
@@ -32,15 +34,17 @@ class WearElasticPerfectlyPlastic(_SubModelABC):
     wear will be applied.
 
     Provides:
+
     * 'total_plastic_deformation': The total material removed for this time step
     * 'wear_plastic_surface_1': The wear applied to each point of surface 1, applied at the points 'surface_1_points',
-        only provided if proportion_surface_1 is greater than 0
+      only provided if proportion_surface_1 is greater than 0
     * 'wear_plastic_surface_2': The wear applied to each point of surface 2, applied at the points 'surface_2_points',
-        only provided if proportion_surface_1 is less than 1
+      only provided if proportion_surface_1 is less than 1
+
 
     For simulations with movement between the surfaces wear_plastic_surface_1 and 2 can be confusing as they are aligned
     with the points specified is surface_1_points, not the base coordinates of surface 1 or 2. For examining the output
-    from this wear model over time it may be more simple to request the output:
+    from this wear model over time it may be more simple to request the following output:
     'surface_1.wear_volumes['this_model_name']'
     This will always contain the cumulative wear from this model in the base coordinates of the surface.
     """

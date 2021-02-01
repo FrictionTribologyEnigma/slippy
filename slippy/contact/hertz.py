@@ -39,10 +39,10 @@ def solve_hertz_line(*, r_rel: float = None,
         are the radii of the bodies, assuming that the axes are parallel (line
         contact). For a cylinder on the flat r_rel is the radius of the
         cylinder.
-    e1,e2 : float, optional
+    e1, e2 : float, optional
         The Young's moduli of the bodies, if neither is set they will be
         assumed to be equal
-    v1,v2 : float, optional
+    v1, v2 : float, optional
         The Poisson's ratios for the bodies, if neither is set the are assumed
         to be equal
     load : float, optional
@@ -60,7 +60,7 @@ def solve_hertz_line(*, r_rel: float = None,
 
     Returns
     -------
-    dict
+    NamedTuple
         The system with all of the possible inputs defined
 
     See Also
@@ -92,12 +92,15 @@ def solve_hertz_line(*, r_rel: float = None,
 
     Examples
     --------
-    # Finding the load required to give a specific contact pressure
-    result = solve_hertz_line(r_rel=0.01, e1=200e9, e2=200e9, v1=0.3, v2=0.3, max_pressure=1e9, load=None)
-    result['load']
+    Finding the load required to give a specific contact pressure:
 
-    # Finding the stiffness of material required to give a specific contact width
-    result = solve_hertz_line(r_rel=0.05, e1=None, e2=None, v1=0.3, v2=0.3, load=1000, contact_width=1e-8)
+    >>> result = solve_hertz_line(r_rel=0.01, e1=200e9, e2=200e9, v1=0.3, v2=0.3, max_pressure=1e9, load=None)
+    >>> result.load
+
+    Finding the stiffness of material required to give a specific contact width:
+
+    >>> result = solve_hertz_line(r_rel=0.05, e1=None, e2=None, v1=0.3, v2=0.3, load=1000, contact_width=1e-8)
+    >>> result.e1
     """
     _system = {'r_rel': r_rel, 'e1': e1, 'e2': e2, 'v1': v1, 'v2': v2, 'load': load}
 
@@ -277,13 +280,15 @@ def solve_hertz_point(*, r_rel=None,
     Examples
     --------
 
-    # Finding the radius of ball required to give a specific contact pressure
-    result = solve_hertz_point(r_rel=None, e1=200e9, e2=200e9, v1=0.3, v2=0.3, max_pressure=1e9, load=500)
-    result['load']
+    Finding the radius of ball required to give a specific contact pressure:
 
-    # Finding the stiffness of material required to give a specific contact radius
-    result = solve_hertz_point(r_rel=0.05, e1=None, e2=None, v1=0.3, v2=0.3, load=1000, contact_radius=1e-8)
+    >>> result = solve_hertz_point(r_rel=None, e1=200e9, e2=200e9, v1=0.3, v2=0.3, max_pressure=1e9, load=500)
+    >>> result.load
 
+    Finding the stiffness of material required to give a specific contact radius:
+
+    >>> result = solve_hertz_point(r_rel=0.05, e1=None, e2=None, v1=0.3, v2=0.3, load=1000, contact_radius=1e-8)
+    >>> result.e1
     """
 
     _system = {'r_rel': r_rel, 'e1': e1, 'e2': e2, 'v1': v1, 'v2': v2, 'load': load}
@@ -413,8 +418,8 @@ def _root_tensile(system, is_none, max_tensile_stress):
     """
     Helper function, the root of the inner function is the value for is_none in the system
 
-    Paramerters
-    -----------
+    Parameters
+    ----------
     system : dict
         The system with one parameter set to none
     is_none : str
@@ -482,17 +487,18 @@ def hertz_full(r1: typing.Union[typing.Sequence, float], r2: typing.Union[typing
 
     Parameters
     ----------
-    r1, r2 : list
-        Two element list of the radii in the first body (r1) and the second
-        body (r2) of the radii of the first body in the x and y directions.
+    r1, r2 : 2 element Sequence of floats or float
+        Two element sequence of the radii in the x and y directions.
         Each element should be a float, use float('inf') to indicate a flat
         surface. If a single number is supplied both elements are set to that
         number: r1=1 is equivalent to r1=[1,1]
-    moduli : list
-        Two element list of the young's moduli of the first and second bodies.
+    moduli : Sequence of floats
+        Two element sequence of the young's moduli of the first and second bodies. If only one value is supplied it is
+        assumed to be for both surfaces.
         See note on units.
-    v : list
-        Two element list of the poisson's ratios of the first and second bodies.
+    v : Sequence of floats
+        Two element list of the poisson's ratios of the first and second bodies. If only one value is supplied it is
+        assumed to be for both surfaces.
     load : float
         The load applied for a point contact or the load per unit length for a
         line contact. If a line contact is intended the line keyword should be
@@ -509,7 +515,6 @@ def hertz_full(r1: typing.Union[typing.Sequence, float], r2: typing.Union[typing
     root_error : float, optional (1e-6)
         The maximum relative error on the root finding step, used only for
         elliptical contacts see [Deeg 1992] for more information.
-
 
     Returns
     -------
@@ -546,6 +551,27 @@ def hertz_full(r1: typing.Union[typing.Sequence, float], r2: typing.Union[typing
 
     Examples
     --------
+    There is a detailed example of this function in the examples folder on github.
+
+    Solving a ball on flat contact:
+
+    >>> import slippy.contact as c
+    >>> full_results = c.hertz_full(r1 = 0.01, r2 = float('inf'), moduli=[200e9, 70e9], v=[0.3, 0.33],
+    >>>                             load = 155)
+
+    Plotting the stresses below the central point of the contact:
+
+    >>> import matplotlib.pyplot as plt
+    >>> import numpy as np
+    >>> z = np.linspace(1e-8, full_results['contact_radii'][0]*3)
+    >>> stress_results = full_results['stress_z_axis_b_f'][0](z)
+    >>> for label, array in stress_results.items():
+    >>>     plt.plot(np.abs(array), -z, label = label)
+    >>> shear = 0.5*np.abs(stress_results['sigma_z']-stress_results['sigma_theta'])
+    >>> plt.plot(shear, -z, label = 'shear')
+    >>> plt.legend()
+    >>> plt.xlabel('Absolute stress (Pa)')
+    >>> plt.ylabel('Depth (m)')
 
     """
     inf = float('inf')
@@ -1200,7 +1226,7 @@ def _sanitise_radii(radii):
     """
     checks on the radii input to hertz
     """
-    if type(radii) is not list:
+    if not isinstance(radii, abc.Sequence):
         try:
             radii = [np.float(radii)] * 2
         except TypeError:
@@ -1208,7 +1234,7 @@ def _sanitise_radii(radii):
                             " {}".format(type(radii)))
     else:
         if len(radii) == 1:
-            radii = 2 * radii
+            radii = [radii[0], radii[0]]
 
         if len(radii) != 2:
             raise ValueError("Radii must be a two element list supplied radii"

@@ -1,4 +1,4 @@
-slippy.surface.DiscFreqSurface
+﻿slippy.surface.DiscFreqSurface
 ==============================
 
 .. currentmodule:: slippy.surface
@@ -33,6 +33,7 @@ slippy.surface.DiscFreqSurface
       ~DiscFreqSurface.shift
       ~DiscFreqSurface.show
       ~DiscFreqSurface.subtract_polynomial
+      ~DiscFreqSurface.wear
    
    
 
@@ -57,6 +58,6 @@ slippy.surface.DiscFreqSurface
       ~DiscFreqSurface.shape
       ~DiscFreqSurface.size
       ~DiscFreqSurface.surface_type
-      ~DiscFreqSurface.worn_profile
+      ~DiscFreqSurface.unworn_profile
    
    

@@ -1,4 +1,4 @@
-slippy.surface.subtract\_polynomial
+﻿slippy.surface.subtract\_polynomial
 ===================================
 
 .. currentmodule:: slippy.surface

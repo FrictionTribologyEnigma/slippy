@@ -1,4 +1,4 @@
-slippy.surface.read\_tst\_file
+﻿slippy.surface.read\_tst\_file
 ==============================
 
 .. currentmodule:: slippy.surface

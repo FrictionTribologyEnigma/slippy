@@ -1,4 +1,4 @@
-slippy.contact.hertz\_full
+﻿slippy.contact.hertz\_full
 ==========================
 
 .. currentmodule:: slippy.contact

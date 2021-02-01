@@ -1,4 +1,4 @@
-slippy.contact.Elastic
+﻿slippy.contact.Elastic
 ======================
 
 .. currentmodule:: slippy.contact
@@ -15,7 +15,6 @@ slippy.contact.Elastic
    
       ~Elastic.__init__
       ~Elastic.displacement_from_surface_loads
-      ~Elastic.guess_loads_from_displacement
       ~Elastic.influence_matrix
       ~Elastic.loads_from_surface_displacement
       ~Elastic.speed_of_sound

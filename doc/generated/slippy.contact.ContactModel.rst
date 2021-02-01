@@ -1,4 +1,4 @@
-slippy.contact.ContactModel
+﻿slippy.contact.ContactModel
 ===========================
 
 .. currentmodule:: slippy.contact
@@ -14,6 +14,7 @@ slippy.contact.ContactModel
    .. autosummary::
    
       ~ContactModel.__init__
+      ~ContactModel.add_output
       ~ContactModel.add_step
       ~ContactModel.data_check
       ~ContactModel.solve
@@ -26,8 +27,8 @@ slippy.contact.ContactModel
 
    .. autosummary::
    
+      ~ContactModel.adhesion
       ~ContactModel.log_file_name
       ~ContactModel.lubricant_model
-      ~ContactModel.output_file_name
    
    

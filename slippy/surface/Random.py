@@ -54,22 +54,24 @@ class RandomPerezSurface(_Surface):
 
     Examples
     --------
+    Making a surface with a normal height distribution and a given power spectra.
+
     >>> import numpy as np
     >>> import scipy.stats as stats
     >>> import slippy.surface as s
     >>> # making a surface with an exponential ACF as described in the original paper:
-    >>>beta = 10 # the drop off length of the acf
-    >>>sigma = 1 # the roughness of the surface
-    >>>qx = np.arange(-128,128)
-    >>>qy = np.arange(-128,128)
-    >>>Qx, Qy = np.meshgrid(qx,qy)
-    >>>Cq = sigma**2*beta/(2*np.pi*(beta**2+Qx**2+Qy**2)**0.5) # the PSD of the surface
-    >>>Cq = np.fft.fftshift(Cq)
-    >>>height_distribution = stats.norm()
-    >>>my_surface = s.RandomPerezSurface(target_psd = Cq, height_distribution=height_distribution,
-    >>>                                  grid_spacing=1,
-    >>>                                  generate=True)
-    >>>my_surface.show()
+    >>> beta = 10 # the drop off length of the acf
+    >>> sigma = 1 # the roughness of the surface
+    >>> qx = np.arange(-128,128)
+    >>> qy = np.arange(-128,128)
+    >>> Qx, Qy = np.meshgrid(qx,qy)
+    >>> Cq = sigma**2*beta/(2*np.pi*(beta**2+Qx**2+Qy**2)**0.5) # the PSD of the surface
+    >>> Cq = np.fft.fftshift(Cq)
+    >>> height_distribution = stats.norm()
+    >>> my_surface = s.RandomPerezSurface(target_psd = Cq, height_distribution=height_distribution,
+    >>>                                   grid_spacing=1,
+    >>>                                   generate=True)
+    >>> my_surface.show()
 
     References
     ----------
@@ -155,16 +157,16 @@ class RandomPerezSurface(_Surface):
         >>> import scipy.stats as stats
         >>> import slippy.surface as s
         >>> # making a surface with an exponential ACF as described in the original paper:
-        >>>beta = 10 # the drop off length of the acf
-        >>>sigma = 1 # the roughness of the surface
-        >>>qx = np.arange(-128,128)
-        >>>qy = np.arange(-128,128)
-        >>>Qx, Qy = np.meshgrid(qx,qy)
-        >>>Cq = sigma**2*beta/(2*np.pi*(beta**2+Qx**2+Qy**2)**0.5) # the PSD of the surface
-        >>>height_distribution = stats.norm()
-        >>>my_surface = s.RandomPerezSurface(target_psd = Cq, height_distribution=height_distribution, grid_spacing=1)
-        >>>my_surface.discretise()
-        >>>my_surface.show()
+        >>> beta = 10 # the drop off length of the acf
+        >>> sigma = 1 # the roughness of the surface
+        >>> qx = np.arange(-128,128)
+        >>> qy = np.arange(-128,128)
+        >>> Qx, Qy = np.meshgrid(qx,qy)
+        >>> Cq = sigma**2*beta/(2*np.pi*(beta**2+Qx**2+Qy**2)**0.5) # the PSD of the surface
+        >>> height_distribution = stats.norm()
+        >>> my_surface = s.RandomPerezSurface(target_psd = Cq, height_distribution=height_distribution, grid_spacing=1)
+        >>> my_surface.discretise()
+        >>> my_surface.show()
         Zh, Zs, error = fractal_surf_generator(np.fft.ifftshift(Cq),
                                                np.random.randn(256,256),
                                                min_speed = 1e-10,max_error=0.01)
@@ -299,7 +301,20 @@ class RandomPerezSurface(_Surface):
 
 
 class RandomFilterSurface(_Surface):
-    """ Surfaces based on transformations of random sequences by a filter
+    r""" Surfaces based on transformations of random sequences by a filter
+
+    Filter coefficients can be found by fourier analysis or solving the least squares problem given by Patir.
+
+    Parameters
+    ----------
+    target_acf: slippy.surface.ACF
+        An ACF object describing the trage autocorrelation function of the surface
+    grid_spacing: float, optional (None)
+        The distance between surface points, must be set before the filter coefficients can be found
+    extent: 2 element sequence of floats, optional (None)
+        The total size of the surface in the same units as the grid spacing
+    shape: 2 element sequence of ints, optional (None)
+        The number of points in each direction on the surface
 
     Attributes
     ----------
@@ -308,10 +323,10 @@ class RandomFilterSurface(_Surface):
 
     Methods
     -------
-    linear_transforms
+    linear_transforms: find filter coefficients by Patir's method (with extentions)
+    fir_filter: find filter coefficients by Hu and Tonder's method
     set_moments
     set_quantiles
-    fir_filter
     discretise
 
     See Also
@@ -341,6 +356,20 @@ class RandomFilterSurface(_Surface):
     >>> # generating and showing a realisation of the surface
     >>> my_realisation = lin_trans_surface.discretise([512,512], periodic=False, create_new=True)
     >>> fig, axes = my_realisation.show(['profile', 'acf', 'histogram'], ['image', 'image'], figsize=(15,5))
+
+    References
+    ----------
+
+    Hu, Y. Z., & Tonder, K. (1992). Simulation of 3-D random rough surface by 2-D digital filter and Fourier analysis.
+    International Journal of Machine Tools, 32(1–2), 83–90.
+    doi.org/10.1016/0890-6955(92)90064-N
+
+    Patir, N. (1978). A numerical procedure for random generation of rough surfaces. Wear, 47(2), 263–277.
+    doi.org/10.1016/0043-1648(78)90157-6
+
+    Watson, M., Lewis, R., & Slatter, T. (2020). Improvements to the linear transform technique for generating randomly
+    rough surfaces with symmetrical autocorrelation functions. Tribology International, 151(April), 106487.
+    doi.org/10.1016/j.triboint.2020.106487
     """
 
     surface_type = 'Random'
@@ -357,35 +386,22 @@ class RandomFilterSurface(_Surface):
                  target_acf: ACF = None,
                  grid_spacing: typing.Optional[float] = None,
                  extent: typing.Optional[typing.Sequence] = None,
-                 shape: typing.Optional[typing.Sequence] = None,
-                 moments: typing.Sequence = None,
-                 quantiles: typing.Sequence = None):
+                 shape: typing.Optional[typing.Sequence] = None):
 
         super().__init__(grid_spacing=grid_spacing, extent=extent, shape=shape)
 
         if target_acf is not None:
             self.target_acf = target_acf
 
-        if moments is not None:
-            if quantiles is not None:
-                raise ValueError("Cannot set moments and quantiles")
-            self.set_moments(*moments)
-        if quantiles is not None:
-            self.set_quantiles(quantiles)
-
     def __repr__(self):
-        string = 'RandomSurface('
+        string = 'RandomFilterSurface('
         if self.target_acf is not None:
             string += f'target_acf={repr(self.target_acf)}, '
-            string += f'method={self.surface_type}, '
             string += f'grid_spacing={self.grid_spacing}, '
-            string += f'**{repr(self._method_keywords)}, '
         if self._moments is not None:
             string += f'moments = {self._moments}, '
         if self.shape is not None:
             string += f'shape = {self.shape}, '
-        if self.is_discrete:
-            string += 'generate = True, '
         string = string[:-2]
         return string + ')'
 

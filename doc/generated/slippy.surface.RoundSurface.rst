@@ -1,4 +1,4 @@
-slippy.surface.RoundSurface
+﻿slippy.surface.RoundSurface
 ===========================
 
 .. currentmodule:: slippy.surface
@@ -33,6 +33,7 @@ slippy.surface.RoundSurface
       ~RoundSurface.shift
       ~RoundSurface.show
       ~RoundSurface.subtract_polynomial
+      ~RoundSurface.wear
    
    
 
@@ -57,6 +58,6 @@ slippy.surface.RoundSurface
       ~RoundSurface.shape
       ~RoundSurface.size
       ~RoundSurface.surface_type
-      ~RoundSurface.worn_profile
+      ~RoundSurface.unworn_profile
    
    

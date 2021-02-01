@@ -63,10 +63,6 @@ class _IMMaterial(_MaterialABC):
         """
         pass
 
-    @abc.abstractmethod
-    def __repr__(self) -> str:
-        pass
-
     def displacement_from_surface_loads(self, loads: {dict, Loads, typing.Sequence[np.ndarray]},
                                         grid_spacing: {typing.Sequence[float], float},
                                         deflections: str = 'xyz',

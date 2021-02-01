@@ -1,4 +1,4 @@
-slippy.surface.read\_surface
+﻿slippy.surface.read\_surface
 ============================
 
 .. currentmodule:: slippy.surface

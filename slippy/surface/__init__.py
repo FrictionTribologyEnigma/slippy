@@ -41,12 +41,11 @@ Random Surfaces
 Surfaces based on transformations of random surfaces or probabilistic descriptions of the FFT.
 
 .. autosummary::
-    :toctree: generated/
+   :toctree: generated/
 
    RandomPerezSurface     -- Surfaces with set height distribution and PSD found by the Perez method
    RandomFilterSurface    --Surfaces from transformations of random sequences
-   ProbFreqSurface   -- Surfaces based on a probabilistic description of the FFT
-   surface_like      -- random surfaces with similar properties to the input surface
+   ProbFreqSurface        -- Surfaces based on a probabilistic description of the FFT
 
 Functions
 =========

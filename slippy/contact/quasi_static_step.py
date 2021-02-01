@@ -35,20 +35,22 @@ class QuasiStaticStep(_ModelStep):
     off_set_x, off_set_y: float or Sequence of float, optional (0.0)
         The off set between the surfaces in the x and y directions, this can be a relative off set or an absolute off
         set, controlled by the relative_loading parameter:
-        - A constant (float) value, indicating a constant offset between the surfaces (no relative movement of profiles)
-        - A two element sequence of floats, indicating the the start and finish offsets, if this is used, the
+
+        * A constant (float) value, indicating a constant offset between the surfaces (no relative movement of profiles)
+        * A two element sequence of floats, indicating the the start and finish offsets, if this is used, the
           movement_interpolation_mode will be used to generate intermediate values
-        - A 2 by n array of n absolute position values and n time values normalised to a 0-1 scale. array[0] should be
+        * A 2 by n array of n absolute position values and n time values normalised to a 0-1 scale. array[0] should be
           position values and array[1] should be time values, time values must be between 0 and 1. The
           movement_interpolation_mode will be used to generate intermediate values
     interference, normal_load: float or Sequence of float, optional (None)
         The interference and normal load between the surfaces, only one of these can be set (the other will be solved
         for) setting neither keeps the interference as it is at the start of this model step. As above for the off sets,
         either of these parameters can be:
-        - A constant (float) value, indicating a constant load/ interference between the surfaces.
-        - A two element sequence of floats, indicating the the start and finish load. interference, if this is used, the
+
+        * A constant (float) value, indicating a constant load/ interference between the surfaces.
+        * A two element sequence of floats, indicating the the start and finish load. interference, if this is used, the
           movement_interpolation_mode will be used to generate intermediate values
-        - A 2 by n array of n absolute position values and n time values normalised to a 0-1 scale. array[0] should be
+        * A 2 by n array of n absolute position values and n time values normalised to a 0-1 scale. array[0] should be
           position values and array[1] should be time values, time values must be between 0 and 1. The
           movement_interpolation_mode will be used to generate intermediate values
     relative_loading: bool, optional (False)
@@ -99,8 +101,41 @@ class QuasiStaticStep(_ModelStep):
 
     Examples
     --------
+    In the following example we model the contact between a rough cylinder and a flat plane.
+    Both surface are elastic. This code could be used to generate load displacement curves.
 
-
+    >>> import slippy.surface as s
+    >>> import slippy.contact as c
+    >>> # define contact geometry
+    >>> cylinder = s.RoundSurface((1 ,np.inf, 1), shape=(256, 256), grid_spacing=0.001)
+    >>> roughness = s.HurstFractalSurface(1, 0.2, 1000, shape=(256, 256), grid_spacing=0.001,
+    >>>                                   generate = True)
+    >>> combined = cylinder + roughness * 0.00001
+    >>> flat = s.FlatSurface(shape=(256, 256), grid_spacing=0.001, generate = True)
+    >>> # define material behaviour and assign to surfaces
+    >>> material = c.Elastic('steel', properties = {'E':200e9, 'v':0.3})
+    >>> combined.material = material
+    >>> flat.material = material
+    >>>
+    >>> # make a contact model
+    >>> my_model = c.ContactModel('qss_test', combined, flat)
+    >>>
+    >>> # make a modelling step to describe the problem
+    >>> max_int = 0.002
+    >>> n_time_steps = 20
+    >>> my_step = c.QuasiStaticStep('loading', n_time_steps, no_time=True,
+    >>>                             interference = [max_int*0.001, max_int],
+    >>>                             periodic_geometry=True, periodic_axes = (False, True))
+    >>> # add the steps to the model
+    >>> my_model.add_step(my_step)
+    >>> # add output requests
+    >>> output_request = c.OutputRequest('Output-1',
+    >>>                                  ['interference', 'total_normal_load',
+    >>>                                   'loads', 'total_displacement',
+    >>>                                   'converged'])
+    >>> my_step.add_output(output_request)
+    >>> # solve the model
+    >>> final_result = my_model.solve()
     """
     _just_touching_gap = None
     _adhesion_model = None

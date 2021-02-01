@@ -1,4 +1,4 @@
-slippy.surface.alicona\_read
+﻿slippy.surface.alicona\_read
 ============================
 
 .. currentmodule:: slippy.surface

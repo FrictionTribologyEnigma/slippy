@@ -1,4 +1,4 @@
-slippy.surface.ProbFreqSurface
+﻿slippy.surface.ProbFreqSurface
 ==============================
 
 .. currentmodule:: slippy.surface
@@ -33,6 +33,7 @@ slippy.surface.ProbFreqSurface
       ~ProbFreqSurface.shift
       ~ProbFreqSurface.show
       ~ProbFreqSurface.subtract_polynomial
+      ~ProbFreqSurface.wear
    
    
 
@@ -57,6 +58,6 @@ slippy.surface.ProbFreqSurface
       ~ProbFreqSurface.shape
       ~ProbFreqSurface.size
       ~ProbFreqSurface.surface_type
-      ~ProbFreqSurface.worn_profile
+      ~ProbFreqSurface.unworn_profile
    
    
