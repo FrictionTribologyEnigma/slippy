@@ -150,7 +150,8 @@ class IterSemiSystem(_ModelStep):
     >>>
     >>> # make the non newtonian fluid
     >>> oil = c.Lubricant('oil') # Making a lubricant object to contain our sub models
-    >>> oil.add_sub_model('nd_viscosity', c.lubricant_models.nd_roelands(eta_0, roelands_p_0, hertz_pressure, roelands_z))
+    >>> oil.add_sub_model('nd_viscosity', c.lubricant_models.nd_roelands(eta_0, roelands_p_0,
+    >>>                                                                  hertz_pressure, roelands_z))
     >>> oil.add_sub_model('nd_density', c.lubricant_models.nd_dowson_higginson(hertz_pressure))
     >>>
     >>> # make the contact model
