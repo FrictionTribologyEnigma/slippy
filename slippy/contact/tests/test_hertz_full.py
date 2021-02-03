@@ -9,7 +9,7 @@ from slippy.contact.hertz import _sanitise_radii, hertz_full
 def test_sanitise_radii():
     npt.assert_allclose(_sanitise_radii(1), [1.0, 1.0])
 
-    npt.assert_raises(TypeError, _sanitise_radii, (1,))
+    npt.assert_allclose(_sanitise_radii((1,)), [1.0, 1.0])
 
     npt.assert_allclose(_sanitise_radii([-1]), [-1.0, -1.0])
 
