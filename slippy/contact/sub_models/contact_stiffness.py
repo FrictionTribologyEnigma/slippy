@@ -34,6 +34,8 @@ class ResultContactStiffness(_SubModelABC):
     periodic_axes: tuple, optional ((False, False))
         For each True value the corresponding axis will be solved by circular convolution, meaning the result is
         periodic in that direction
+    boarder: int, optional (0)
+        If set the contact stiffness will only be calculated for the central portion of the domain.
 
     Notes
     -----
@@ -45,7 +47,8 @@ class ResultContactStiffness(_SubModelABC):
     """
 
     def __init__(self, name: str, loading: bool = True, unloading: bool = True, direction: str = 'z', tol: float = 1e-6,
-                 max_it: int = None, definition: str = 'mean lines', periodic_axes=(False, False)):
+                 max_it: int = None, definition: str = 'mean lines', periodic_axes=(False, False),
+                 boarder: int = 0):
 
         if type(definition) is not str:
             raise ValueError(f"Definition of stiffness must be a string received {type(definition)}")
@@ -71,6 +74,7 @@ class ResultContactStiffness(_SubModelABC):
         self.loading = loading
         self.unloading = unloading
         self._periodic_axes = periodic_axes
+        self.boarder = boarder
 
         provides = set()
 
@@ -109,6 +113,9 @@ class ResultContactStiffness(_SubModelABC):
             print("Percentage of contact plastic:", p_plastic/p_contact)
         else:
             contact_nodes = current_state['contact_nodes']
+
+        if self.boarder:
+            contact_nodes = contact_nodes[self.boarder:-self.boarder, self.boarder:-self.boarder]
 
         span = contact_nodes.shape
 
