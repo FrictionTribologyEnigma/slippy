@@ -98,7 +98,7 @@ class WearElasticPerfectlyPlastic(_SubModelABC):
             # gap = (just_touching_gap - current_state['interference'] + current_state['total_displacement'].z)
 
         max_load = min(self.model.surface_1.material.max_load,
-                       self.model.surface_1.material.max_load)
+                       self.model.surface_2.material.max_load)
         idx = np.logical_and(current_state['loads'].z >= max_load,
                              np.logical_and(gap < 0, current_state['contact_nodes']))
         total_wear = -gap[idx]

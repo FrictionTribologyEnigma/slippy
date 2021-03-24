@@ -41,7 +41,7 @@ def test_contact_stiffness():
 
     results = sub_model.solve(current_state)
 
-    numerical_stiffness = results['s_contact_stiffness_unloading_fp_z'] * (2 * diameter) ** 2
+    numerical_stiffness = results['s_contact_stiffness_unloading_fp_z_0'] * (2 * diameter) ** 2
     analytical_stiffness = reduced_modulus * diameter
 
     npt.assert_approx_equal(numerical_stiffness, analytical_stiffness, 2)

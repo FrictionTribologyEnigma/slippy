@@ -80,9 +80,9 @@ class ResultContactStiffness(_SubModelABC):
 
         for defin in definition:
             if loading:
-                provides.add(f's_contact_stiffness_loading_{defin}_{direction}')
+                provides.add(f's_contact_stiffness_loading_{defin}_{direction}_{boarder}')
             if unloading:
-                provides.add(f's_contact_stiffness_unloading_{defin}_{direction}')
+                provides.add(f's_contact_stiffness_unloading_{defin}_{direction}_{boarder}')
 
         if not (loading or unloading):
             raise ValueError("No output requested")
@@ -162,7 +162,7 @@ class ResultContactStiffness(_SubModelABC):
             all_disp = convolution_func(loads_in_domain, ignore_domain=True)
             all_disp[all_disp > 1] = 1
             all_disp[contact_nodes] = 1
-            rtn_dict[f's_contact_stiffness_{load_str}_ml_'] = (k_rough / (np.mean(all_disp) - 1)) / contact_nodes.size
+            rtn_dict[f's_contact_stiffness_{load_str}_ml_'] = (k_rough / (1 - np.mean(all_disp))) / contact_nodes.size
 
         ''' This was another definition based on the difference between the actual contact and a evenly distributed load
                 if self.k_smooth is None:
@@ -192,10 +192,10 @@ class ResultContactStiffness(_SubModelABC):
             sl, failed = self._solve(current_state, True)
             print(f"Contact stiffness in loading direction, success: {not failed}, stiffness: {sl}")
             for key, value in sl.items():
-                results[key + direction] = value
+                results[key + direction + f'_{self.boarder}'] = value
         if self.unloading:
             su, failed = self._solve(current_state, False)
             print(f"Contact stiffness in unloading direction, success: {not failed}, stiffness: {su}")
             for key, value in su.items():
-                results[key + direction] = value
+                results[key + direction + f'_{self.boarder}'] = value
         return results

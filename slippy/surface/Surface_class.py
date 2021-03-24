@@ -1215,8 +1215,8 @@ class _Surface(_SurfaceABC):
         assert (x_points.shape == y_points.shape)
 
         if mode == 'nearest':
-            x_index = np.array(x_points / self.grid_spacing + 0.5, dtype='int32')
-            y_index = np.array(y_points / self.grid_spacing + 0.5, dtype='int32')
+            x_index = np.array(x_points / self.grid_spacing, dtype='int32').flatten()
+            y_index = np.array(y_points / self.grid_spacing, dtype='int32').flatten()
             return np.reshape(self.profile[y_index, x_index], newshape=x_points.shape)
         elif mode == 'linear':
             if remake_interpolator or self._inter_func is None or self._inter_func.degrees != (1, 1):
