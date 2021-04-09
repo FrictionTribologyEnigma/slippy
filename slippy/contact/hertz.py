@@ -681,13 +681,12 @@ def hertz_full(r1: typing.Union[typing.Sequence, float], r2: typing.Union[typing
         results['max_tensile_stress_b'] = [(1 - 2 * v1) * p0 / 3 for v1 in v]
         results['stress_z_axis_b_f'] = [_stress_z_axis_spherical(a, p0, v1) for v1 in v]
 
-        # The following is taken from Deeg
-        results['max_von_mises_stress_b'] = [p0 * (1.30075 + 0.87825 * v1 +
-                                                   0.54373 * v1 ** 2) for v1 in v]
-        results['max_von_mises_depth_b'] = [a * (0.38167 + 0.33136 * v1) for v1 in v]
+        # results['max_von_mises_stress_b'] = [p0 * (1.30075 + 0.87825 * v1 +
+        #                                           0.54373 * v1 ** 2) for v1 in v]
+        # results['max_von_mises_depth_b'] = [a * (0.38167 + 0.33136 * v1) for v1 in v]
 
         results['stress_surface_axis_b_f'] = [_stress_surface_spherical(a, p0, v1) for v1 in v]
-
+        # The following is taken from Deeg
         shear_opts = [
             optimize.minimize(lambda psi: -0.5 * (-1 + 3 / 2 / (1 + psi ** 2) + psi * (1 + v1) * np.arctan(1 / psi)),
                               np.array([0.48086782]), bounds=[[0, 10]]) for v1 in v]
