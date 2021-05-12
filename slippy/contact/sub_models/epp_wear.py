@@ -2,7 +2,7 @@ import warnings
 import numpy as np
 
 import slippy
-from slippy.abcs import _SubModelABC
+from slippy.core import _SubModelABC
 
 
 __all__ = ['WearElasticPerfectlyPlastic']
@@ -52,7 +52,7 @@ class WearElasticPerfectlyPlastic(_SubModelABC):
 
     def __init__(self, name: str, proportion_surface_1: float, proportion_surface_2: float = None,
                  no_time: bool = False):
-        requires = {'interference', 'total_displacement', 'just_touching_gap'}
+        requires = {'interference', 'total_displacement_z', 'just_touching_gap'}
         provides = {'total_plastic_deformation'}
         super().__init__(name, requires, provides)
 
@@ -88,18 +88,18 @@ class WearElasticPerfectlyPlastic(_SubModelABC):
             if self.plastic_def_this_step is None or ('new_step' in current_state and current_state['new_step']):
                 self.plastic_def_this_step = np.zeros_like(just_touching_gap)
             # need to sort out the discrepancy between the current just touching gap and the one used for the model
-            gap = (just_touching_gap - current_state['interference'] + current_state['total_displacement'].z +
+            gap = (just_touching_gap - current_state['interference'] + current_state['total_displacement_z'] +
                    self.plastic_def_this_step)
 
         else:
             # just use the current just touching gap and interference
             gap = slippy.asnumpy(current_state['gap'])
             # just_touching_gap = current_state['just_touching_gap']
-            # gap = (just_touching_gap - current_state['interference'] + current_state['total_displacement'].z)
+            # gap = (just_touching_gap - current_state['interference'] + current_state['total_displacement_z'])
 
         max_load = min(self.model.surface_1.material.max_load,
                        self.model.surface_2.material.max_load)
-        idx = np.logical_and(current_state['loads'].z >= max_load,
+        idx = np.logical_and(current_state['loads_z'] >= max_load,
                              np.logical_and(gap < 0, current_state['contact_nodes']))
         total_wear = -gap[idx]
 

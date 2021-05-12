@@ -1,4 +1,4 @@
-from slippy.abcs import _SubModelABC
+from slippy.core import _SubModelABC
 
 __all__ = ['FrictionCoulombSimple']
 

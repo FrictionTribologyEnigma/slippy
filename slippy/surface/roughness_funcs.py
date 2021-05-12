@@ -7,7 +7,7 @@ import scipy.special
 import typing
 from collections.abc import Sequence
 from numbers import Number
-from slippy.abcs import _SurfaceABC
+from slippy.core import _SurfaceABC
 
 __all__ = ['roughness', 'subtract_polynomial', 'get_mat_vr',
            'get_height_of_mat_vr', 'get_summit_curvatures',

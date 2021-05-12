@@ -131,7 +131,7 @@ class QuasiStaticStep(_ModelStep):
     >>> # add output requests
     >>> output_request = c.OutputRequest('Output-1',
     >>>                                  ['interference', 'total_normal_load',
-    >>>                                   'loads', 'total_displacement',
+    >>>                                   'loads_z', 'total_displacement',
     >>>                                   'converged'])
     >>> my_step.add_output(output_request)
     >>> # solve the model
@@ -235,8 +235,8 @@ class QuasiStaticStep(_ModelStep):
         if not self.update and no_update_warning:
             warnings.warn("Nothing set to update")
 
-        provides = {'off_set', 'loads', 'surface_1_displacement', 'surface_2_displacement', 'total_displacement',
-                    'interference', 'just_touching_gap', 'surface_1_points', 'contact_nodes',
+        provides = {'off_set', 'loads_z', 'surface_1_displacement_z', 'surface_2_displacement_z',
+                    'total_displacement_z', 'interference', 'just_touching_gap', 'surface_1_points', 'contact_nodes',
                     'surface_2_points', 'time', 'time_step', 'new_step', 'converged', 'gap', 'total_normal_load'}
         super().__init__(step_name, time_period, provides)
 
@@ -302,7 +302,7 @@ class QuasiStaticStep(_ModelStep):
             results = update_func(current_state)
             current_state.update(results)
             current_state['gap'] = (just_touching_gap - current_state['interference'] +
-                                    current_state['total_displacement'].z)
+                                    current_state['total_displacement_z'])
             current_time += self.time_step
             current_state['time'] = current_time
             # solve sub models

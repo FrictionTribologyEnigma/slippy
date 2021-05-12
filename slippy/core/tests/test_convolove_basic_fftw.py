@@ -2,7 +2,7 @@ import numpy as np
 import numpy.testing as npt
 
 import slippy
-import slippy.contact as c
+import slippy.core as c
 from scipy.signal import fftconvolve
 
 e_im = c.elastic_influence_matrix

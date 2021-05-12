@@ -2,10 +2,9 @@ import typing
 from scipy.interpolate import interp1d
 import numpy as np
 import slippy
-from slippy.contact._material_utils import Loads, Displacements
-from slippy.abcs import _SubModelABC
-from slippy.contact.materials import _IMMaterial
-from slippy.contact.influence_matrix_utils import bccg, plan_convolve
+from slippy.core import _SubModelABC
+from slippy.core.materials import _IMMaterial
+from slippy.core.influence_matrix_utils import bccg, plan_convolve
 
 
 class TangentialPartialSlip(_SubModelABC):
@@ -46,7 +45,7 @@ class TangentialPartialSlip(_SubModelABC):
             self.update_displacement = False
         else:
             self.displacement_from_sub_model = False
-        provides = {'slip_distance', 'stick_nodes'}
+        provides = {'slip_distance', 'stick_nodes', 'loads_x', 'loads_y'}
         super().__init__(name, requires, provides)
 
         self.load_controlled = False
@@ -134,16 +133,12 @@ class TangentialPartialSlip(_SubModelABC):
             stick_nodes = np.logical_and(domain, full_loads < (0.99 * current_state['maximum_tangential_force']))
             current_state['stick_nodes'] = stick_nodes
             tangential_deformation = slippy.asnumpy(conv_func_full(loads_in_domain, True))
-            loads = current_state['loads']._asdict() if 'loads' in current_state else dict()
-            loads[self.component[0]] = full_loads
-            current_state['loads'] = Loads(**loads)
-            td = 'total_displacement'
-            all_displacements = current_state[td]._asdict() if td in current_state else dict()
-            if self.component[0] in all_displacements and all_displacements[self.component[0]] is not None:
-                all_displacements[self.component[0]] += tangential_deformation
+            current_state['loads_' + self.component[0]] = full_loads
+
+            if 'total_displacement' + self.component[0] in current_state:
+                current_state['total_displacement' + self.component[0]] += tangential_deformation
             else:
-                all_displacements[self.component[0]] = tangential_deformation
-            current_state[td] = Displacements(**all_displacements)
+                current_state['total_displacement' + self.component[0]] += tangential_deformation
 
             slip_distance = set_displacement-tangential_deformation
             slip_distance[stick_nodes] = 0

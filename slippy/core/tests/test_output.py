@@ -1,15 +1,15 @@
-import slippy.contact as c
+import slippy.core as core
 import numpy as np
 from tinydb import Query
 
 
 def test_read_write_output():
-    with c.OutputSaver('test') as output_w:
+    with core.OutputSaver('test') as output_w:
         output_w.write({'time': 0, 'a': 5, 'b': np.array([1, 2, 3, 4]), 'c': np.array([1, 2, 3, 4], dtype=float)})
         output_w.write({'time': 1, 'a': 10, 'c': np.array([1, 2, 3, 4], dtype=float)})
         output_w.write({'time': 2, 'a': 15, 'b': np.array([1, 2, 3, 4]), })
         output_w.write({'time': 3, 'a': 20, 'b': np.array([1, 2, 3, 4]), 'c': np.array([1, 2, 3, 4], dtype=float)})
-    output = c.OutputReader('test')
+    output = core.OutputReader('test')
     assert output.time_points == [0, 1, 2, 3], str(output.time_points)
     assert output.fields == {'a', 'b', 'c', 'time'}, str(output.fields)
     assert output[1]['time'] == 1
@@ -29,7 +29,7 @@ def test_array_reading():
     sizes = [1, 5, 30, 210]
     i = 0
     strings = []
-    with c.OutputSaver('test') as output_w:
+    with core.OutputSaver('test') as output_w:
         for dtype in dtypes:
             for size, shape in zip(sizes, shapes):
                 for order in ['C', 'F']:
@@ -40,7 +40,7 @@ def test_array_reading():
                     i += 1
                     strings.append(f'dtype:{str(dtype)}, shape:{str(shape)}, order={order}')
 
-    output = c.OutputReader('test')
+    output = core.OutputReader('test')
     i = 0
     for output_line in output:
         array = np.array(output_line['array']).flatten()
@@ -50,9 +50,9 @@ def test_array_reading():
 
 
 def test_lazy_array():
-    with c.OutputSaver('test') as output_files:
+    with core.OutputSaver('test') as output_files:
         output_files.write({'my_array': np.array([1, 2, 3, 4], dtype=np.int32)})
-    lazy_array = c.outputs._ArrayReader('test.sar', '**array**#0#(4,)#int32')
+    lazy_array = core.outputs._ArrayReader('test.sar', '**array**#0#(4,)#int32')
     assert np.max(lazy_array) == 4
-    lazy_array = c.outputs._ArrayReader('test.sar', '**array**#0#(4,)#int32')
+    lazy_array = core.outputs._ArrayReader('test.sar', '**array**#0#(4,)#int32')
     assert lazy_array[0] == 1

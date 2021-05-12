@@ -3,8 +3,8 @@ import typing
 import slippy
 import warnings
 
-from slippy.abcs import _ContactModelABC, _StepABC, _SubModelABC
-from .outputs import OutputRequest
+from slippy.core import _ContactModelABC, _StepABC, _SubModelABC
+from slippy.core.outputs import OutputRequest
 
 __all__ = ['_ModelStep', 'InitialStep']
 

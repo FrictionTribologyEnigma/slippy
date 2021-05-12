@@ -3,7 +3,7 @@ from numba import njit
 import numpy as np
 from ._lubrication_utils import tdma
 
-from slippy.abcs import _NonDimensionalReynoldSolverABC
+from slippy.core import _NonDimensionalReynoldSolverABC
 
 __all__ = ['UnifiedReynoldsSolver']
 

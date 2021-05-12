@@ -8,9 +8,9 @@ import warnings
 from collections import OrderedDict
 from contextlib import redirect_stdout, ExitStack
 from datetime import datetime
-from .outputs import OutputSaver, OutputRequest
+from slippy.core.outputs import OutputSaver, OutputRequest
 
-from slippy.abcs import _SurfaceABC, _LubricantModelABC, _ContactModelABC
+from slippy.core import _SurfaceABC, _LubricantModelABC, _ContactModelABC
 from slippy.contact.steps import _ModelStep, InitialStep
 
 __all__ = ['ContactModel']

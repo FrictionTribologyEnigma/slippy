@@ -17,12 +17,12 @@ class _LubricantModelABC(abc.ABC):
 class _MaterialABC(abc.ABC):
 
     @abc.abstractmethod
-    def loads_from_surface_displacement(self, displacements, grid_spacing: float,
+    def loads_from_surface_displacement(self, displacements_z, grid_spacing: float,
                                         other: '_MaterialABC', current_state: dict, **material_options):
         pass
 
     @abc.abstractmethod
-    def displacement_from_surface_loads(self, loads, grid_spacing: float,
+    def displacement_from_surface_loads(self, loads_z, grid_spacing: float,
                                         other: '_MaterialABC', current_state: dict, **material_options):
         pass
 

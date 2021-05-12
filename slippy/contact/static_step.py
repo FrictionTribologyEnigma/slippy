@@ -133,7 +133,8 @@ class StaticStep(_ModelStep):
 
         self.load_controlled = interference is None
 
-        provides = {'off_set', 'loads', 'surface_1_displacement', 'surface_2_displacement', 'total_displacement',
+        provides = {'off_set', 'loads_z', 'surface_1_displacement_z', 'surface_2_displacement_z',
+                    'total_displacement_z',
                     'interference', 'just_touching_gap', 'surface_1_points', 'contact_nodes', 'total_normal_load',
                     'surface_2_points', 'time', 'time_step', 'new_step', 'converged', 'gap'}
 
@@ -187,7 +188,7 @@ class StaticStep(_ModelStep):
                                               max_set_load=max_load,
                                               tolerance=self._rtol_interference, material_options=None,
                                               periodic_axes=self._periodic_axes, )
-
+        self._opt_func = opt_func
         if self._unloading and 'contact_nodes' in current_state:
             contact_nodes = current_state['contact_nodes']
         else:
@@ -218,7 +219,7 @@ class StaticStep(_ModelStep):
         current_state.update(opt_func.results)
         current_state['converged'] = converged
         current_state['gap'] = (just_touching_gap - current_state['interference'] +
-                                opt_func.results['total_displacement'].z)
+                                opt_func.results['total_displacement_z'])
         self.solve_sub_models(current_state)
         self.save_outputs(current_state, output_file)
 

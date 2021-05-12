@@ -18,10 +18,7 @@ if slippy.CUDA:
 else:
     cp = None
 
-from slippy.abcs import _ContactModelABC  # noqa: E402
-from ._material_utils import Loads, Displacements  # noqa: E402
-from .influence_matrix_utils import bccg, plan_convolve, guess_loads_from_displacement  # noqa: E402
-from .materials import _IMMaterial  # noqa: E402
+from slippy.core import _ContactModelABC, bccg, plan_convolve, guess_loads_from_displacement, _IMMaterial  # noqa: E402
 
 __all__ = ['solve_normal_interference', 'get_next_file_num', 'OffSetOptions', 'solve_normal_loading',
            'HeightOptimisationFunction', 'make_interpolation_func']
@@ -139,6 +136,7 @@ class HeightOptimisationFunction:
         self.conv_func = None
         self.cache_max = False
         self.last_call_failed = False
+        self._last_converged_loads = None
 
         if isinstance(surf_1.material, _IMMaterial) and isinstance(surf_2.material, _IMMaterial):
             self.im_mats = True
@@ -221,16 +219,13 @@ class HeightOptimisationFunction:
                 disp_1, disp_2 = xp.asnumpy(disp_1), xp.asnumpy(disp_2)
                 full_loads = xp.asnumpy(full_loads)
 
-            disp_1 = Displacements(z=disp_1)
-            disp_2 = Displacements(z=disp_2)
-
             total_load = float(xp.sum(self._results['loads_in_domain']) * self._grid_spacing ** 2)
 
-            results = {'loads': Loads(z=full_loads), 'total_displacement': Displacements(z=full_disp),
-                       'surface_1_displacement': disp_1, 'surface_2_displacement': disp_2,
+            results = {'loads_z': full_loads, 'total_displacement_z': full_disp,
+                       'surface_1_displacement_z': disp_1, 'surface_2_displacement_z': disp_2,
                        'contact_nodes': full_loads > 0, 'total_normal_load': total_load,
                        'interference': self._results['interference']}
-            self._results = results
+            #self._results.update(results)
             return results
         else:
             return self._results
@@ -244,6 +239,7 @@ class HeightOptimisationFunction:
             self.cache_heights = []
             self.cache_total_load = []
             self.cache_surface_loads = []
+        self._last_converged_loads = None
 
     def change_load(self, new_load, contact_nodes):
         # if you change the load... need to change the set load,
@@ -285,12 +281,12 @@ class HeightOptimisationFunction:
         else:
             xp = np
         # If the height guess is in the cache that can be out load guess
-        pressure_initial_guess = None  # overwritten in one case where it should be (cached)
         height = float(height)
         if height in self.cache_heights:
             total_load = self.cache_total_load[self.cache_heights.index(height)]
             print(f"Returning bound value from cache: height: {height:.4}, total_load {total_load:.4}")
             return total_load - self._set_load
+        pressure_initial_guess = self.get_loads_from_cache(height)
         self.it += 1
         # if im mats we can save some time here mostly by not moving data to and from the gpu
         if self.im_mats:
@@ -306,8 +302,6 @@ class HeightOptimisationFunction:
             else:
                 if pressure_initial_guess is None:
                     pressure_initial_guess = xp.zeros_like(z)
-                else:
-                    pressure_initial_guess = pressure_initial_guess.z
                 z_in = z[contact_nodes]
                 pressure_guess_in = pressure_initial_guess[contact_nodes]
                 loads_in_domain, failed = bccg(self.conv_func, z_in, self._tol_inner,
@@ -316,9 +310,10 @@ class HeightOptimisationFunction:
                 self._results = {'loads_in_domain': loads_in_domain, 'domain': self.contact_nodes,
                                  'interference': height}
                 total_load = float(xp.sum(loads_in_domain) * self._grid_spacing ** 2)
-                if self.use_loads_cache:
+                if not failed:
                     full_loads = xp.zeros(contact_nodes.shape)
                     full_loads[contact_nodes] = loads_in_domain
+                    self._last_converged_loads = full_loads
                 else:
                     full_loads = None
 
@@ -345,7 +340,7 @@ class HeightOptimisationFunction:
                                       tol=self._tol_inner,
                                       initial_guess_loads=pressure_initial_guess)
 
-        self._results['loads'] = loads
+        self._results['loads_z'] = loads
         self._results['total_displacement'] = total_disp
         self._results['surface_1_displacement'] = disp_1
         self._results['surface_2_displacement'] = disp_2
@@ -367,6 +362,19 @@ class HeightOptimisationFunction:
 
         return total_load - self._set_load
 
+    def get_loads_from_cache(self, height):
+        if self.use_loads_cache:
+            index = bisect.bisect_left(self.cache_heights, height)
+            if index == len(self.cache_heights):
+                return self.cache_surface_loads[-1]
+            if not index:
+                return self.cache_surface_loads[0]
+            prop = height-self.cache_heights[index-1]/(self.cache_heights[index]-self.cache_heights[index-1])
+            return prop*self.cache_surface_loads[index]+(1-prop)*self.cache_surface_loads[index-1]
+        else:
+            return self._last_converged_loads
+
+
     def add_to_cache(self, height, total_load, loads, failed):
         if self.use_cache and height not in self.cache_heights and not failed:
             print(f"Inserting height: {height}, total_load: {total_load} into cache, len = {1+len(self.cache_heights)}")
@@ -379,14 +387,14 @@ class HeightOptimisationFunction:
                 self.cache_surface_loads.insert(index, loads)
 
 
-def solve_normal_loading(loads: Loads, model: _ContactModelABC, current_state: dict,
+def solve_normal_loading(loads_z, model: _ContactModelABC, current_state: dict,
                          deflections: str = 'xyz', material_options: list = None,
                          reverse_loads_on_second_surface: str = ''):
     """
 
     Parameters
     ----------
-    loads: Loads
+    loads_z: Loads
         The loads on the surface in the same units as the material object
     model: _ContactModelABC
         A contact model object containing the surfaces and materials to be used
@@ -417,24 +425,23 @@ def solve_normal_loading(loads: Loads, model: _ContactModelABC, current_state: d
     else:
         material_options = [mo or dict() for mo in material_options]
 
-    surface_1_displacement = surf_1.material.displacement_from_surface_loads(loads=loads,
+    surface_1_displacement = surf_1.material.displacement_from_surface_loads(loads=loads_z,
                                                                              grid_spacing=surf_1.grid_spacing,
                                                                              deflections=deflections,
                                                                              current_state=current_state,
                                                                              **material_options[0])
 
     if reverse_loads_on_second_surface:
-        loads_2 = Loads(*[-1 * loads.__getattribute__(l) if l in reverse_loads_on_second_surface
-                          else loads.__getattribute__(l) for l in 'xyz'])  # noqa: E741
+        loads_2 = -loads_z
     else:
-        loads_2 = loads
+        loads_2 = loads_z
 
     surface_2_displacement = surf_2.material.displacement_from_surface_loads(loads=loads_2,
                                                                              grid_spacing=surf_1.grid_spacing,
                                                                              deflections=deflections,
                                                                              current_state=current_state,
                                                                              **material_options[1])
-    total_displacement = Displacements(*(s1 + s2 for s1, s2 in zip(surface_1_displacement, surface_2_displacement)))
+    total_displacement = surface_1_displacement + surface_2_displacement
 
     return total_displacement, surface_1_displacement, surface_2_displacement
 
@@ -482,13 +489,13 @@ def solve_normal_interference(interference: float, gap: np.ndarray, model: _Cont
 
     Returns
     -------
-    loads: Loads
+    loads_z: array
         A named tuple of surface loads
-    total_displacement: Displacements
+    total_displacement_z: array
         A named tuple of the total displacement
-    surface_1_displacement: Displacements
+    surface_1_displacement_z: array
         A named tuple of the displacement on surface 1
-    surface_2_displacement: Displacements
+    surface_2_displacement_z: array
         A named tuple of the displacement on surface 2
     contact_nodes: np.ndarray
         A boolean array of nodes in contact
@@ -520,52 +527,14 @@ def solve_normal_interference(interference: float, gap: np.ndarray, model: _Cont
     if not np.any(contact_nodes.flatten()):
         print('no_contact_nodes')
         zeros = np.zeros_like(z)
-        return (Loads(z=zeros), Displacements(z=zeros), Displacements(z=zeros), Displacements(z=zeros),
+        return (zeros, zeros.copy(), zeros.copy(), zeros.copy(),
                 contact_nodes, False)
 
     if isinstance(surf_1.material, _IMMaterial) and isinstance(surf_2.material, _IMMaterial):
-        if 'span' in material_options:
-            span = material_options['span']
-        else:
-            span = tuple(gs * 2 for gs in gap.shape)
-
-        im1 = surf_1.material.influence_matrix(span=span, grid_spacing=[surf_1.grid_spacing] * 2, components=['zz'])[
-            'zz']
-        im2 = surf_2.material.influence_matrix(span=span, grid_spacing=[surf_1.grid_spacing] * 2, components=['zz'])[
-            'zz']
-        total_im = im1 + im2
-
-        convolution_func = plan_convolve(gap, total_im, contact_nodes)
-
-        if initial_guess_loads is None:
-            initial_guess_loads = guess_loads_from_displacement(Displacements(z=z), {'zz': total_im})
-
-        max_pressure = min(surf_1.material.max_load, surf_2.material.max_load)
-
-        loads_in_domain, failed = bccg(convolution_func, z[contact_nodes], tol, max_iter,
-                                       initial_guess_loads.z[contact_nodes],
-                                       min_pressure=adhesive_pressure, max_pressure=max_pressure)
-        if slippy.CUDA:
-            import cupy as cp
-            loads_in_domain = cp.asnumpy(loads_in_domain)
-        loads_full = np.zeros_like(z)
-        loads_full[contact_nodes] = loads_in_domain
-        loads = Loads(z=loads_full)
-
-        total_disp = convolution_func(loads_in_domain, ignore_domain=True)
-        if slippy.CUDA:
-            total_disp = cp.asnumpy(total_disp)
-
-        total_disp = Displacements(z=total_disp)
-        disp_1 = Displacements(z=fftconvolve(loads_full, im1, 'same'))
-        disp_2 = Displacements(z=fftconvolve(loads_full, im2, 'same'))
-
-        contact_nodes = np.logical_and(loads_full > adhesive_pressure, loads_full != 0)
-
-        return loads, total_disp, disp_1, disp_2, contact_nodes, failed
+        raise ValueError("Use the height optimiser function")
     # if not both influence matrix based materials
-    displacements = Displacements(z=z.copy(), x=None, y=None)
-    displacements.z[np.logical_not(contact_nodes)] = np.nan
+    displacements = z.copy()
+    displacements[np.logical_not(contact_nodes)] = np.nan
 
     it_num = 0
     added_nodes_last_it = np.inf
@@ -613,8 +582,8 @@ def solve_normal_interference(interference: float, gap: np.ndarray, model: _Cont
             contact_nodes[nodes_to_remove] = False
             n_nodes_added = sum(nodes_to_add.flatten())
             added_nodes_last_it = n_nodes_added if n_nodes_added else added_nodes_last_it  # if any nodes then update
-            displacements = Displacements(z=z.copy(), x=None, y=None)
-            displacements.z[np.logical_not(contact_nodes)] = np.nan
+            displacements = z.copy()
+            displacements[np.logical_not(contact_nodes)] = np.nan
 
         else:
             break

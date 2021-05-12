@@ -10,10 +10,12 @@ try:
     import cupy  # noqa: F401
     CUDA = True
     asnumpy = cupy.asnumpy
+    xp = cupy
 except ImportError:
     CUDA = False
     import numpy
     asnumpy = numpy.asarray
+    xp = numpy
 
 CORES = multiprocessing.cpu_count()
 OUTPUT_DIR = os.getcwd()

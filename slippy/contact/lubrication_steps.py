@@ -9,13 +9,12 @@ from numbers import Number
 import numpy as np
 import slippy
 
-from slippy.abcs import _NonDimensionalReynoldSolverABC
-from ._material_utils import Loads, Displacements
+from slippy.core import _NonDimensionalReynoldSolverABC
 from ._model_utils import get_gap_from_model
 from ._step_utils import make_interpolation_func, solve_normal_loading
-from .influence_matrix_utils import plan_convolve
+from slippy.core.influence_matrix_utils import plan_convolve
 from .steps import _ModelStep
-from .materials import _IMMaterial
+from slippy.core.materials import _IMMaterial
 
 __all__ = ['IterSemiSystem']
 
@@ -329,7 +328,7 @@ class IterSemiSystem(_ModelStep):
             self._reynolds = value
         else:
             raise ValueError("Cannot set a non reynolds solver object as the reynolds solver, to use custom solvers"
-                             f"first subclass _NonDimensionalReynoldSolverABC from slippy.abcs, received "
+                             f"first subclass _NonDimensionalReynoldSolverABC from slippy.core, received "
                              f"type was {type(value)}")
 
     @reynolds.deleter
@@ -411,8 +410,8 @@ class IterSemiSystem(_ModelStep):
 
             elif not im_mats:
                 def loads_func(loads):
-                    return solve_normal_loading(loads=Loads(z=loads, x=None, y=None), model=self.model,
-                                                deflections='z', current_state=time_step_current_state)[0].z
+                    return solve_normal_loading(loads_z=loads, model=self.model,
+                                                deflections='z', current_state=time_step_current_state)[0]['z']
             # sort out initial guess
             if i >= 0:
                 initial_guess = 'previous'
@@ -581,21 +580,21 @@ class IterSemiSystem(_ModelStep):
             current_state = {**time_step_current_state, **results_this_it}
             pressure = current_state['pressure']
             if im_mats:
-                current_state['surface_1_displacement'] = \
-                    Displacements(z=plan_convolve(pressure, im1, circular=self._periodic_axes)(pressure))
-                current_state['surface_2_displacement'] = \
-                    Displacements(z=plan_convolve(pressure, im2, circular=self._periodic_axes)(pressure))
-                current_state['total_displacement'] = Displacements(z=current_state['total_displacement_z'])
+                current_state['surface_1_displacement_z'] = plan_convolve(pressure, im1,
+                                                                          circular=self._periodic_axes)(pressure)
+                current_state['surface_2_displacement_z'] = plan_convolve(pressure, im2,
+                                                                          circular=self._periodic_axes)(pressure)
+                current_state['total_displacement_z'] = current_state['total_displacement_z']
 
             else:
-                all_disp = solve_normal_loading(Loads(z=pressure), self.model, current_state, 'z')
-                current_state['total_displacement'] = all_disp[0]
-                current_state['surface_1_displacement'] = all_disp[1]
-                current_state['surface_2_displacement'] = all_disp[2]
+                all_disp = solve_normal_loading(pressure, self.model, current_state, 'z')
+                current_state['total_displacement_z'] = all_disp[0]
+                current_state['surface_1_displacement_z'] = all_disp[1]
+                current_state['surface_2_displacement_z'] = all_disp[2]
 
-            del current_state['total_displacement_z']
+            # del current_state['total_displacement_z']
             current_state['total_normal_load'] = total_load
-            current_state['loads'] = Loads(z=current_state['pressure'])
+            current_state['loads_z'] = current_state['pressure']
             current_state['converged'] = converged
             current_state['rolling_speed'] = self.rolling_speed
             current_state = self.solve_sub_models(current_state)

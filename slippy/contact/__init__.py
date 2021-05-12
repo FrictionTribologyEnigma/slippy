@@ -108,24 +108,22 @@ https://github.com/FrictionTribologyEnigma/SlipPY/tree/master/examples
 
 """
 
-from ._material_utils import Loads, Displacements
 # from .adhesion_models import *
+from slippy.core import Rigid, rigid, Elastic, elastic_influence_matrix, OutputRequest, OutputReader, OutputSaver, \
+    read_output, guess_loads_from_displacement, bccg, plan_convolve, plan_multi_convolve
 from .hertz import hertz_full, solve_hertz_line, solve_hertz_point
 from .lubricant import Lubricant
 from .lubrication_steps import IterSemiSystem
-from .materials import Elastic, Rigid, rigid, elastic_influence_matrix
 from .models import ContactModel
-from .outputs import OutputRequest, OutputReader, OutputSaver, read_output
 from .static_step import StaticStep
 # from .steps import InitialStep
 from .unified_reynolds_solver import UnifiedReynoldsSolver
 from .quasi_static_step import QuasiStaticStep
 from . import sub_models
-from .influence_matrix_utils import guess_loads_from_displacement, bccg, plan_convolve
 
-__all__ = ['Loads', 'Displacements', 'hertz_full', 'solve_hertz_line', 'solve_hertz_point', 'Lubricant',
+__all__ = ['hertz_full', 'solve_hertz_line', 'solve_hertz_point', 'Lubricant',
            'lubricant_models', 'IterSemiSystem', 'Elastic', 'Rigid', 'rigid', 'elastic_influence_matrix',
            'ContactModel', 'OutputRequest', 'OutputReader', 'OutputSaver', 'read_output',
            'StaticStep', 'UnifiedReynoldsSolver', 'sub_models', 'QuasiStaticStep', 'sub_models',
-           'guess_loads_from_displacement', 'bccg', 'plan_convolve'
+           'guess_loads_from_displacement', 'bccg', 'plan_convolve', 'plan_multi_convolve'
            ]

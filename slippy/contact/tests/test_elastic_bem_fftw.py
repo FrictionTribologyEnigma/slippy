@@ -36,7 +36,7 @@ def test_hertz_agreement_static_load_fftw():
 
         out = my_model.solve(skip_data_check=True)
 
-        final_load = sum(out['loads'].z.flatten() * round_surface.grid_spacing ** 2)
+        final_load = sum(out['loads_z'].flatten() * round_surface.grid_spacing ** 2)
 
         # check the converged load is the same as the set load
         npt.assert_approx_equal(final_load, total_load, 3)
@@ -45,7 +45,7 @@ def test_hertz_agreement_static_load_fftw():
         a_result = c.hertz_full([1, 1], [np.inf, np.inf], [200e9, 70e9], [0.3, 0.33], 100)
 
         # check max pressure
-        npt.assert_approx_equal(a_result['max_pressure'], max(out['loads'].z.flatten()), 2)
+        npt.assert_approx_equal(a_result['max_pressure'], max(out['loads_z'].flatten()), 2)
 
         # check contact area
         found_area = round_surface.grid_spacing ** 2 * sum(out['contact_nodes'].flatten())
@@ -87,11 +87,11 @@ def test_hertz_agreement_static_interference_fftw():
         npt.assert_approx_equal(final_state['interference'], a_result['total_deflection'])
 
         # check that the load converged to the correct results
-        num_total_load = round_surface.grid_spacing**2*sum(final_state['loads'].z.flatten())
+        num_total_load = round_surface.grid_spacing**2*sum(final_state['loads_z'].flatten())
         npt.assert_approx_equal(num_total_load, set_load, significant=4)
 
         # check that the max pressure is the same
-        npt.assert_approx_equal(a_result['max_pressure'], max(final_state['loads'].z.flatten()), significant=2)
+        npt.assert_approx_equal(a_result['max_pressure'], max(final_state['loads_z'].flatten()), significant=2)
 
         # check that the contact area is in line with analytical solution
         npt.assert_approx_equal(a_result['contact_area'],

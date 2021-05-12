@@ -23,6 +23,7 @@ from .epp_wear import WearElasticPerfectlyPlastic
 from .friction_coulomb_model import FrictionCoulombSimple
 from .tangential_pure_sliding import TangentialPureSliding
 from .tangential_partial_slip import TangentialPartialSlip
+from .sub_surface_stress import SubsurfaceStress
 
 __all__ = ['ResultContactStiffness', 'WearElasticPerfectlyPlastic', 'FrictionCoulombSimple', 'TangentialPureSliding',
-           'TangentialPartialSlip']
+           'TangentialPartialSlip', 'SubsurfaceStress']

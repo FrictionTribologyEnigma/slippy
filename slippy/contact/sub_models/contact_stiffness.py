@@ -3,9 +3,9 @@ import numpy as np
 import slippy
 if slippy.CUDA:
     import cupy as cp
-from slippy.abcs import _SubModelABC  # noqa: E402
-from slippy.contact.influence_matrix_utils import plan_convolve, bccg  # noqa: E402
-from slippy.contact.materials import _IMMaterial  # noqa: E402
+from slippy.core import _SubModelABC  # noqa: E402
+from slippy.core.influence_matrix_utils import plan_convolve, bccg  # noqa: E402
+from slippy.core.materials import _IMMaterial  # noqa: E402
 
 
 class ResultContactStiffness(_SubModelABC):
@@ -91,7 +91,11 @@ class ResultContactStiffness(_SubModelABC):
         self.max_it = max_it
         self.k_smooth = None
         self.last_converged_result = {True: None, False: None}
-        super().__init__(name, {'contact_nodes', 'loads'}, provides)
+        if loading:
+            requires = {'contact_nodes', 'loads_z'}
+        else:
+            requires = {'contact_nodes'}
+        super().__init__(name, requires, provides)
 
     def _solve(self, current_state, loading):
         rtn_dict = dict()
@@ -105,9 +109,9 @@ class ResultContactStiffness(_SubModelABC):
         if loading:
             max_pressure = min(surf_1.material.max_load, surf_2.material.max_load)
             contact_nodes = np.logical_and(current_state['contact_nodes'],
-                                           current_state['loads'].z < max_pressure * 0.99999)
+                                           current_state['loads_z'] < max_pressure * 0.99999)
             p_contact = np.mean(current_state['contact_nodes'])
-            p_plastic = np.mean(current_state['loads'].z > max_pressure * 0.99999)
+            p_plastic = np.mean(current_state['loads_z'] > max_pressure * 0.99999)
             print("Percentage contact nodes:", p_contact)
             print("Percentage plastic nodes:", p_plastic)
             print("Percentage of contact plastic:", p_plastic/p_contact)

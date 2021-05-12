@@ -1,0 +1,285 @@
+import abc
+import itertools
+import typing
+import slippy
+import numpy as np
+from collections.abc import Sequence
+from .abcs import _MaterialABC
+from .influence_matrix_utils import plan_convolve, plan_coupled_convolve, bccg
+
+__all__ = ["_IMMaterial", "Rigid", "rigid"]
+
+
+# The base class for materials contains all the iteration functionality for contacts
+class _IMMaterial(_MaterialABC):
+    """ A class for describing material behaviour, the materials do the heavy lifting for the contact mechanics analysis
+    """
+    material_type: str
+    name: str
+    _subclass_registry = []
+
+    def __init__(self, name: str, max_load: float = np.inf):
+        self.name = name
+        self.material_type = self.__class__.__name__
+        self.max_load = max_load
+
+    # keeps a registry of the materials
+    @classmethod
+    def __init_subclass__(cls, is_abstract=False, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if not is_abstract:
+            _IMMaterial._subclass_registry.append(cls)
+
+    # Each material must define an influence matrix method that given the grid spacing and the span returns the
+    # influence matrix
+
+    # should memoize the results so that the deflection from loads method can be called directly
+    @abc.abstractmethod
+    def influence_matrix(self, span: typing.Sequence[int], grid_spacing: typing.Sequence[float],
+                         components: typing.Sequence[str]):
+        """
+        Find the influence matrix components for the material relating surface pressures to
+
+        Parameters
+        ----------
+        span: Sequence[int]
+            The span of the influence matrix (pts_in_y_direction, pts_in_x_direction)
+        grid_spacing
+            The distance between grid points of the parent surface
+        components
+            The required components of the influence matrix such as: ['xx', 'xy', 'xz'] which would be the components
+            which relate loads in the x direction with displacements in each direction
+
+        Returns
+        -------
+        dict of components
+
+        Notes
+        -----
+        If overloaded the results should be memoised as variables in the class, as this function is called frequently
+        during an analysis
+        """
+        pass
+
+    @abc.abstractmethod
+    def sss_influence_matrices_normal(self, span: typing.Sequence[int], grid_spacing: typing.Sequence[float],
+                                      components: typing.Sequence[str], z: typing.Sequence[float] = None,
+                                      cuda: bool = False) -> dict:
+        """
+        Optional, should give the sub surface stress influence matrix components
+
+        Parameters
+        ----------
+        span: Sequence[int]
+            The span of the influence matrix (pts_in_y_direction, pts_in_x_direction)
+        grid_spacing
+            The distance between grid points of the parent surface
+        components
+            The required components of the influence matrix such as: ['xx', 'xy', 'xz'] which would be components
+            relating pressure in the z direction to the stress tensor terms xx, xy and xz. Shear stress terms should be
+            in alphabetical order only; as in: s_xy, and not: s_yx.
+        z: Sequence[float], optional (None)
+            The depths of interest in the material, if none a grid of half the shortest dimension in the span is used.
+        cuda: bool, optional (False)
+
+        Returns
+        -------
+        dict of components with same keys as components arg
+
+        Notes
+        -----
+        Do not memoize results from this method, there are more options in sub models etc, to allow users to control
+        memory usage
+        """
+        pass
+
+    @abc.abstractmethod
+    def sss_influence_matrices_tangential_x(self, span: typing.Sequence[int], grid_spacing: typing.Sequence[float],
+                                            components: typing.Sequence[str], z: typing.Sequence[float] = None,
+                                            cuda: bool = False) -> dict:
+        """
+        Optional, should give the sub surface stress influence matrix components
+
+        Parameters
+        ----------
+        span: Sequence[int]
+            The span of the influence matrix (pts_in_y_direction, pts_in_x_direction)
+        grid_spacing
+            The distance between grid points of the parent surface
+        components
+            The required components of the influence matrix such as: ['xx', 'xy', 'xz'] which would be components
+            relating traction in the x direction to the stress tensor terms xx, xy and xz. Shear stress terms should be
+            in alphabetical order only; as in: xy, and not: yx.
+        z: Sequence[float], optional (None)
+            The depths of interest in the material, if none a grid of half the shortest dimension in the span is used.
+        cuda: bool, optional (False)
+
+        Returns
+        -------
+        dict of components with same keys as components arg
+
+        Notes
+        -----
+        Do not memoize results from this method, there are more options in sub models etc, to allow users to control
+        memory usage
+        """
+        pass
+
+    def sss_influence_matrices_tangential_y(self, span: typing.Sequence[int], grid_spacing: typing.Sequence[float],
+                                            components: typing.Sequence[str], z: typing.Sequence[float] = None,
+                                            cuda: bool = False) -> dict:
+        """
+        Optional, overwrite only for non homogenous materials
+
+        Parameters
+        ----------
+        span: Sequence[int]
+            The span of the influence matrix (pts_in_y_direction, pts_in_x_direction)
+        grid_spacing
+            The distance between grid points of the parent surface
+        components
+            The required components of the influence matrix such as: ['xx', 'xy', 'xz'] which would be components
+            relating traction in the x direction to the stress tensor terms xx, xy and xz. Shear stress terms should be
+            in alphabetical order only; as in: xy, and not: yx.
+        z: Sequence[float], optional (None)
+            The depths of interest in the material, if none a grid of half the shortest dimension in the span is used.
+        cuda: bool, optional (False)
+
+        Returns
+        -------
+        dict of components with same keys as components arg
+
+        Notes
+        -----
+        Do not memoize results from this method, there are more options in sub models etc, to allow users to control
+        memory usage
+        """
+        span = tuple(reversed(span))
+        grid_spacing = tuple(reversed(grid_spacing))
+        replace = {'x': 'y', 'y': 'x', 'z': 'z'}
+        new_comps = [''.join(sorted(replace[comp[0]] + replace[comp[1]])) for comp in components]
+        comps = self.sss_influence_matrices_tangential_x(span, grid_spacing, new_comps, z, cuda)
+        rtn_dict = dict()
+        for key, comp in comps.items():
+            new_key = components[new_comps.index(key)]
+            rtn_dict[new_key] = comp.swapaxes(1, 2)
+        return rtn_dict
+
+    def displacement_from_surface_loads(self, loads: dict,
+                                        grid_spacing: float,
+                                        deflections: str = 'xyz',
+                                        simple: bool = True,
+                                        periodic_axes: typing.Sequence[bool] = (True, True)):
+        load_dirs = [key for key in loads if key in 'xyz']
+        load_dirs.sort()
+        shape = loads[load_dirs[0]].shape
+        if isinstance(grid_spacing, Sequence):
+            if len(grid_spacing) < 2:
+                grid_spacing = (grid_spacing, grid_spacing)
+            elif len(grid_spacing) > 2:
+                raise ValueError("Grid spacing should be a number or a two element sequence of numbers")
+        else:
+            grid_spacing = (grid_spacing, grid_spacing)
+
+        if simple:
+            component_names = [2 * dir for dir in load_dirs]
+        else:
+            component_names = list(a + b for a, b in itertools.product(load_dirs, deflections))
+        components = self.influence_matrix(shape, grid_spacing, component_names)
+
+        conv_func = plan_coupled_convolve(loads, components, None, periodic_axes)
+
+        return conv_func(loads)
+
+    def loads_from_surface_displacement(self,
+                                        displacements: dict,
+                                        grid_spacing: float,
+                                        other: typing.Optional[_MaterialABC] = None,
+                                        tol: float = 1e-8,
+                                        simple: bool = True,
+                                        max_it: int = None,
+                                        periodic_axes: typing.Sequence[bool] = (True, True)):
+
+        load_dirs = [key for key in displacements if key in 'xyz']
+        load_dirs.sort()
+        shape = displacements[load_dirs[0]].shape
+        size = displacements[load_dirs[0]].size
+
+        if isinstance(grid_spacing, Sequence):
+            if len(grid_spacing) < 2:
+                grid_spacing = (grid_spacing, grid_spacing)
+            elif len(grid_spacing) > 2:
+                raise ValueError("Grid spacing should be a number or a two element sequence of numbers")
+        else:
+            grid_spacing = (grid_spacing, grid_spacing)
+
+        if simple:
+            component_names = [2 * d for d in load_dirs]
+        else:
+            component_names = list(a + b for a, b in itertools.product(load_dirs, load_dirs))
+
+        components = self.influence_matrix(shape, grid_spacing, component_names)
+
+        domain = slippy.xp.ones(displacements[load_dirs[0]].shape, dtype=bool)
+
+        if len(component_names) == 1:
+            load_dir = load_dirs[0]
+            conv_func = plan_convolve(displacements[load_dir], components[load_dir * 2], domain, periodic_axes)
+            b = displacements[load_dir].flatten()
+        else:
+            load_dir = None
+            conv_func = plan_coupled_convolve(displacements, components, domain, periodic_axes)
+            b = np.concatenate(tuple(displacements[d].flatten() for d in load_dirs))
+
+        loads, failed = bccg(conv_func, b, tol=tol, max_it=max_it, x0=np.zeros_like(b), min_pressure=-np.inf)
+        full_loads = dict()
+        for i in range(len(load_dirs)):
+            full_loads[load_dirs[i]] = slippy.xp.zeros(shape)
+            full_loads[load_dirs[i]][domain] = loads[i * size:(i + 1) * size]
+
+        return full_loads
+
+
+class Rigid(_IMMaterial):
+    """ A rigid material
+
+    Parameters
+    ----------
+    name: str
+        The name of the material
+    """
+
+    material_type = 'Rigid'
+
+    E = None
+    v = None
+    G = None
+    lam = None
+    K = None
+    M = None
+
+    def __init__(self, name: str):
+        super().__init__(name)
+
+    def influence_matrix(self, span: typing.Sequence[int], grid_spacing: typing.Sequence[float],
+                         components: typing.Sequence[str]):
+        return {comp: np.zeros(span) for comp in components}
+
+    def displacement_from_surface_loads(self, loads, *args, **kwargs):
+        return [np.zeros_like(l) for l in loads]  # noqa: E741
+
+    def sss_influence_matrices_normal(self, span: typing.Sequence[int], grid_spacing: typing.Sequence[float],
+                                      components: typing.Sequence[str], z: typing.Sequence[float] = None,
+                                      cuda: bool = False) -> dict:
+        raise NotImplementedError("Subsurface stresses are not implemented for rigid materials")
+
+    def sss_influence_matrices_tangential_x(self, span: typing.Sequence[int], grid_spacing: typing.Sequence[float],
+                                            components: typing.Sequence[str], z: typing.Sequence[float] = None,
+                                            cuda: bool = False) -> dict:
+        raise NotImplementedError("Subsurface stresses are not implemented for rigid materials")
+
+    def __repr__(self):
+        return "Rigid(" + self.name + ")"
+
+
+rigid = Rigid('rigid')
