@@ -1,7 +1,15 @@
 language: python
-python:
-- 3.8
-- 3.7
+
+matrix:
+  include:
+      -   python: 3.7
+          env: TOXENV=py37
+      -   python: 3.8
+          env: TOXENV=py38
+      -   python: 3.9
+          env: TOXENV=py39
+      -   env: TOXENV=flake8
+
 install: pip install -U tox-travis
 script: tox
 deploy:
@@ -14,4 +22,3 @@ deploy:
   on:
     tags: true
     repo: FrictionTribologyEnigma/slippy
-    python: 3.8
