@@ -18,7 +18,7 @@ For more complex behaviour please also implement your own tests
 """
 
 material_parameters = {
-    'Elastic': ({'name': 'steel', 'properties': {'E': 200e9, 'v': 0.3}},
+    'Elastic': ({'name': 'steel_5', 'properties': {'E': 200e9, 'v': 0.3}},
                 {'grid_spacing': 0.01, 'simple': True},
                 {'grid_spacing': 0.01, 'simple': True, 'tol': 1e-9}),
     'Rigid': ({}, {}, {})
@@ -57,7 +57,7 @@ def test_materials_basic():
 
 
 def test_elastic_coupled():
-    mat = core.Elastic('steel', {'E': 200e9, 'v': 0.3})
+    mat = core.Elastic('steel_6', {'E': 200e9, 'v': 0.3})
     np.random.seed(0)
 
     loads1 = np.random.rand(16, 16)

@@ -35,11 +35,13 @@ def memoize_components(static_method=True):
 
     def outer(fn):
         # non local variables spec is a list to ensure it's mutable
-        spec = []
-        cache = []
+
         sig = inspect.signature(fn)
 
         if static_method:
+            spec = []
+            cache = []
+
             @wraps(fn)
             def inner(component, *args, **kwargs):
                 nonlocal cache, spec, sig
@@ -55,20 +57,27 @@ def memoize_components(static_method=True):
                     cache[index][component] = fn(component, *args, **kwargs)
                 return cache[index][component]
         else:
+            spec = dict()
+            cache = dict()
+
             @wraps(fn)
-            def inner(self, component, *args, **kwargs):
+            def inner(self, components, *args, **kwargs):
                 nonlocal cache, spec, sig
+                if self.name not in cache:
+                    cache[self.name] = []
+                    spec[self.name] = []
                 new_spec = sig.bind(None, None, *args, **kwargs)
                 new_spec.apply_defaults()
                 try:
-                    index = spec.index(new_spec)
+                    index = spec[self.name].index(new_spec)
                 except ValueError:
-                    spec.append(new_spec)
-                    cache.append(dict())
-                    index = len(cache) - 1
-                if component not in cache[index]:
-                    cache[index][component] = fn(component, *args, **kwargs)
-                return cache[index][component]
+                    spec[self.name].append(new_spec)
+                    cache[self.name].append(dict())
+                    index = len(cache[self.name]) - 1
+                comps_to_find = [c for c in components if c not in cache[self.name][index]]
+                if comps_to_find:
+                    cache[self.name][index].update(fn(self, comps_to_find, *args, **kwargs))
+                return {comp: cache[self.name][index][comp] for comp in components}
 
         inner.cache = cache
         inner.spec = spec

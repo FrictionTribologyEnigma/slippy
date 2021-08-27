@@ -3,8 +3,6 @@ from numbers import Number
 import typing
 import warnings
 
-from scipy.optimize import root_scalar
-
 from .steps import _ModelStep
 from ._model_utils import get_gap_from_model
 from ._step_utils import HeightOptimisationFunction, make_interpolation_func
@@ -81,6 +79,14 @@ class QuasiStaticStep(_ModelStep):
     periodic_axes: tuple, optional ((False, False))
         For each True value the corresponding axis will be solved by circular convolution, meaning the result is
         periodic in that direction
+    periodic_im_repeats: tuple, optional (1,1)
+        The number of times the influence matrix should be wrapped along periodic dimensions, only used if at least one
+        of periodic axes is True. This is necessary to ensure truly periodic behaviour, no physical limit exists
+    method: {'auto', 'pk', 'double'}, optional ('auto')
+        The method by which the normal contact is solved, only used for load controlled contact.
+        'pk' uses the Polonsky and Keer algorithm for elastic contact.
+        'double' uses a double iteration procedure, suitable for elastic contact with a maximum pressure.
+        'auto' automatically selects 'pk' if there is no maximum pressure and 'double' if there is.
     max_it_interference: int, optional (100)
         The maximum number of iterations used to find the interference between the surfaces, only used if
         a total normal load is specified (Not used if contact is displacement controlled)
@@ -156,6 +162,7 @@ class QuasiStaticStep(_ModelStep):
                  movement_interpolation_mode: str = 'linear',
                  profile_interpolation_mode: str = 'nearest',
                  periodic_geometry: bool = False, periodic_axes: tuple = (False, False),
+                 periodic_im_repeats: tuple = (1, 1), method: str = 'auto',
                  max_it_interference: int = 100, rtol_interference=1e-3,
                  max_it_displacement: int = None, rtol_displacement=1e-5, no_update_warning: bool = True,
                  upper: float = 4.0):
@@ -168,6 +175,7 @@ class QuasiStaticStep(_ModelStep):
         self.total_time = time_period
         if not no_time and fast_ld:
             raise ValueError("Cannot have time dependence and fast_ld, either set no_time True or set fast_ld False")
+        self._periodic_im_repeats = periodic_im_repeats
         self._fast_ld = fast_ld
         self._relative_loading = relative_loading
         self.profile_interpolation_mode = profile_interpolation_mode
@@ -178,6 +186,11 @@ class QuasiStaticStep(_ModelStep):
         self._max_it_displacement = max_it_displacement
         self._rtol_displacement = rtol_displacement
         self.number_of_steps = number_of_steps
+
+        if method not in {'auto', 'pk', 'double'}:
+            raise ValueError(f"Unrecognised method for step {step_name}: {method}")
+
+        self._method = method
         self._height_optimisation_func = None
         self._adhesion = adhesion
         self._unloading = unloading
@@ -256,7 +269,7 @@ class QuasiStaticStep(_ModelStep):
         else:  # displacement controlled
             update_func = self._solve_displacement_controlled
 
-        relative_time = np.linspace(0, 1, self.number_of_steps)
+        relative_time = np.linspace(0, 1, self.number_of_steps + 1)[1:]
         just_touching_gap = None
 
         original = dict()
@@ -314,7 +327,7 @@ class QuasiStaticStep(_ModelStep):
     @property
     def upper(self):
         if self._upper is None:
-            self._upper = np.max(self._just_touching_gap)*self._upper_factor
+            self._upper = np.max(self._just_touching_gap) * self._upper_factor
         return self._upper
 
     def update_movement(self, relative_time, original):
@@ -327,47 +340,53 @@ class QuasiStaticStep(_ModelStep):
     def _solve_load_controlled(self, current_state) -> dict:
         # if there is time dependence or we don't already have one, make a new height optimiser
         if not self._no_time or self._height_optimisation_func is None:
-            h_opt_func = HeightOptimisationFunction(just_touching_gap=self._just_touching_gap,
-                                                    model=self.model,
-                                                    adhesion_model=self._adhesion_model,
-                                                    initial_contact_nodes=self._initial_contact_nodes,
-                                                    max_it_inner=self._max_it_displacement,
-                                                    tol_inner=self._rtol_displacement,
-                                                    material_options=dict(),
-                                                    max_set_load=self.normal_load,
-                                                    tolerance=self._rtol_interference,
-                                                    periodic_axes=self._periodic_axes)
-            self._height_optimisation_func = h_opt_func
+            opt_func = HeightOptimisationFunction(just_touching_gap=self._just_touching_gap,
+                                                  model=self.model,
+                                                  adhesion_model=self._adhesion_model,
+                                                  initial_contact_nodes=self._initial_contact_nodes,
+                                                  max_it_inner=self._max_it_displacement,
+                                                  tol_inner=self._rtol_displacement,
+                                                  material_options=dict(),
+                                                  max_set_load=self.normal_load,
+                                                  tolerance=self._rtol_interference,
+                                                  periodic_axes=self._periodic_axes,
+                                                  periodic_im_repeats=self._periodic_im_repeats)
+            self._height_optimisation_func = opt_func
         else:
-            h_opt_func = self._height_optimisation_func
+            opt_func = self._height_optimisation_func
 
         if self._unloading and 'contact_nodes' in current_state:
             contact_nodes = current_state['contact_nodes']
         else:
             contact_nodes = None
             # contact_nodes = np.ones(self._just_touching_gap.shape, dtype=np.bool)
+        if self._method == 'auto':
+            if np.isinf(opt_func.max_pressure):
+                self._method = 'pk'
+            else:
+                self._method = 'double'
 
-        h_opt_func.change_load(self.normal_load, contact_nodes)
-
-        # need to set bounds and pick a sensible starting point
-        upper = self.upper
-        print(f'upper bound set at: {upper}')
-        if self._no_time:
-            brackets = h_opt_func.get_bounds_from_cache(0, upper)
+        if self._method == 'pk':
+            opt_func.contact_nodes = None
+            opt_func.p_and_k(self.normal_load)
         else:
-            brackets = (0, upper)
-        print(f'Bounds adjusted using cache to: {brackets}')
-        print(f'Interference tolerance set to {self._rtol_interference} Relative')
+            opt_func.change_load(self.normal_load, contact_nodes)
+            # need to set bounds and pick a sensible starting point
+            upper = self.upper
+            print(f'upper bound set at: {upper}')
+            if self._no_time:
+                brackets = opt_func.get_bounds_from_cache(0, upper)
+            else:
+                brackets = (0, upper)
+            print(f'Bounds adjusted using cache to: {brackets}')
+            print(f'Interference tolerance set to {self._rtol_interference} Relative')
+            opt_func.brent(0, upper, r_tol=self._rtol_interference, max_iter=self._max_it_interference)
 
-        opt_result = root_scalar(h_opt_func, bracket=brackets, rtol=self._rtol_interference,
-                                 maxiter=self._max_it_interference, args=(current_state,))
         # noinspection PyProtectedMember
-        if h_opt_func._results is None:
-            h_opt_func((brackets[0]+brackets[1])/2, current_state)
-        results = h_opt_func.results
-        results['interference'] = opt_result.root
-        load_conv = (np.abs(results['total_normal_load']-self.normal_load) / self.normal_load) < 0.05
-        results['converged'] = bool(load_conv) and not h_opt_func.last_call_failed
+
+        results = opt_func.results
+        load_conv = (np.abs(results['total_normal_load'] - self.normal_load) / self.normal_load) < 0.05
+        results['converged'] = bool(load_conv) and not opt_func.last_call_failed
         return results
 
     def _solve_displacement_controlled(self, current_state):
@@ -381,7 +400,8 @@ class QuasiStaticStep(_ModelStep):
                                                     material_options=dict(),
                                                     max_set_load=1,
                                                     tolerance=self._rtol_interference,
-                                                    periodic_axes=self._periodic_axes)
+                                                    periodic_axes=self._periodic_axes,
+                                                    periodic_im_repeats=self._periodic_im_repeats)
             self._height_optimisation_func = h_opt_func
         else:
             h_opt_func = self._height_optimisation_func

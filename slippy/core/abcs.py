@@ -47,9 +47,17 @@ class _AdhesionModelABC(abc.ABC):
         return True
 
 
+class _StepABC(abc.ABC):
+    max_time: float
+    pass
+
+
 class _ContactModelABC(abc.ABC):
     surface_1: _SurfaceABC
     surface_2: _SurfaceABC
+    current_step: _StepABC
+    current_step_start_time: float
+
     _lubricant: _LubricantModelABC = None
 
     @property
@@ -68,10 +76,6 @@ class _ContactModelABC(abc.ABC):
     def lubricant_model(self):
         # noinspection PyTypeChecker
         self._lubricant = None
-
-
-class _StepABC(abc.ABC):
-    pass
 
 
 class _FrictionModelABC(abc.ABC):

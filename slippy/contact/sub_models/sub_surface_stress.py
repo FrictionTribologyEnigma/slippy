@@ -2,7 +2,7 @@ import numpy as np
 import slippy
 from itertools import product
 from collections import defaultdict
-from slippy.core import _SubModelABC, plan_multi_convolve, _IMMaterial
+from slippy.core import _SubModelABC, plan_multi_convolve, _IMMaterial, get_derived_stresses
 from typing import Sequence, Union
 
 __all__ = ['SubsurfaceStress']
@@ -20,7 +20,7 @@ class SubsurfaceStress(_SubModelABC):
         The surfaces for which the stress components are to be calculated
     name: str, optional ('sub_surface_stress')
         The name of the sub model, used for debugging
-    load_components: str, optional 'z'
+    load_components: str, optional ('z')
         The components of the surface loads to include in the calculation, eg 'xz' indicates the normal loads ('z') and
         tangential tractions in the x direction will be superimposed. The sub model will require the loads in each of
         these directions to be in the current state when the model is run.
@@ -70,7 +70,13 @@ class SubsurfaceStress(_SubModelABC):
             if lc not in 'xz':
                 raise ValueError(f"Unrecognised load direction: {lc}, valid directions are: x, z")
         requires = set('loads_' + c for c in load_components)
+        tensor_terms = ('xx', 'yy', 'zz', 'xy', 'yz', 'xz')
         valid_stresses = ('xx', 'yy', 'zz', 'xy', 'yz', 'xz', '1', '2', '3', 'vm')
+        if 'all' in stress_components:
+            full_sc = set(tensor_terms)
+            full_sc.update(stress_components)
+            full_sc.remove('all')
+            stress_components = full_sc
         for sc in stress_components:
             if sc not in valid_stresses:
                 raise ValueError(f"Unrecognised stress component: {sc}, valid components are: {valid_stresses}")
@@ -81,11 +87,11 @@ class SubsurfaceStress(_SubModelABC):
         self.stress_components = stress_components
         self.keep_kernels = keep_kernels
         self.cuda_convolutions = cuda_convolutions
-        self._kernel_cache = {s: {a: dict() for a in stress_components} for s in surface}
+        self._kernel_cache = {s: dict() for s in surface}
         self._cache_span = (0, 0)
         self.z = z
         calc_all = any(s in stress_components for s in ('1', '2', '3', 'vm'))
-        self.comps_to_find = ('xx', 'yy', 'zz', 'xy', 'yz', 'xz') if calc_all else stress_components
+        self.comps_to_find = tensor_terms if calc_all else stress_components
         self.periodic_axes = periodic_axes
 
     def solve(self, current_state: dict) -> dict:
@@ -94,8 +100,12 @@ class SubsurfaceStress(_SubModelABC):
         else:
             xp = np
         example_loads = current_state['loads_' + self.load_components[0]]
-        span = example_loads.shape
-        out_put_shape = (len(self.z),) + span
+        span = tuple([s*(2-pa) for s, pa in zip(example_loads.shape, self.periodic_axes)])
+        if self.z is None:
+            z_len = min(example_loads.shape)//2
+        else:
+            z_len = len(self.z)
+        out_put_shape = (z_len,) + example_loads.shape
 
         def default_factory():
             return xp.zeros(out_put_shape)
@@ -108,10 +118,10 @@ class SubsurfaceStress(_SubModelABC):
                                                         'materials'
             intermediate_results = defaultdict(default_factory)
             for l_comp in self.load_components:
-                if self.keep_kernels and span == self._cache_span:
+                if self.keep_kernels and span == self._cache_span and l_comp in self._kernel_cache[surface_num]:
                     conv_funcs = self._kernel_cache[surface_num][l_comp]
                 else:
-                    args = (span, grid_spacing, self.comps_to_find, self.z, self.cuda_convolutions)
+                    args = (self.comps_to_find, grid_spacing, span, self.z, self.cuda_convolutions)
                     if l_comp == 'z':
                         im_comps = material.sss_influence_matrices_normal(*args)
                     elif l_comp == 'x':
@@ -120,7 +130,8 @@ class SubsurfaceStress(_SubModelABC):
                         im_comps = material.sss_influence_matrices_tangential_y(*args)
                     else:
                         raise ValueError(f"Unrecognised load component requested: {l_comp}")
-                    conv_funcs = {key: plan_multi_convolve(example_loads, value, None, self.periodic_axes) for
+                    conv_funcs = {key: plan_multi_convolve(example_loads, value, None, self.periodic_axes,
+                                                           self.cuda_convolutions) for
                                   key, value in im_comps.items()}
                     if self.keep_kernels:
                         self._cache_span = span
@@ -128,44 +139,12 @@ class SubsurfaceStress(_SubModelABC):
 
                 for key, conv_func in conv_funcs.items():
                     loads = current_state['loads_' + l_comp]
+                    if l_comp in 'xy' and surface_num == 2:
+                        loads = loads*-1
                     intermediate_results[key] += conv_func(loads)
-            # find other stress components
-            if 'vm' in self.stress_components:
-                intermediate_results['vm'] = xp.sqrt(((intermediate_results['xx'] - intermediate_results['yy']) ** 2 +
-                                                      (intermediate_results['yy'] - intermediate_results['zz']) ** 2 +
-                                                      (intermediate_results['zz'] - intermediate_results['xx']) ** 2 +
-                                                      6 * (intermediate_results['xy'] ** 2 +
-                                                           intermediate_results['yz'] ** 2 +
-                                                           intermediate_results['xz'] ** 2)) / 2)
-            if '1' in self.stress_components or '2' in self.stress_components or '3' in self.stress_components:
-                b = intermediate_results['xx'] + intermediate_results['yy'] + intermediate_results['zz']
-                c = (intermediate_results['xx'] * intermediate_results['yy'] +
-                     intermediate_results['yy'] * intermediate_results['zz'] +
-                     intermediate_results['xx'] * intermediate_results['zz'] -
-                     intermediate_results['xy'] ** 2 - intermediate_results['xz'] ** 2 - intermediate_results[
-                         'yz'] ** 2)
-                d = (intermediate_results['xx'] * intermediate_results['yy'] * intermediate_results['zz'] +
-                     2 * intermediate_results['xy'] * intermediate_results['xz'] * intermediate_results['yz'] -
-                     intermediate_results['xx'] * intermediate_results['yz'] ** 2 -
-                     intermediate_results['yy'] * intermediate_results['xz'] ** 2 -
-                     intermediate_results['zz'] * intermediate_results['xy'] ** 2)
 
-                p = c - (b ** 2) / 3
-                q = ((2 / 27) * b ** 3 - (1 / 3) * b * c + d)
-                del c
-                del d
-                for key in intermediate_results:
-                    if key not in self.stress_components:
-                        del intermediate_results[key]
-                principals = xp.zeros((3,) + out_put_shape)
-                for i in range(3):
-                    principals[i] = 2 * xp.sqrt((-1 / 3) * p) * xp.cos(
-                        1 / 3 * xp.arccos(3 * q / (2 * p) * xp.sqrt(-3 / p)) - 2 * xp.pi * i / 3) - b / 3
-                    #                ^ real roots from cubic equation for depressed cubic                          ^
-                    #                                                                               change of variable
-                intermediate_results['1'] = xp.max(principals, 0)
-                intermediate_results['3'] = xp.min(principals, 0)
-                intermediate_results['2'] = b - intermediate_results['1'] - intermediate_results['3']
+            # find other stress components
+            intermediate_results.update(get_derived_stresses(intermediate_results, self.stress_components, True))
 
             for key in self.stress_components:
                 current_state['surface_' + str(surface_num) + '_' + key] = intermediate_results[key]

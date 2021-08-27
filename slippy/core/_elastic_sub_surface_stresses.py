@@ -5,7 +5,7 @@ import numpy as np
 import slippy
 from collections.abc import Sequence
 
-__all__ = ['normal_conv_kernels', 'tangential_conv_kernels']
+__all__ = ['normal_conv_kernels', 'tangential_conv_kernels', 'get_derived_stresses']
 
 
 def normal_derivative_terms(x, y, z, grid_spacing, cuda):
@@ -96,7 +96,7 @@ def normal_conv_kernels(span, z, grid_spacing, young, v, cuda=False) -> dict:
     y = y.reshape((1, -1, 1))
     z = xp.array(z).reshape((-1, 1, 1))
     chi_x_x, chi_y_y, chi_x_y, vee_z, vee_x_x, vee_y_y, vee_z_z, \
-    vee_x_z, vee_y_z, vee_x_y = normal_derivative_terms(x, y, z, grid_spacing, cuda)
+        vee_x_z, vee_y_z, vee_x_y = normal_derivative_terms(x, y, z, grid_spacing, cuda)
     shear = young / (2 * (1 + v))
     lam = young * v / ((1 + v) * (1 - 2 * v))
     sxx = 1 / (2 * xp.pi) * (lam / (lam + shear) * vee_z - shear / (lam + shear) * chi_x_x - z * vee_x_x)
@@ -209,3 +209,72 @@ def tangential_conv_kernels(span, z, grid_spacing, v, cuda=False) -> dict:
     syz = -z / (2 * pi) * f_x_y_z
     sxz = 1 / (2 * pi) * (f_z_z - z * f_x_x_z)
     return {'xx': sxx, 'yy': syy, 'zz': szz, 'xy': sxy, 'yz': syz, 'xz': sxz}
+
+
+def get_derived_stresses(tensor_components: dict, required_components: Sequence, delete: bool = True) -> dict:
+    """Finds derived stress terms from the full stress tensor
+
+    Parameters
+    ----------
+    tensor_components: dict
+        The stress tensor components must have keys: 'xx', 'yy', 'zz', 'xy', 'yz', 'xz' all should be equal size
+        arrays
+    required_components: Sequence
+        The required derived stresses, valid items are: '1', '2', '3' and/or 'vm', relating to principal stresses and
+        von mises stress respectively. If tensor components are also present these will not be deleted if delete is
+        set to True
+    delete: bool, optional (True)
+        If True the tensor components will be deleted after computation with the exception of components who's names
+        are in required_components
+
+    Returns
+    -------
+    dict of derived components
+
+    """
+    if not all([rc in {'1', '2', '3', 'vm'} for rc in required_components]):
+        raise ValueError("Unrecognised derived stress component, allowed components are: '1', '2', '3', 'vm'")
+
+    if isinstance(tensor_components['xx'], np.ndarray):
+        xp = np
+    else:
+        xp = slippy.xp
+    rtn_dict = dict()
+    if 'vm' in required_components:
+        rtn_dict['vm'] = xp.sqrt(((tensor_components['xx'] - tensor_components['yy']) ** 2 +
+                                  (tensor_components['yy'] - tensor_components['zz']) ** 2 +
+                                  (tensor_components['zz'] - tensor_components['xx']) ** 2 +
+                                  6 * (tensor_components['xy'] ** 2 +
+                                       tensor_components['yz'] ** 2 +
+                                       tensor_components['xz'] ** 2)) / 2)
+    if '1' in required_components or '2' in required_components or '3' in required_components:
+        b = tensor_components['xx'] + tensor_components['yy'] + tensor_components['zz']
+        c = (tensor_components['xx'] * tensor_components['yy'] +
+             tensor_components['yy'] * tensor_components['zz'] +
+             tensor_components['xx'] * tensor_components['zz'] -
+             tensor_components['xy'] ** 2 - tensor_components['xz'] ** 2 - tensor_components[
+                 'yz'] ** 2)
+        d = (tensor_components['xx'] * tensor_components['yy'] * tensor_components['zz'] +
+             2 * tensor_components['xy'] * tensor_components['xz'] * tensor_components['yz'] -
+             tensor_components['xx'] * tensor_components['yz'] ** 2 -
+             tensor_components['yy'] * tensor_components['xz'] ** 2 -
+             tensor_components['zz'] * tensor_components['xy'] ** 2)
+
+        p = c - (b ** 2) / 3
+        q = ((2 / 27) * b ** 3 - (1 / 3) * b * c + d)
+        del c
+        del d
+        if delete:
+            for key in list(tensor_components.keys()):
+                if key not in required_components:
+                    del tensor_components[key]
+        principals = xp.zeros((3,) + b.shape)
+        for i in range(3):
+            principals[i] = 2 * xp.sqrt((-1 / 3) * p) * xp.cos(
+                1 / 3 * xp.arccos(3 * q / (2 * p) * xp.sqrt(-3 / p)) - 2 * xp.pi * i / 3) - b / 3
+            #                ^ real roots from cubic equation for depressed cubic                          ^
+            #                                                                               change of variable
+        rtn_dict['1'] = xp.max(principals, 0)
+        rtn_dict['3'] = xp.min(principals, 0)
+        rtn_dict['2'] = b - rtn_dict['1'] - rtn_dict['3']
+    return rtn_dict

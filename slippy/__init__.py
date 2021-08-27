@@ -1,5 +1,6 @@
 import multiprocessing
 import os
+import numpy
 """Top-level package for SlipPY."""
 
 __author__ = """Michael Watson"""
@@ -9,19 +10,25 @@ __version__ = '0.2.0'
 try:
     import cupy  # noqa: F401
     CUDA = True
-    asnumpy = cupy.asnumpy
     xp = cupy
 except ImportError:
     CUDA = False
-    import numpy
-    asnumpy = numpy.asarray
     xp = numpy
+
+
+def asnumpy(obj):
+    if CUDA:
+        return cupy.asnumpy(obj)
+    return numpy.asarray(obj)
+
 
 CORES = multiprocessing.cpu_count()
 OUTPUT_DIR = os.getcwd()
 ERROR_IF_MISSING_MODEL = True
 ERROR_IF_MISSING_SUB_MODEL = True
 ERROR_IN_DATA_CHECK = True
+dtype = 'float64'
+material_names = []
 
 
 class OverRideCuda:

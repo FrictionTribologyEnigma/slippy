@@ -5,6 +5,7 @@ import slippy
 from slippy.core import _SubModelABC
 from slippy.core.materials import _IMMaterial
 from slippy.core.influence_matrix_utils import bccg, plan_convolve
+# TODO add from_offset option to get the displacement from the offset
 
 
 class TangentialPartialSlip(_SubModelABC):
@@ -41,11 +42,12 @@ class TangentialPartialSlip(_SubModelABC):
 
         if load is None and displacement is None:
             self.displacement_from_sub_model = True
-            requires.add('rigid_body_displacement')
+            requires.add('rigid_body_displacement_' + direction)
             self.update_displacement = False
         else:
             self.displacement_from_sub_model = False
-        provides = {'slip_distance', 'stick_nodes', 'loads_x', 'loads_y'}
+        provides = {'slip_distance', 'stick_nodes', 'loads_x', 'loads_y', 'total_displacement_x',
+                    'total_displacement_y'}
         super().__init__(name, requires, provides)
 
         self.load_controlled = False
@@ -88,10 +90,12 @@ class TangentialPartialSlip(_SubModelABC):
         # check that both are im materials and store ims
         if isinstance(self.model.surface_1.material, _IMMaterial) and \
            isinstance(self.model.surface_2.material, _IMMaterial):
-            im_1 = self.model.surface_1.material.influence_matrix(span, [self.model.surface_1.grid_spacing] * 2,
-                                                                  [self.component])[self.component]
-            im_2 = self.model.surface_2.material.influence_matrix(span, [self.model.surface_1.grid_spacing] * 2,
-                                                                  [self.component])[self.component]
+            im_1 = self.model.surface_1.material.influence_matrix([self.component],
+                                                                  [self.model.surface_1.grid_spacing] * 2,
+                                                                  span)[self.component]
+            im_2 = self.model.surface_2.material.influence_matrix([self.component],
+                                                                  [self.model.surface_1.grid_spacing] * 2,
+                                                                  span)[self.component]
             self._im_1 = im_1
             self._im_2 = im_2
             self._im_total = im_1 + im_2
@@ -108,37 +112,40 @@ class TangentialPartialSlip(_SubModelABC):
 
         domain = current_state['contact_nodes']
 
-        conv_func_full = plan_convolve(self._im_total, self._im_total, domain,
-                                       circular=self._periodic_axes)
+        conv_func = plan_convolve(self._im_total, self._im_total, domain,
+                                  circular=self._periodic_axes)
         # if the displacements are provided by another sub model or we have a set displacement we just have one set
         # of bccg iterations:
         if not self.load_controlled:
             if self.update_displacement:
                 set_displacement = self.displacement_upd(current_state['time'])
             elif self.displacement_from_sub_model:
-                set_displacement = current_state['rigid_body_displacement']
+                set_displacement = current_state['rigid_body_displacement_' + self.component[0]]
             else:
                 set_displacement = self.displacement
             try:
                 set_displacement = float(set_displacement)*np.ones_like(current_state['maximum_tangential_force'])
             except TypeError:
                 pass
-            x0 = self.previous_result if self.previous_result is not None else set_displacement/np.sum(self._im_total)
-            loads_in_domain, failed = bccg(conv_func_full, set_displacement[domain], self._tol,
-                                           self._max_it, x0[domain], 0,
+            x0 = self.previous_result if self.previous_result is not None else \
+                current_state['maximum_tangential_force']/2
+            min_pressure = np.array(-1*current_state['maximum_tangential_force'][domain])
+            loads_in_domain, failed = bccg(conv_func, set_displacement[domain], self._tol,
+                                           self._max_it, x0[domain],
+                                           min_pressure,
                                            current_state['maximum_tangential_force'][domain])
             loads_in_domain = slippy.asnumpy(loads_in_domain)
             full_loads = np.zeros_like(current_state['maximum_tangential_force'])
             full_loads[domain] = loads_in_domain
             stick_nodes = np.logical_and(domain, full_loads < (0.99 * current_state['maximum_tangential_force']))
             current_state['stick_nodes'] = stick_nodes
-            tangential_deformation = slippy.asnumpy(conv_func_full(loads_in_domain, True))
+            tangential_deformation = slippy.asnumpy(conv_func(loads_in_domain, True))
             current_state['loads_' + self.component[0]] = full_loads
 
-            if 'total_displacement' + self.component[0] in current_state:
-                current_state['total_displacement' + self.component[0]] += tangential_deformation
+            if 'total_displacement_' + self.component[0] in current_state:
+                current_state['total_displacement_' + self.component[0]] += tangential_deformation
             else:
-                current_state['total_displacement' + self.component[0]] += tangential_deformation
+                current_state['total_displacement_' + self.component[0]] = tangential_deformation
 
             slip_distance = set_displacement-tangential_deformation
             slip_distance[stick_nodes] = 0

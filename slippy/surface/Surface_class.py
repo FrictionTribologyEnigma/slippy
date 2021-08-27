@@ -1151,7 +1151,7 @@ class _Surface(_SurfaceABC):
 
         Returns
         -------
-        mesh_x, mesh_y : np.ndarray
+        mesh_y, mesh_x : np.ndarray
             arrays of the grid points (result from mesh grid)
         """
         if extent is None and grid_spacing is None and shape is None:

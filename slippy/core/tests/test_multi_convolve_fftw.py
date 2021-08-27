@@ -11,7 +11,7 @@ def test_basic_multi_convolve_fftw():
     ims = np.array([core.elastic_influence_matrix(comp, (64, 64), [1e-6] * 2, 200e9, 0.3) for comp in comps])
     loads = np.zeros_like(ims[0])
     loads[31, 31] = 1
-    out = core.plan_multi_convolve(loads, ims)(loads)
+    out = core.plan_multi_convolve(loads, ims, circular=True)(loads)
     for expt, got in zip(ims, out):
         npt.assert_allclose(got, expt, atol=1e-30)
 
@@ -22,8 +22,9 @@ def test_multi_convolve_vs_sequential_fftw():
     domains = (None, 0.5 > np.random.rand(16, 16))
     comps = ['xz', 'zz']
     loads = np.random.rand(16, 16)
-    ims = np.array([core.elastic_influence_matrix(comp, (16, 16), [1e-6] * 2, 200e9, 0.3) for comp in comps])
     for p, d in itertools.product(periodics, domains):
+        im_shape = tuple((2 - p) * s for p, s in zip(p, loads.shape))
+        ims = np.array([core.elastic_influence_matrix(comp, im_shape, [1e-6] * 2, 200e9, 0.3) for comp in comps])
         multi_func = core.plan_multi_convolve(loads, ims, d, p)
         if d is None:
             multi_result = multi_func(loads)

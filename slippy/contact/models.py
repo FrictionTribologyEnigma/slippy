@@ -71,6 +71,8 @@ class ContactModel(_ContactModelABC):
         if lubricant is not None:
             self.lubricant_model = lubricant
         self.steps = OrderedDict({'Initial': InitialStep()})
+        self.current_step = None
+        self.current_step_start_time = None
         if output_dir is not None:
             if not os.path.isdir(output_dir):
                 try:
@@ -207,7 +209,7 @@ class ContactModel(_ContactModelABC):
         if os.path.exists(self.log_file_name):
             os.remove(self.log_file_name)
 
-        current_state = None
+        current_state = {'time': 0.0}
 
         with ExitStack() as stack:
             output_writer = stack.enter_context(OutputSaver(self.name))
@@ -222,6 +224,8 @@ class ContactModel(_ContactModelABC):
 
             for this_step in self.steps:
                 print(f"Solving step {this_step}")
+                self.current_step = self.steps[this_step]
+                self.current_step_start_time = current_state['time']
                 for output in self.steps[this_step].outputs:
                     output.new_step(current_state['time'])
                 current_state = self.steps[this_step].solve(current_state, output_writer)

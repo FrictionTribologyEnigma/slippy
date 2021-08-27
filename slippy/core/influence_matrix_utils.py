@@ -4,7 +4,8 @@ import warnings
 import slippy
 import functools
 
-__all__ = ['guess_loads_from_displacement', 'bccg', 'plan_convolve', 'plan_multi_convolve', 'plan_coupled_convolve']
+__all__ = ['guess_loads_from_displacement', 'bccg', 'plan_convolve', 'plan_multi_convolve', 'plan_coupled_convolve',
+           'polonsky_and_keer']
 
 
 def guess_loads_from_displacement(displacements_z: np.array, zz_component: np.array) -> np.array:
@@ -31,13 +32,11 @@ def guess_loads_from_displacement(displacements_z: np.array, zz_component: np.ar
 try:
     import cupy as cp
 
-
     def n_pow_2(a):
         return 2 ** int(np.ceil(np.log2(a)))
 
-
     def _plan_cuda_convolve(loads: np.ndarray, im: np.ndarray, domain: np.ndarray,
-                            circular: typing.Sequence[bool]):
+                            circular: typing.Sequence[bool], no_shape_check: bool):
         """Plans an FFT convolution, returns a function to carry out the convolution
         CUDA implementation
 
@@ -97,10 +96,14 @@ try:
         input_shape = []
         for i in range(2):
             if circular[i]:
-                assert loads.shape[i] == im.shape[i], "For circular convolution loads and im must be same shape"
+                if not no_shape_check:
+                    assert loads.shape[i] == im.shape[i], "For circular convolution loads and im must be same shape"
                 input_shape.append(loads.shape[i])
             else:
-                input_shape.append(2 * n_pow_2(max(loads.shape[i], im.shape[i])))
+                if not no_shape_check:
+                    msg = "For non circular convolution influence matrix must be double loads"
+                    assert loads.shape[i] == im.shape[i] // 2, msg
+                input_shape.append(n_pow_2(max(loads.shape[i], im.shape[i])))
         input_shape = tuple(input_shape)
         forward_trans = functools.partial(cp.fft.fft2, s=input_shape)
         backward_trans = functools.partial(cp.fft.ifft2, s=input_shape)
@@ -142,7 +145,6 @@ try:
             return inner_no_domain
         else:
             return inner_with_domain
-
 
     def _plan_cuda_multi_convolve(loads: np.ndarray, ims: np.ndarray, domain: np.ndarray = None,
                                   circular: typing.Sequence[bool] = (False, False)):
@@ -208,7 +210,9 @@ try:
                 assert loads.shape[i] == im.shape[i], "For circular convolution loads and im must be same shape"
                 input_shape.append(loads.shape[i])
             else:
-                input_shape.append(2 * n_pow_2(max(loads.shape[i], im.shape[i])))
+                msg = "For non circular convolution influence matrix must be double loads"
+                assert loads.shape[i] == im.shape[i] // 2, msg
+                input_shape.append(n_pow_2(max(loads.shape[i], im.shape[i])))
 
         input_shape = tuple(input_shape)
         forward_trans = functools.partial(cp.fft.fft2, s=input_shape)
@@ -267,6 +271,64 @@ try:
         else:
             return inner_with_domain
 
+    def _cuda_polonsky_and_keer(f: typing.Callable, p0: typing.Sequence, just_touching_gap: typing.Sequence,
+                                target_load: float, grid_spacing: typing.Sequence[float], eps_0: float = 1e-6,
+                                max_it: int = None):
+        just_touching_gap = cp.array(just_touching_gap)
+        p0 = cp.array(p0)
+        if max_it is None:
+            max_it = just_touching_gap.size
+        # init
+        pij = p0 / cp.mean(p0) * target_load
+        delta = 0
+        g_big_old = 1
+        tij = 0
+        it_num = 0
+        element_area = grid_spacing[0] * grid_spacing[1]
+        while True:
+            uij = f(pij)
+            gij = uij + just_touching_gap
+            current_touching = pij > 0
+            g_bar = cp.mean(gij[current_touching])
+            gij = gij - g_bar
+            g_big = cp.sum(gij[current_touching] ** 2)
+            if it_num == 0:
+                tij = gij
+            else:
+                tij = gij + delta * (g_big / g_big_old) * tij
+            tij[cp.logical_not(current_touching)] = 0
+            g_big_old = g_big
+            rij = f(tij)
+            r_bar = cp.mean(rij[current_touching])
+            rij = rij - r_bar
+            if not cp.linalg.norm(rij):
+                tau = 0
+            else:
+                tau = (cp.dot(gij[current_touching], tij[current_touching]) /
+                       cp.dot(rij[current_touching], tij[current_touching]))
+            pij_old = pij
+            pij = pij - tau * tij
+            pij = cp.clip(pij, 0, cp.inf)
+            iol = cp.logical_and(pij == 0, gij < 0)
+            if cp.any(iol):
+                delta = 0
+                pij[iol] = pij[iol] - tau * gij[iol]
+            else:
+                delta = 1
+            p_big = element_area * cp.sum(pij)
+            pij = pij / p_big * target_load
+            eps = (element_area / target_load) * cp.sum(cp.abs(pij - pij_old))
+            if eps < eps_0:
+                failed = False
+                break
+            it_num += 1
+            if it_num > max_it:
+                failed = True
+                break
+            if cp.any(cp.isnan(pij)):
+                failed = True
+                break
+        return failed, pij, gij
 
     def _cuda_bccg(f: typing.Callable, b: typing.Sequence, tol: float, max_it: int, x0: typing.Sequence,
                    min_pressure: float = 0.0, max_pressure: typing.Union[float, typing.Sequence] = cp.inf,
@@ -334,6 +396,13 @@ try:
             max_is_float = False
             max_pressure = cp.array(max_pressure)
 
+        try:
+            float(min_pressure)
+            min_is_float = True
+        except TypeError:
+            min_is_float = False
+            min_pressure = cp.array(min_pressure)
+
         # initialize
         b = cp.asarray(b)
         x = cp.clip(cp.asarray(x0), min_pressure, max_pressure)
@@ -386,9 +455,12 @@ try:
             outer_it = it_inn >= k_inn or upd < tol
 
             if outer_it:
-                msk_prj_0 = x < -small
+                msk_prj_0 = x < min_pressure - small
                 if cp.any(msk_prj_0):
-                    x[msk_prj_0] = 0
+                    if min_is_float:
+                        x[msk_prj_0] = min_pressure
+                    else:
+                        x[msk_prj_0] = min_pressure[msk_prj_0]
                     msk_bnd_0[msk_prj_0] = True
                     changed = True
                 msk_prj_max = x >= max_pressure * (1 + small)
@@ -436,6 +508,8 @@ try:
                 break
 
         return x, bool(failed)
+
+
 except ImportError:
     _plan_cuda_convolve = None
     _plan_cuda_multi_convolve = None
@@ -444,8 +518,8 @@ except ImportError:
 try:
     import pyfftw
 
-
-    def _plan_fftw_convolve(loads: np.ndarray, im: np.ndarray, domain: np.ndarray, circular: typing.Sequence[bool]):
+    def _plan_fftw_convolve(loads: np.ndarray, im: np.ndarray, domain: np.ndarray, circular: typing.Sequence[bool],
+                            no_shape_check: bool):
         """Plans an FFT convolution, returns a function to carry out the convolution
         FFTW implementation
 
@@ -499,10 +573,14 @@ try:
         input_shape = []
         for i in range(2):
             if circular[i]:
-                assert loads.shape[i] == im.shape[i], "For circular convolution loads and im must be same shape"
+                if not no_shape_check:
+                    assert loads.shape[i] == im.shape[i], "For circular convolution loads and im must be same shape"
                 input_shape.append(loads.shape[i])
             else:
-                input_shape.append(2 * pyfftw.next_fast_len(max(loads.shape[i], im.shape[i])))
+                if not no_shape_check:
+                    msg = "For non circular convolution influence matrix must be double loads"
+                    assert loads.shape[i] == im.shape[i] // 2, msg
+                input_shape.append(pyfftw.next_fast_len(im.shape[i]))
         input_shape = tuple(input_shape)
 
         fft_shape = [input_shape[0], input_shape[1] // 2 + 1]
@@ -554,7 +632,6 @@ try:
         else:
             return inner_with_domain
 
-
     def _plan_fftw_multi_convolve(loads: np.ndarray, ims: np.ndarray, domain: np.ndarray = None,
                                   circular: typing.Sequence[bool] = (False, False)):
         """Plans an FFT convolution, returns a function to carry out the convolution
@@ -602,18 +679,20 @@ try:
         >>> disp_numerical = convolve_func(loads)
 
         """
-        loads = np.asarray(loads)
+        loads = slippy.xp.asnumpy(loads)
         im = np.asarray(ims[0])
         im_shape_orig = im.shape
         if domain is not None:
-            domain = np.asarray(domain, dtype=np.bool)
+            domain = slippy.xp.asnumpy(domain)
         input_shape = []
         for i in range(2):
             if circular[i]:
                 assert loads.shape[i] == im.shape[i], "For circular convolution loads and im must be same shape"
                 input_shape.append(loads.shape[i])
             else:
-                input_shape.append(2 * pyfftw.next_fast_len(max(loads.shape[i], im.shape[i])))
+                msg = "For non circular convolution influence matrix must be double loads"
+                assert loads.shape[i] == im.shape[i] // 2, msg
+                input_shape.append(pyfftw.next_fast_len(im.shape[i]))
         input_shape = (len(ims),) + tuple(input_shape)
 
         fft_shape = [input_shape[0], input_shape[1], input_shape[2] // 2 + 1]
@@ -643,6 +722,8 @@ try:
         dtype = loads.dtype
 
         def inner_no_domain(full_loads):
+            if not isinstance(full_loads, np.ndarray):
+                full_loads = slippy.xp.asnumpy(full_loads)
             if full_loads.shape == shape:
                 flat = False
             else:
@@ -657,6 +738,8 @@ try:
             return full
 
         def inner_with_domain(sub_loads, ignore_domain=False):
+            if not isinstance(sub_loads, np.ndarray):
+                sub_loads = slippy.xp.asnumpy(sub_loads)
             full_loads = np.zeros(shape, dtype=dtype)
             full_loads[domain] = sub_loads
 
@@ -674,6 +757,64 @@ try:
         else:
             return inner_with_domain
 
+    def _fftw_polonsky_and_keer(f: typing.Callable, p0: typing.Sequence, just_touching_gap: typing.Sequence,
+                                target_load: float, grid_spacing: typing.Sequence[float], eps_0: float = 1e-6,
+                                max_it: int = None):
+        just_touching_gap = np.array(just_touching_gap)
+        p0 = np.array(p0)
+        if max_it is None:
+            max_it = just_touching_gap.size
+        # init
+        pij = p0 / np.mean(p0) * target_load
+        delta = 0
+        g_big_old = 1
+        tij = 0
+        it_num = 0
+        element_area = grid_spacing[0] * grid_spacing[1]
+        while True:
+            uij = f(pij)
+            gij = uij + just_touching_gap
+            current_touching = pij > 0
+            g_bar = np.mean(gij[current_touching])
+            gij = gij - g_bar
+            g_big = np.sum(gij[current_touching] ** 2)
+            if it_num == 0:
+                tij = gij
+            else:
+                tij = gij + delta * (g_big / g_big_old) * tij
+            tij[np.logical_not(current_touching)] = 0
+            g_big_old = g_big
+            rij = f(tij)
+            r_bar = np.mean(rij[current_touching])
+            rij = rij - r_bar
+            if not np.linalg.norm(rij):
+                tau = 0
+            else:
+                tau = (np.dot(gij[current_touching], tij[current_touching]) /
+                       np.dot(rij[current_touching], tij[current_touching]))
+            pij_old = pij
+            pij = pij - tau * tij
+            pij = np.clip(pij, 0, np.inf)
+            iol = np.logical_and(pij == 0, gij < 0)
+            if np.any(iol):
+                delta = 0
+                pij[iol] = pij[iol] - tau * gij[iol]
+            else:
+                delta = 1
+            p_big = element_area * np.sum(pij)
+            pij = pij / p_big * target_load
+            eps = (element_area / target_load) * np.sum(np.abs(pij - pij_old))
+            if eps < eps_0:
+                failed = False
+                break
+            it_num += 1
+            if it_num > max_it:
+                failed = True
+                break
+            if np.any(np.isnan(pij)):
+                failed = True
+                break
+        return failed, pij, gij
 
     def _fftw_bccg(f: typing.Callable, b: np.ndarray, tol: float, max_it: int, x0: np.ndarray,
                    min_pressure: float = 0, max_pressure: typing.Union[float, typing.Sequence] = np.inf,
@@ -729,6 +870,13 @@ try:
         except TypeError:
             max_is_float = False
 
+        try:
+            float(min_pressure)
+            min_is_float = True
+        except TypeError:
+            min_is_float = False
+            min_pressure = np.array(min_pressure)
+
         # initialize
         x = np.clip(x0, min_pressure, max_pressure)
         g = f(x) - b
@@ -780,9 +928,12 @@ try:
             outer_it = it_inn >= k_inn or upd < tol
 
             if outer_it:
-                msk_prj_0 = x < -small
+                msk_prj_0 = x < min_pressure * (1 - small)
                 if np.any(msk_prj_0):
-                    x[msk_prj_0] = 0
+                    if min_is_float:
+                        x[msk_prj_0] = 0
+                    else:
+                        x[msk_prj_0] = min_pressure[msk_prj_0]
                     msk_bnd_0[msk_prj_0] = True
                     changed = True
                 msk_prj_max = x >= max_pressure * (1 + small)
@@ -836,7 +987,8 @@ except ImportError:
     _fftw_bccg = None
 
 
-def plan_convolve(loads, im, domain: np.ndarray = None, circular: typing.Union[bool, typing.Sequence[bool]] = False):
+def plan_convolve(loads, im, domain: np.ndarray = None, circular: typing.Union[bool, typing.Sequence[bool]] = False,
+                  no_shape_check: bool = False):
     """Plans an FFT convolution, returns a function to carry out the convolution
     CUDA / FFTW implementation
 
@@ -855,6 +1007,9 @@ def plan_convolve(loads, im, domain: np.ndarray = None, circular: typing.Union[b
     circular: bool or sequence of bool, optional (False)
         If True the circular convolution will be computed, to be used for periodic simulations. Alternatively a 2
         element sequence of bool can be provided specifying which axes are to be treated as periodic.
+    no_shape_check: bool, optional (False)
+        If False this function will check that the shapes of the influnce matrix and loads vector are compatible, can
+        be overridden for testing, not reccomended for normal use
 
     Returns
     -------
@@ -866,7 +1021,7 @@ def plan_convolve(loads, im, domain: np.ndarray = None, circular: typing.Union[b
 
     Notes
     -----
-    By default this function uses CUDA to run on a GPU if your computer dons't have cupy installed this should not
+    By default this function uses CUDA to run on a GPU if your computer dosn't have cupy installed this should not
     have loaded if it is for some reason, this can be manually overridden by first importing slippy then patching the
     CUDA variable to False:
 
@@ -903,13 +1058,14 @@ def plan_convolve(loads, im, domain: np.ndarray = None, circular: typing.Union[b
         raise ValueError(f"Circular must be a bool or a 2 element list of bool, length was {length}")
 
     if slippy.CUDA:
-        return _plan_cuda_convolve(loads, im, domain, circular)
+        return _plan_cuda_convolve(loads, im, domain, circular, no_shape_check)
     else:
-        return _plan_fftw_convolve(loads, im, domain, circular)
+        return _plan_fftw_convolve(loads, im, domain, circular, no_shape_check)
 
 
 def plan_multi_convolve(loads, ims: np.array, domain: np.ndarray = None,
-                        circular: typing.Union[bool, typing.Sequence[bool]] = False):
+                        circular: typing.Union[bool, typing.Sequence[bool]] = False,
+                        cuda: bool = None):
     """Plans a set of FFT convolutions, returns a function to carry out the convolution
     CUDA / FFTW implementation
 
@@ -930,6 +1086,9 @@ def plan_multi_convolve(loads, ims: np.array, domain: np.ndarray = None,
     circular: bool or sequence of bool, optional (False)
         If True the circular convolution will be computed, to be used for periodic simulations. Alternatively a 2
         element sequence of bool can be provided specifying which axes are to be treated as periodic.
+    cuda: bool, optional (None)
+        If False the computation will be completed on the CPU, if True or None computation will be completed on the
+        gpu if slippy.CUDA is True
 
     Returns
     -------
@@ -957,15 +1116,6 @@ def plan_multi_convolve(loads, ims: np.array, domain: np.ndarray = None,
 
     Examples
     --------
-    The example below shows how to compute the x, y and z displacements under a normal load
-    >>> import numpy as np
-    >>> import itertools
-    >>> import slippy.core as core
-    >>> comps = [a + b for a, b in itertools.product('xyz', 'z')]
-    >>> e_im = core.elastic_material.elastic_influence_matrix
-    >>> ims = [e_im(comp, (64,64), [1e-6]*2, 200e9, 0.3) for comp in comps]
-    >>> convolve_func = plan_convolve(loads, ims)
-    >>> disp_numerical = convolve_func(loads)
     """
     if isinstance(circular, int):
         circular = [circular, ] * 2
@@ -977,17 +1127,111 @@ def plan_multi_convolve(loads, ims: np.array, domain: np.ndarray = None,
     if length != 2:
         raise ValueError(f"Circular must be a bool or a 2 element list of bool, length was {length}")
 
-    if slippy.CUDA:
+    if cuda is None:
+        cuda = slippy.CUDA
+
+    if cuda:
         return _plan_cuda_multi_convolve(loads, ims, domain, circular)
     else:
         return _plan_fftw_multi_convolve(loads, ims, domain, circular)
+
+
+def polonsky_and_keer(f: typing.Callable, p0: typing.Sequence, just_touching_gap: typing.Sequence,
+                      target_load: float, grid_spacing: typing.Union[typing.Sequence[float], float],
+                      eps_0: float = 1e-6, max_it: int = None):
+    """ The Polonsky and Keer CG method for solving elastic contact (cuda and fftw versions)
+
+    Parameters
+    ----------
+    f: Callable
+        A function equivalent to multiplication by a non negative n by n matrix must work with cupy arrays.
+        Typically this function will be generated by slippy.contact.plan_convolve, this will guarantee
+        compatibility with different versions of this function (FFTW and CUDA).
+    p0: array
+        An initial guess of the pressure distribution, must not be all zeros
+    just_touching_gap: array
+        The gap function at the point of first contact between the surfaces, cen be generated by get_gap_from_model
+    target_load: float
+        The total target load (not average pressure)
+    grid_spacing: float or sequence of float
+        Either a float indicating a square grid, or a two element sequence indicating the dimensions of the rectangles
+        in the y and x directions respectively
+    eps_0: float
+        The error used as a convergence criterion
+    max_it: int, optional (None)
+        The maximum number of iterations used, defaults to the problem size
+
+    Returns
+    -------
+    failed: bool
+        True if the process failed to converge
+    pij: array
+        The pressure result on each point of the surface
+    gij: array
+        The deformed gap function
+
+    Notes
+    -----
+    This method does not directly calculate the rigid body approach
+
+    Examples
+    --------
+    >>> import slippy.core as core
+    >>> import slippy.surface as s
+    >>> import slippy.contact as c
+    >>> n = 128
+    >>> total_load = 100
+    >>> p = np.zeros((n,n))
+    >>> flat_surface = s.FlatSurface(shift=(0,0))
+    >>> round_surface = s.RoundSurface((1,1,1), extent = (0.0035, 0.0035),
+    >>>                                shape = (n, n), generate = True)
+    >>> gs = round_surface.grid_spacing
+    >>> e1 = 200e9; v1 = 0.3
+    >>> e2 = 70e9; v2 = 0.33
+    >>> im_1 = core.elastic_influence_matrix('zz', span = (n*2,n*2), grid_spacing=(gs, gs),
+    >>>                                      shear_mod=e1/(2*(1+v1)), v=0.3)
+    >>> im_2 = core.elastic_influence_matrix('zz', span = (n*2,n*2), grid_spacing=(gs, gs),
+    >>>                                      shear_mod=e2/(2*(1+v2)), v=0.33)
+    >>> im = im_1+im_2
+    >>> f = core.plan_convolve(p, im, domain=None, circular=False)
+    >>> model = c.ContactModel('model_1', round_surface, flat_surface)
+    >>> just_touching_gap = c._model_utils.get_gap_from_model(model)[0]
+    >>> gs = [round_surface.grid_spacing, ]*2
+    >>> p0 = np.ones_like(just_touching_gap)
+    >>> failed, numerical_pressure, deformed_gap = polonsky_and_keer(f, p0, just_touching_gap,
+    >>>                                                              total_load, gs, eps_0=1e-7)
+
+    References
+    ----------
+    I.A. Polonsky, L.M. Keer,
+    A numerical method for solving rough contact problems based on the multi-level multi-summation and conjugate
+    gradient techniques, Wear, Volume 231, Issue 2, 1999, Pages 206-219, ISSN 0043-1648,
+    https://doi.org/10.1016/S0043-1648(99)00113-1. (https://www.sciencedirect.com/science/article/pii/S0043164899001131)
+
+    """
+    if np.sum(slippy.asnumpy(p0)) == 0:
+        raise ValueError("Initial pressure guess cannot sum to zero for polonsky_and_keer")
+    try:
+        float(grid_spacing)
+        grid_spacing = [grid_spacing, ] * 2
+    except TypeError:
+        pass
+
+    try:
+        assert len(grid_spacing) == 2, "Grid spacing must be a two element sequence or a number"
+    except TypeError:
+        raise ValueError("Grid spacing must be a two element sequence or a number")
+
+    if slippy.CUDA:
+        return _cuda_polonsky_and_keer(f, p0, just_touching_gap, target_load, grid_spacing, eps_0, max_it)
+    else:
+        return _fftw_polonsky_and_keer(f, p0, just_touching_gap, target_load, grid_spacing, eps_0, max_it)
 
 
 def bccg(f: typing.Callable, b: np.ndarray, tol: float, max_it: int, x0: np.ndarray,
          min_pressure: float = 0.0, max_pressure: float = np.inf, k_inn=1) -> typing.Tuple[np.ndarray, bool]:
     """
     The Bound-Constrained Conjugate Gradient Method for Non-negative Matrices
-    CUDA implementation
 
     Parameters
     ----------

@@ -24,6 +24,11 @@ from .friction_coulomb_model import FrictionCoulombSimple
 from .tangential_pure_sliding import TangentialPureSliding
 from .tangential_partial_slip import TangentialPartialSlip
 from .sub_surface_stress import SubsurfaceStress
+from .rigid_body_displacement import RollingSliding1D, RigidBodyDisplacementSliding
+from .dummy_value import DummyValue
+from .fill_displacements import FillDisplacements
+from ._TransientSubModelABC import _TransientSubModelABC
 
 __all__ = ['ResultContactStiffness', 'WearElasticPerfectlyPlastic', 'FrictionCoulombSimple', 'TangentialPureSliding',
-           'TangentialPartialSlip', 'SubsurfaceStress']
+           'TangentialPartialSlip', 'SubsurfaceStress', 'RigidBodyDisplacementSliding',
+           'RollingSliding1D', 'DummyValue', '_TransientSubModelABC', 'FillDisplacements']

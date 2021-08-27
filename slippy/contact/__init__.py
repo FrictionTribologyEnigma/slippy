@@ -116,7 +116,7 @@ from .lubricant import Lubricant
 from .lubrication_steps import IterSemiSystem
 from .models import ContactModel
 from .static_step import StaticStep
-# from .steps import InitialStep
+from .steps import _ModelStep, RepeatingStateStep
 from .unified_reynolds_solver import UnifiedReynoldsSolver
 from .quasi_static_step import QuasiStaticStep
 from . import sub_models
@@ -125,5 +125,5 @@ __all__ = ['hertz_full', 'solve_hertz_line', 'solve_hertz_point', 'Lubricant',
            'lubricant_models', 'IterSemiSystem', 'Elastic', 'Rigid', 'rigid', 'elastic_influence_matrix',
            'ContactModel', 'OutputRequest', 'OutputReader', 'OutputSaver', 'read_output',
            'StaticStep', 'UnifiedReynoldsSolver', 'sub_models', 'QuasiStaticStep', 'sub_models',
-           'guess_loads_from_displacement', 'bccg', 'plan_convolve', 'plan_multi_convolve'
-           ]
+           'guess_loads_from_displacement', 'bccg', 'plan_convolve', 'plan_multi_convolve', '_ModelStep',
+           'RepeatingStateStep']

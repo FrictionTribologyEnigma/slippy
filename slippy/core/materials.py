@@ -6,6 +6,7 @@ import numpy as np
 from collections.abc import Sequence
 from .abcs import _MaterialABC
 from .influence_matrix_utils import plan_convolve, plan_coupled_convolve, bccg
+from ._material_utils import memoize_components
 
 __all__ = ["_IMMaterial", "Rigid", "rigid"]
 
@@ -19,6 +20,9 @@ class _IMMaterial(_MaterialABC):
     _subclass_registry = []
 
     def __init__(self, name: str, max_load: float = np.inf):
+        if name in slippy.material_names:
+            raise ValueError(f"Materials must have unique names, currently in use names are: {slippy.material_names}")
+        slippy.material_names.append(name)
         self.name = name
         self.material_type = self.__class__.__name__
         self.max_load = max_load
@@ -35,8 +39,13 @@ class _IMMaterial(_MaterialABC):
 
     # should memoize the results so that the deflection from loads method can be called directly
     @abc.abstractmethod
-    def influence_matrix(self, span: typing.Sequence[int], grid_spacing: typing.Sequence[float],
-                         components: typing.Sequence[str]):
+    def _influence_matrix(self, components: typing.Sequence[str], grid_spacing: typing.Sequence[float],
+                          span: typing.Sequence[int]):
+        pass
+
+    @memoize_components(False)
+    def influence_matrix(self, components: typing.Sequence[str], grid_spacing: typing.Sequence[float],
+                         span: typing.Sequence[int], periodic_strides=(1, 1)):
         """
         Find the influence matrix components for the material relating surface pressures to
 
@@ -44,11 +53,16 @@ class _IMMaterial(_MaterialABC):
         ----------
         span: Sequence[int]
             The span of the influence matrix (pts_in_y_direction, pts_in_x_direction)
-        grid_spacing
+        grid_spacing: float
             The distance between grid points of the parent surface
-        components
+        components: Sequence[str]
             The required components of the influence matrix such as: ['xx', 'xy', 'xz'] which would be the components
             which relate loads in the x direction with displacements in each direction
+        periodic_strides: Sequence[int]
+            The influence matrix is wrapped this number of times to ensure results represent truly periodic behaviour.
+            Both elements must be odd integers. For example if (1, 3) is given with (128, 128) span: a (128, 128*3) size
+            influence matrix is calculated, 128 by 128 blocks are then summed to give the 128 by 128 result.
+
 
         Returns
         -------
@@ -56,14 +70,31 @@ class _IMMaterial(_MaterialABC):
 
         Notes
         -----
-        If overloaded the results should be memoised as variables in the class, as this function is called frequently
-        during an analysis
         """
-        pass
+        ps = []
+        for s in periodic_strides:
+            try:
+                s = int(s)
+            except ValueError:
+                raise ValueError(f"Periodic strides must be odd integers, received: {s}")
+            if not s % 2:
+                raise ValueError(f"Periodic strides must be odd integers, received: {s}")
+            ps.append(s)
+
+        total_span = [sp*s for sp, s in zip(span, ps)]
+
+        rtn_dict = self._influence_matrix(components, grid_spacing, total_span)
+        for key in rtn_dict:
+            original = rtn_dict[key]
+            rtn_dict[key] = np.zeros(span, slippy.dtype)
+            for i in range(periodic_strides[0]):
+                for j in range(periodic_strides[1]):
+                    rtn_dict[key] += original[i*span[0]:(i+1)*span[0], j*span[1]:(j+1)*span[1]]
+        return rtn_dict
 
     @abc.abstractmethod
-    def sss_influence_matrices_normal(self, span: typing.Sequence[int], grid_spacing: typing.Sequence[float],
-                                      components: typing.Sequence[str], z: typing.Sequence[float] = None,
+    def sss_influence_matrices_normal(self, components: typing.Sequence[str], grid_spacing: typing.Sequence[float],
+                                      span: typing.Sequence[int], z: typing.Sequence[float] = None,
                                       cuda: bool = False) -> dict:
         """
         Optional, should give the sub surface stress influence matrix components
@@ -94,9 +125,9 @@ class _IMMaterial(_MaterialABC):
         pass
 
     @abc.abstractmethod
-    def sss_influence_matrices_tangential_x(self, span: typing.Sequence[int], grid_spacing: typing.Sequence[float],
-                                            components: typing.Sequence[str], z: typing.Sequence[float] = None,
-                                            cuda: bool = False) -> dict:
+    def sss_influence_matrices_tangential_x(self, components: typing.Sequence[str],
+                                            grid_spacing: typing.Sequence[float], span: typing.Sequence[int],
+                                            z: typing.Sequence[float] = None, cuda: bool = False) -> dict:
         """
         Optional, should give the sub surface stress influence matrix components
 
@@ -125,9 +156,9 @@ class _IMMaterial(_MaterialABC):
         """
         pass
 
-    def sss_influence_matrices_tangential_y(self, span: typing.Sequence[int], grid_spacing: typing.Sequence[float],
-                                            components: typing.Sequence[str], z: typing.Sequence[float] = None,
-                                            cuda: bool = False) -> dict:
+    def sss_influence_matrices_tangential_y(self, components: typing.Sequence[str],
+                                            grid_spacing: typing.Sequence[float], span: typing.Sequence[int],
+                                            z: typing.Sequence[float] = None, cuda: bool = False) -> dict:
         """
         Optional, overwrite only for non homogenous materials
 
@@ -158,7 +189,7 @@ class _IMMaterial(_MaterialABC):
         grid_spacing = tuple(reversed(grid_spacing))
         replace = {'x': 'y', 'y': 'x', 'z': 'z'}
         new_comps = [''.join(sorted(replace[comp[0]] + replace[comp[1]])) for comp in components]
-        comps = self.sss_influence_matrices_tangential_x(span, grid_spacing, new_comps, z, cuda)
+        comps = self.sss_influence_matrices_tangential_x(new_comps, grid_spacing, span, z, cuda)
         rtn_dict = dict()
         for key, comp in comps.items():
             new_key = components[new_comps.index(key)]
@@ -185,7 +216,7 @@ class _IMMaterial(_MaterialABC):
             component_names = [2 * dir for dir in load_dirs]
         else:
             component_names = list(a + b for a, b in itertools.product(load_dirs, deflections))
-        components = self.influence_matrix(shape, grid_spacing, component_names)
+        components = self.influence_matrix(component_names, grid_spacing, shape)
 
         conv_func = plan_coupled_convolve(loads, components, None, periodic_axes)
 
@@ -218,7 +249,7 @@ class _IMMaterial(_MaterialABC):
         else:
             component_names = list(a + b for a, b in itertools.product(load_dirs, load_dirs))
 
-        components = self.influence_matrix(shape, grid_spacing, component_names)
+        components = self.influence_matrix(component_names, grid_spacing, shape)
 
         domain = slippy.xp.ones(displacements[load_dirs[0]].shape, dtype=bool)
 
@@ -261,21 +292,21 @@ class Rigid(_IMMaterial):
     def __init__(self, name: str):
         super().__init__(name)
 
-    def influence_matrix(self, span: typing.Sequence[int], grid_spacing: typing.Sequence[float],
-                         components: typing.Sequence[str]):
+    def _influence_matrix(self, components: typing.Sequence[str], grid_spacing: typing.Sequence[float],
+                          span: typing.Sequence[int] = (1, 1)):
         return {comp: np.zeros(span) for comp in components}
 
     def displacement_from_surface_loads(self, loads, *args, **kwargs):
         return [np.zeros_like(l) for l in loads]  # noqa: E741
 
-    def sss_influence_matrices_normal(self, span: typing.Sequence[int], grid_spacing: typing.Sequence[float],
-                                      components: typing.Sequence[str], z: typing.Sequence[float] = None,
+    def sss_influence_matrices_normal(self, components: typing.Sequence[str], grid_spacing: typing.Sequence[float],
+                                      span: typing.Sequence[int], z: typing.Sequence[float] = None,
                                       cuda: bool = False) -> dict:
         raise NotImplementedError("Subsurface stresses are not implemented for rigid materials")
 
-    def sss_influence_matrices_tangential_x(self, span: typing.Sequence[int], grid_spacing: typing.Sequence[float],
-                                            components: typing.Sequence[str], z: typing.Sequence[float] = None,
-                                            cuda: bool = False) -> dict:
+    def sss_influence_matrices_tangential_x(self, components: typing.Sequence[str],
+                                            grid_spacing: typing.Sequence[float], span: typing.Sequence[int],
+                                            z: typing.Sequence[float] = None, cuda: bool = False) -> dict:
         raise NotImplementedError("Subsurface stresses are not implemented for rigid materials")
 
     def __repr__(self):

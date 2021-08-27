@@ -1,8 +1,7 @@
 import numpy as np
 import typing
 from collections import namedtuple
-from .materials import _IMMaterial, Rigid
-from ._material_utils import memoize_components
+from .materials import _IMMaterial
 from ._elastic_sub_surface_stresses import normal_conv_kernels, tangential_conv_kernels
 
 __all__ = ['Elastic', 'elastic_influence_matrix']
@@ -75,8 +74,8 @@ class Elastic(_IMMaterial):
         for item in properties.items():
             self._set_props(*item)
 
-    def influence_matrix(self, span: typing.Sequence[int], grid_spacing: {typing.Sequence[float], float},
-                         components: typing.Union[typing.Sequence[str], str], other: _IMMaterial = None):
+    def _influence_matrix(self, components: typing.Union[typing.Sequence[str], str],
+                          grid_spacing: {typing.Sequence[float], float}, span: typing.Sequence[int]):
         """
         Influence matrix for an elastic material
 
@@ -89,9 +88,6 @@ class Elastic(_IMMaterial):
         components: str or Sequence {'xx','xy','xz','yx','yy','yz','zx','zy','zz','all'}
             The required components eg the 'xy' component represents the x
             deflection caused by loads in the y direction
-        other: _IMMaterial
-            If supplied the combined modulus for the material pair will be returned, only works for pairs of elastic
-            materials
 
         Returns
         -------
@@ -136,15 +132,15 @@ class Elastic(_IMMaterial):
 
         """
 
-        if other is not None:
-            if isinstance(other, Elastic) or isinstance(other, Rigid):
-                shear_modulus_2 = other.G
-                v_2 = other.v
-            else:
-                raise NotImplementedError("Combined influence matrix cannot be found for this material pair")
-        else:
-            shear_modulus_2 = None
-            v_2 = None
+        # if other is not None:
+        #     if isinstance(other, Elastic) or isinstance(other, Rigid):
+        #         shear_modulus_2 = other.G
+        #         v_2 = other.v
+        #     else:
+        #         raise NotImplementedError("Combined influence matrix cannot be found for this material pair")
+        # else:
+        shear_modulus_2 = None
+        v_2 = None
 
         shear_modulus = self.G
         v = self.v
@@ -270,12 +266,6 @@ class Elastic(_IMMaterial):
     def M(self, value):
         self._set_props('M', value)
 
-    def sss_influence_matrix_normal(self):
-        pass
-
-    def sss_influence_matrix_tangential(self):
-        pass
-
     def speed_of_sound(self, density: float = None):
         """find the speed of sound in the material
 
@@ -318,27 +308,28 @@ class Elastic(_IMMaterial):
 
         return speeds
 
-    def sss_influence_matrices_normal(self, span: typing.Sequence[int], grid_spacing: typing.Sequence[float],
-                                      components: typing.Sequence[str], z: typing.Sequence[float] = None,
-                                      cuda: bool = False):
+    def sss_influence_matrices_normal(self, components: typing.Sequence[str], grid_spacing: typing.Sequence[float],
+                                      span: typing.Sequence[int], z: typing.Sequence[float] = None, cuda: bool = False):
         if z is None:
             z_len = min(span)
+            print(span)
             gs = grid_spacing[span.index(z_len)]
-            z = gs*np.arange(z_len)
+            print(gs)
+            z = gs*np.arange(z_len//2)
             z[0] = z[1]*1e-4
-        z_comps = [comp[2:] for comp in components if comp.startswith('z')]
-        all_matrices = normal_conv_kernels(span, z, grid_spacing, self.E, self.v, cuda=cuda).values()
+        all_matrices = normal_conv_kernels(span, z, grid_spacing, self.E, self.v, cuda=cuda)
+        return {comp: all_matrices[comp] for comp in components}
 
-    def sss_influence_matrices_tangential_x(self, span: typing.Sequence[int], grid_spacing: typing.Sequence[float],
-                                            components: typing.Sequence[str], z: typing.Sequence[float] = None,
-                                            cuda: bool = False):
+    def sss_influence_matrices_tangential_x(self, components: typing.Sequence[str],
+                                            grid_spacing: typing.Sequence[float], span: typing.Sequence[int],
+                                            z: typing.Sequence[float] = None, cuda: bool = False):
         if z is None:
             z_len = min(span)
             gs = grid_spacing[span.index(z_len)]
-            z = gs*np.arange(z_len)
+            z = gs*np.arange(z_len//2)
             z[0] = z[1]*1e-4
-        z_comps = [comp[2:] for comp in components if comp.startswith('z')]
-        all_matrices = normal_conv_kernels(span, z, grid_spacing, self.E, self.v, cuda=cuda).values()
+        all_matrices = tangential_conv_kernels(span, z, grid_spacing, self.v, cuda=cuda)
+        return {comp: all_matrices[comp] for comp in components}
 
     def __repr__(self):
         return "Elastic(name = '" + self.name + f"', properties = {{ 'E':{self.E}, 'v':{self.v} }}"
@@ -477,7 +468,6 @@ def _get_properties(set_props: dict):
 
 
 # noinspection PyTypeChecker
-@memoize_components(True)
 def elastic_influence_matrix(comp: str, span: typing.Sequence[int], grid_spacing: typing.Sequence[float],
                              shear_mod: float, v: float,
                              shear_mod_2: typing.Optional[float] = None,
@@ -527,12 +517,8 @@ def elastic_influence_matrix(comp: str, span: typing.Sequence[int], grid_spacing
         # i'-i and j'-j
         idmi = (np.arange(span[1]) - span[1] // 2 + (1 - span[1] % 2))
         jdmj = (np.arange(span[0]) - span[0] // 2 + (1 - span[0] % 2))
-        mesh_idmi = np.zeros(span)
-        for i in range(span[0]):
-            mesh_idmi[i, :] = idmi
-        mesh_jdmj = np.zeros(span)
-        for i in range(span[1]):
-            mesh_jdmj[:, i] = jdmj
+        mesh_idmi = np.tile(idmi, (span[0], 1))
+        mesh_jdmj = np.tile(np.expand_dims(jdmj, -1), (1, span[1]))
 
     except TypeError:
         raise TypeError("Span should be a tuple of integers")
@@ -542,8 +528,8 @@ def elastic_influence_matrix(comp: str, span: typing.Sequence[int], grid_spacing
     m = mesh_jdmj + 0.5
     n = mesh_jdmj - 0.5
 
-    hx = grid_spacing[0]
     hy = grid_spacing[1]
+    hx = grid_spacing[0]
 
     second_surface = (shear_mod_2 is not None) and (v_2 is not None)
     if not second_surface:
