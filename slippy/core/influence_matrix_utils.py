@@ -679,11 +679,11 @@ try:
         >>> disp_numerical = convolve_func(loads)
 
         """
-        loads = slippy.xp.asnumpy(loads)
+        loads = slippy.asnumpy(loads)
         im = np.asarray(ims[0])
         im_shape_orig = im.shape
         if domain is not None:
-            domain = slippy.xp.asnumpy(domain)
+            domain = slippy.asnumpy(domain)
         input_shape = []
         for i in range(2):
             if circular[i]:
@@ -723,7 +723,7 @@ try:
 
         def inner_no_domain(full_loads):
             if not isinstance(full_loads, np.ndarray):
-                full_loads = slippy.xp.asnumpy(full_loads)
+                full_loads = slippy.asnumpy(full_loads)
             if full_loads.shape == shape:
                 flat = False
             else:
@@ -739,7 +739,7 @@ try:
 
         def inner_with_domain(sub_loads, ignore_domain=False):
             if not isinstance(sub_loads, np.ndarray):
-                sub_loads = slippy.xp.asnumpy(sub_loads)
+                sub_loads = slippy.asnumpy(sub_loads)
             full_loads = np.zeros(shape, dtype=dtype)
             full_loads[domain] = sub_loads
 
