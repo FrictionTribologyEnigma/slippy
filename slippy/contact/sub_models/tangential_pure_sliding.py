@@ -1,7 +1,6 @@
 import typing
 import numpy as np
-from slippy.contact._step_utils import Loads
-from slippy.abcs import _SubModelABC
+from slippy.core import _SubModelABC
 
 __all__ = ['TangentialPureSliding']
 
@@ -27,7 +26,7 @@ class TangentialPureSliding(_SubModelABC):
 
     def __init__(self, name: str, direction: typing.Union[str, typing.Tuple[float]] = 'x'):
         requires = {'maximum_tangential_force'}
-        provides = {'loads'}
+        provides = {'loads_x', 'loads_y'}
         if isinstance(direction, str):
             direction = direction.lower()
             if direction == 'x':
@@ -50,4 +49,5 @@ class TangentialPureSliding(_SubModelABC):
 
     def solve(self, current_state: dict) -> dict:
         lf = current_state['maximum_tangential_force']
-        return {'loads': Loads(x=self.direction[1] * lf, y=self.direction[0] * lf, z=current_state['loads'].z)}
+        return {'loads_x': self.direction[1] * lf,
+                'loads_y': self.direction[0] * lf}

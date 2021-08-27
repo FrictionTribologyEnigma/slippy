@@ -1,4 +1,4 @@
-from slippy.abcs import _AdhesionModelABC
+from slippy.core import _AdhesionModelABC
 
 __all__ = ['_AdhesionModel']
 

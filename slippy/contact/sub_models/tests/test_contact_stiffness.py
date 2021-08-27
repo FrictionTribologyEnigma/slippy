@@ -37,7 +37,7 @@ def test_contact_stiffness():
     contact_nodes = (x ** 2 + y ** 2) < (diameter / 2) ** 2
 
     current_state = {'contact_nodes': contact_nodes,
-                     'loads': c.Loads(z=np.zeros_like(contact_nodes))}
+                     'loads_z': np.zeros_like(contact_nodes)}
 
     results = sub_model.solve(current_state)
 

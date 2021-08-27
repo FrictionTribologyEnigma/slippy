@@ -7,7 +7,7 @@ import typing
 import warnings
 from collections import OrderedDict
 
-from slippy.abcs import _LubricantModelABC
+from slippy.core import _LubricantModelABC
 from .lubricant_models import __all__ as built_in_models
 from .lubricant_models import constant_array_property
 

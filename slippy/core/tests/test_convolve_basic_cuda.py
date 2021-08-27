@@ -2,7 +2,7 @@ import numpy as np
 import numpy.testing as npt
 
 import slippy
-import slippy.contact as c
+import slippy.core as c
 
 from scipy.signal import fftconvolve
 
@@ -15,10 +15,6 @@ except ImportError:
 
 e_im = c.elastic_influence_matrix
 
-im_shapes = [(128, 128),
-             (128, 128), (129, 128), (128, 128), (128, 128),
-             (127, 128), (129, 128), (128, 127), (128, 129),
-             (127, 127), (129, 129), (129, 127), (127, 129)]
 loads_shapes = [(128, 128),
                 (127, 128), (129, 128), (128, 127), (128, 129),
                 (128, 128), (129, 128), (128, 128), (128, 128),
@@ -37,8 +33,9 @@ def test_non_circ_convolve_vs_scipy():
         slippy.CUDA = True
     except ImportError:
         return
-    for im_s, l_s in zip(im_shapes, loads_shapes):
+    for l_s in loads_shapes:
         # generate an influence matrix, pick a component which is not symmetric!
+        im_s = tuple(s*2 for s in l_s)
         im = e_im('zx', im_s, (0.01, 0.01), 200e9, 0.3)
         loads = 1000*np.random.rand(*l_s)
         scipy_result = fftconvolve(loads, im, mode='same')
@@ -77,8 +74,9 @@ def test_non_circ_convolve_location():
         slippy.CUDA = True
     except ImportError:
         return
-    for im_s, l_s in zip(im_shapes, loads_shapes):
+    for l_s in loads_shapes:
         # generate an influence matrix, pick a component which is not symmetric!
+        im_s = tuple(s * 2 for s in l_s)
         im = e_im('zz', im_s, (0.01, 0.01), 200e9, 0.3)
         loads = np.zeros(l_s)
         loads[64, 64] = 1000
@@ -99,8 +97,9 @@ def test_mixed_convolve():
     except ImportError:
         return
     for circ in [[True, False], [False, True]]:
-        im = e_im('zz', (128, 128), (0.01, 0.01), 200e9, 0.3)
         loads = np.zeros([128, 128])
+        im_s = tuple((2-p)*s for p, s in zip(circ, loads.shape))
+        im = e_im('zz', im_s, (0.01, 0.01), 200e9, 0.3)
         loads[64, 64] = 1000
         conv_func = c.plan_convolve(loads, im, circular=circ)
         slippy_result = cp.asnumpy(conv_func(loads))
@@ -137,7 +136,7 @@ def test_dont_raise_equal_shapes_circ():
     except ImportError:
         return
     im = e_im('zz', (128, 128), (0.01, 0.01), 200e9, 0.3)
-    load_shapes = [(128, 128), (128, 129), (129, 128), (129, 128)]
+    load_shapes = [(128, 128), (128, 64), (64, 64), (64, 128)]
     circulars = [True, (True, False), False, (False, True)]
     for l_s, circ in zip(load_shapes, circulars):
         loads = np.zeros(l_s)

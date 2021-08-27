@@ -2,7 +2,7 @@ import numpy as np
 import types
 import scipy.signal
 import scipy.interpolate
-from slippy.abcs import _SurfaceABC
+from slippy.core import _SurfaceABC
 
 __all__ = ['ACF']
 

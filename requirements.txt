@@ -1,9 +1,10 @@
-tinydb
-numba>=0.48.0
 sympy
-pytest
 scikit-image
 matplotlib
-numpy>=1.16.1
+numpy<1.21,>=1.17
 scipy
+numba>=0.48.0
+wheel>=0.33.6
+flake8>=3.7.8
 pyfftw
+tinydb

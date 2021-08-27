@@ -17,7 +17,6 @@ All should return a current state dict
 """
 
 import numpy as np
-import scipy.optimize as optimize
 
 from ._model_utils import get_gap_from_model
 from ._step_utils import HeightOptimisationFunction
@@ -59,6 +58,14 @@ class StaticStep(_ModelStep):
     periodic_axes: tuple, optional ((False, False))
         For each True value the corresponding axis will be solved by circular convolution, meaning the result is
         periodic in that direction
+    periodic_im_repeats: tuple, optional (1,1)
+        The number of times the influence matrix should be wrapped along periodic dimensions, only used if at least one
+        of periodic axes is True. This is necessary to ensure truly periodic behaviour, no physical limit exists
+    method: {'auto', 'pk', 'double'}, optional ('auto')
+        The method by which the normal contact is solved, only used for load controlled contact.
+        'pk' uses the Polonsky and Keer algorithm for elastic contact.
+        'double' uses a double iteration procedure, suitable for elastic contact with a maximum pressure.
+        'auto' automatically selects 'pk' if there is no maximum pressure and 'double' if there is.
     max_it_interference: int, optional (100)
         The maximum number of iterations used to find the interference between the surfaces, only used if
         a total normal load is specified (Not used if contact is displacement controlled)
@@ -102,9 +109,11 @@ class StaticStep(_ModelStep):
                  relative_loading: bool = False, adhesion: bool = True,
                  unloading: bool = False, profile_interpolation_mode: str = 'nearest',
                  periodic_geometry: bool = False, periodic_axes: tuple = (False, False),
+                 periodic_im_repeats: tuple = (1, 1), method: str = 'auto',
                  max_it_interference: int = 100, rtol_interference=1e-3,
                  max_it_displacement: int = None, rtol_displacement=1e-4):
 
+        self._periodic_im_repeats = periodic_im_repeats
         self._off_set = (off_set_x, off_set_y)
         self._relative_loading = bool(relative_loading)
         self.profile_interpolation_mode = profile_interpolation_mode
@@ -117,6 +126,12 @@ class StaticStep(_ModelStep):
         self._height_optimisation_func = None
         self._adhesion = adhesion
         self._unloading = unloading
+
+        if method not in {'auto', 'pk', 'double'}:
+            raise ValueError(f"Unrecognised method for step {step_name}: {method}")
+
+        self._method = method
+        self._opt_func = None
 
         if normal_load is not None and interference is not None:
             raise ValueError("Both normal_load and interference are set, only one of these can be set")
@@ -133,7 +148,8 @@ class StaticStep(_ModelStep):
 
         self.load_controlled = interference is None
 
-        provides = {'off_set', 'loads', 'surface_1_displacement', 'surface_2_displacement', 'total_displacement',
+        provides = {'off_set', 'loads_z', 'surface_1_displacement_z', 'surface_2_displacement_z',
+                    'total_displacement_z',
                     'interference', 'just_touching_gap', 'surface_1_points', 'contact_nodes', 'total_normal_load',
                     'surface_2_points', 'time', 'time_step', 'new_step', 'converged', 'gap'}
 
@@ -187,9 +203,16 @@ class StaticStep(_ModelStep):
                                               max_set_load=max_load,
                                               tolerance=self._rtol_interference, material_options=None,
                                               periodic_axes=self._periodic_axes, )
+        self._opt_func = opt_func
 
-        if self._unloading and 'contact_nodes' in current_state:
-            contact_nodes = current_state['contact_nodes']
+        if self._method == 'auto':
+            if np.isinf(opt_func.max_pressure):
+                self._method = 'pk'
+            else:
+                self._method = 'double'
+
+        if self._unloading and 'contact_nodes' in previous_state:
+            contact_nodes = previous_state['contact_nodes']
         else:
             contact_nodes = None
 
@@ -198,12 +221,17 @@ class StaticStep(_ModelStep):
                 load = previous_state['total_normal_load'] + self.normal_load
             else:
                 load = self.normal_load
-            upper = 3 * max(just_touching_gap.flatten())
-            print(f'upper bound set at: {upper}')
-            print(f'Interference tolerance set to {self._rtol_displacement} Relative')
-            opt_func.change_load(load, contact_nodes)
-            _ = optimize.root_scalar(opt_func, bracket=(0, upper), rtol=self._rtol_interference,
-                                     maxiter=self._max_it_interference, args=(current_state,))
+
+            if self._method == 'pk':
+                print('Solving contact by PK method')
+                opt_func.contact_nodes = None
+                opt_func.p_and_k(load)
+            else:
+                upper = 3 * max(just_touching_gap.flatten())
+                print(f'upper bound set at: {upper}')
+                print(f'Interference tolerance set to {self._rtol_displacement} Relative')
+                opt_func.change_load(load, contact_nodes)
+                opt_func.brent(0, upper, r_tol=self._rtol_interference, max_iter=self._max_it_interference)
             converged = (np.abs(opt_func.results['total_normal_load']-self.normal_load) /
                          self.normal_load < 0.05 and not opt_func.last_call_failed)
         else:
@@ -218,7 +246,7 @@ class StaticStep(_ModelStep):
         current_state.update(opt_func.results)
         current_state['converged'] = converged
         current_state['gap'] = (just_touching_gap - current_state['interference'] +
-                                opt_func.results['total_displacement'].z)
+                                opt_func.results['total_displacement_z'])
         self.solve_sub_models(current_state)
         self.save_outputs(current_state, output_file)
 

@@ -205,11 +205,14 @@ class RoundSurface(_AnalyticalSurface):
 
         if isinstance(radius, Number):
             radius = (radius,)*3
+        radius = [r if r else np.inf for r in radius]
+        if np.isinf(radius[-1]):
+            raise ValueError('Radius in the z direction must be set')
         if isinstance(radius, collections.abc.Sequence) and len(radius) == 3:
             self._radius = radius
         else:
             msg = ('Radius must be either scalar or list of radii equal in '
-                   'length to number of dinmetions of the surface +1')
+                   'length to number of dimensions of the surface +1')
             raise ValueError(msg)
         super().__init__(generate=generate, rotation=rotation, shift=shift,
                          grid_spacing=grid_spacing, extent=extent, shape=shape)
@@ -240,8 +243,8 @@ class RoundSurface(_AnalyticalSurface):
         >>> Z=my_surface.height(x_mesh, y_mesh)
         """
         # noinspection PyTypeChecker
-        z = ((1 - (x_mesh / self._radius[0]) ** 2 - (y_mesh / self._radius[1]) ** 2) ** 0.5) * self._radius[-1] - \
-            self._radius[-1]
+        z = ((1 - (x_mesh / self._radius[0]) ** 2 - (y_mesh / self._radius[1]) ** 2) *
+             self._radius[-1]**2)**0.5 - self._radius[-1]
         return np.nan_to_num(z, False)
 
     def __repr__(self):

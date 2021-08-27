@@ -646,7 +646,6 @@ def hertz_full(r1: typing.Union[typing.Sequence, float], r2: typing.Union[typing
         zeta = [0 if v1 <= 0.1938 else 0.223 + 2.321 * v1 - 2.397 * v1 ** 2 for v1 in v]
         results['max_von_mises_stress'] = [c1 * p0 for c1 in c]
         results['max_von_mises_depth'] = [a * zeta1 for zeta1 in zeta]
-        results['total_deflection'] = 1 / np.pi / e_star * load * (np.log(4 * np.pi * e_star * r / load) - 1)
 
         # The following is taken from deeg
 

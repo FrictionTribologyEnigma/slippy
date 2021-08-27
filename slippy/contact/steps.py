@@ -1,12 +1,13 @@
 import abc
 import typing
+import numpy as np
 import slippy
 import warnings
 
-from slippy.abcs import _ContactModelABC, _StepABC, _SubModelABC
-from .outputs import OutputRequest
+from slippy.core import _ContactModelABC, _StepABC, _SubModelABC
+from slippy.core.outputs import OutputRequest
 
-__all__ = ['_ModelStep', 'InitialStep']
+__all__ = ['_ModelStep', 'InitialStep', 'RepeatingStateStep']
 
 """
 Steps including solve functions, each actual step is a subclass of ModelStep should provide an __init__, solve
@@ -42,6 +43,7 @@ class _ModelStep(_StepABC):
         self.provides = provides
         self.sub_models = []
         self.outputs = []
+        self._current_state_debug = None
 
     @classmethod
     def __init_subclass__(cls, is_abstract=False, **kwargs):
@@ -209,6 +211,7 @@ class _ModelStep(_StepABC):
         -------
 
         """
+        print("Writing outputs")
         if not self.outputs:
             return
         params_to_save = {'time'}
@@ -276,6 +279,7 @@ class _ModelStep(_StepABC):
         output_file.write(output_dict)
 
     def solve_sub_models(self, current_state: dict):
+        print('## Solving sub models')
         if self.provides != set(current_state) and not slippy.ERROR_IF_MISSING_MODEL:
             missing = self.provides-set(current_state)
             unexpected = set(current_state)-self.provides
@@ -285,6 +289,8 @@ class _ModelStep(_StepABC):
                              f"\nUnexpected in current state = {unexpected}"
                              f"\nTo suppress this error set slippy.ERROR_IF_MISSING_MODEL to False")
         for model in self.sub_models:
+            self._current_state_debug = current_state
+            print(f"Sub model {model.name}:")
             found_params = model.solve(current_state)
             if model.provides != set(found_params) and not slippy.ERROR_IF_MISSING_SUB_MODEL:
                 unexpected = self.provides - set(current_state)
@@ -295,6 +301,7 @@ class _ModelStep(_StepABC):
                                  f"\nUnexpected in results = {unexpected}"
                                  f"\nTo suppress this error set slippy.ERROR_IF_MISSING_SUB_MODEL to False")
             current_state.update(found_params)
+        self._current_state_debug = None
         return current_state
 
     def add_output(self, output):
@@ -325,7 +332,7 @@ class InitialStep(_ModelStep):
         return {'off_set', 'time', 'interference'}
 
     def solve(self, current_state, output_file):
-        if current_state is not None:
+        if len(current_state) > 1 or 'time' not in current_state:
             raise ValueError("Steps have been run out of order, the initial step should always be run first")
         current_state = dict()
         current_state['off_set'] = (0, 0)
@@ -335,3 +342,72 @@ class InitialStep(_ModelStep):
 
     def __repr__(self):
         return f'InitialStep(model = {str(self.model)}, name = {self.name})'
+
+
+class RepeatingStateStep(_ModelStep):
+    """A model step for repeating state
+
+    Parameters
+    ----------
+    name: str
+        The name of the step, used for debugging and logging
+    time_period: float, optional (1.0)
+        The total time period of the step
+    time_steps: int, optional (1)
+        The number of time steps used in the step
+    state: dict, optional (None)
+        The state to be repeated for every time point, if None the state from the previous step is used.
+
+    Notes
+    -----
+    This step is for trivially repeating state as part of a contact model, for example repeating the solution of a
+    normal contact without having to repeat the calculation. This behaviour can be usefull for doing parameter sweeps
+    using submodels. The state will not be updated between time steps.
+
+    Examples
+    --------
+    The following example creates a step which repeats an analytical hertzian solution for line contact:
+    >>> import slippy.surface as s
+    >>> import slippy.contact as c
+    >>> r = 0.047/2
+    >>> e = 210e9
+    >>> v = 0.3
+    >>> load = 320000
+    >>> width = 0.00061
+    >>> full_hertz_result = c.hertz_full([r, np.inf], [r, np.inf], e, v, load, line=True)
+    >>> surface = s.RoundSurface((0,r,r), extent = (width, width),
+    >>>                          shape = (128,128), generate = True)
+    >>> y,x  = surface.get_points_from_extent()
+    >>> x -= np.mean(x)
+    >>> p_hertz = full_hertz_result['pressure_f'](x)
+    >>> contact_nodes = np.abs(x)<=full_hertz_result['contact_radii'][0]
+    >>> step = RepeatingStateStep('all', 1, 100, {'loads_z':p_hertz, 'contact_nodes':contact_nodes})
+
+    Sub models can be added to this step as with any other step, however the contact solution will not be updated for
+    different time points.
+    """
+    def __init__(self, name: str, time_period: float = 1.0, time_steps: int = 1, state: dict = None):
+        super().__init__(name, time_period, set(state.keys()).union({'time', 'new_step'}))
+        self.state = state
+        self.time_steps = time_steps or 1
+        self.time_period = time_period
+
+    def solve(self, previous_state, output_file):
+        times = np.linspace(previous_state['time'],
+                            previous_state['time'] + self.time_period,
+                            self.time_steps + 1)
+        for i in range(self.time_steps):
+            time = times[i + 1]
+            if self.state is None:
+                self.state = previous_state
+            current_state = self.state.copy()
+            current_state['time'] = time
+            current_state['new_step'] = i == 0
+            self.solve_sub_models(current_state)
+            self.save_outputs(current_state, output_file)
+        return current_state
+
+    def __repr__(self):
+        string = (f"RepeatingStateStep({self.name}, {self.time_period}," +
+                  f"{self.time_steps}, {self.state})")
+        return string

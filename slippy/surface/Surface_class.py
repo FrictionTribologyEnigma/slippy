@@ -17,7 +17,7 @@ import numpy as np
 import scipy.interpolate
 import scipy.signal
 
-from slippy.abcs import _MaterialABC, _SurfaceABC
+from slippy.core import _MaterialABC, _SurfaceABC
 from .ACF_class import ACF
 from .roughness_funcs import get_height_of_mat_vr, low_pass_filter
 from .roughness_funcs import get_mat_vr, get_summit_curvatures
@@ -1151,7 +1151,7 @@ class _Surface(_SurfaceABC):
 
         Returns
         -------
-        mesh_x, mesh_y : np.ndarray
+        mesh_y, mesh_x : np.ndarray
             arrays of the grid points (result from mesh grid)
         """
         if extent is None and grid_spacing is None and shape is None:
