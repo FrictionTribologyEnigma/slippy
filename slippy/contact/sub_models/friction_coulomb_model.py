@@ -1,4 +1,4 @@
-from slippy.abcs import _SubModelABC
+from slippy.core import _SubModelABC
 
 __all__ = ['FrictionCoulombSimple']
 
@@ -24,10 +24,11 @@ class FrictionCoulombSimple(_SubModelABC):
         * 'maximum_tangential_force': The maximum allowable tangential force at each point on the surface, aligned with
             The points which are in contact, described by surface_1_points and surface_2_points
         """
-        requires = {'loads'}
-        provides = {'maximum_tangential_force'}
+        requires = {'loads_z'}
+        provides = {'maximum_tangential_force', 'coulomb_coefficient'}
         super().__init__(name, requires, provides)
         self.coefficient = coefficient
 
     def solve(self, current_state):
-        return {'maximum_tangential_force': current_state['loads'].z*self.coefficient}
+        return {'maximum_tangential_force': current_state['loads_z']*self.coefficient,
+                'coulomb_coefficient': self.coefficient}

@@ -2,7 +2,7 @@ import typing
 
 import numpy as np
 
-from slippy.abcs import _ContactModelABC
+from slippy.core import _ContactModelABC
 
 __all__ = ['get_gap_from_model', 'non_dimentional_height']
 

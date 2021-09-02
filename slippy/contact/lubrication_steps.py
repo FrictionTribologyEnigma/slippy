@@ -9,13 +9,12 @@ from numbers import Number
 import numpy as np
 import slippy
 
-from slippy.abcs import _NonDimensionalReynoldSolverABC
-from ._material_utils import Loads, Displacements
+from slippy.core import _NonDimensionalReynoldSolverABC
 from ._model_utils import get_gap_from_model
 from ._step_utils import make_interpolation_func, solve_normal_loading
-from .influence_matrix_utils import plan_convolve
+from slippy.core.influence_matrix_utils import plan_convolve
 from .steps import _ModelStep
-from .materials import _IMMaterial
+from slippy.core.materials import _IMMaterial
 
 __all__ = ['IterSemiSystem']
 
@@ -86,6 +85,9 @@ class IterSemiSystem(_ModelStep):
         periodic in that direction. NOTE: this only controls the deformation result from the materials, ensure that the
         reynolds equation solver used supports periodic solutions and is set to produce a periodic solution to the
         pressure equation. Additionally, ensure that the axes of periodicity match.
+    periodic_im_repeats: tuple, optional (1,1)
+        The number of times the influence matrix should be wrapped along periodic dimensions, only used if at least one
+        of periodic axes is True. This is necessary to ensure truly periodic behaviour, no physical limit exists
     max_it_pressure: int, optional (100)
         The maximum number of iterations in the fluid pressure calculation loop
     rtol_pressure: float, optional (1e-7)
@@ -204,6 +206,7 @@ class IterSemiSystem(_ModelStep):
                  movement_interpolation_mode: str = 'linear',
                  profile_interpolation_mode: str = 'nearest',
                  periodic_geometry: bool = False, periodic_axes: tuple = (False, False),
+                 periodic_im_repeats: tuple = (1, 1),
                  max_it_pressure: int = 5000, rtol_pressure: float = 2e-6,
                  max_it_interference: int = 5000,
                  rtol_interference: float = 1e-4,
@@ -219,7 +222,7 @@ class IterSemiSystem(_ModelStep):
         self.profile_interpolation_mode = profile_interpolation_mode
         self._periodic_profile = periodic_geometry
         self._periodic_axes = periodic_axes
-
+        self._periodic_im_repeats = periodic_im_repeats
         self._max_it_pressure = max_it_pressure
         self._max_it_interference = max_it_interference
         self._rtol_pressure = rtol_pressure
@@ -329,7 +332,7 @@ class IterSemiSystem(_ModelStep):
             self._reynolds = value
         else:
             raise ValueError("Cannot set a non reynolds solver object as the reynolds solver, to use custom solvers"
-                             f"first subclass _NonDimensionalReynoldSolverABC from slippy.abcs, received "
+                             f"first subclass _NonDimensionalReynoldSolverABC from slippy.core, received "
                              f"type was {type(value)}")
 
     @reynolds.deleter
@@ -368,7 +371,7 @@ class IterSemiSystem(_ModelStep):
         for s in self.sub_models:
             s.no_time = self._no_time
 
-        relative_time = np.linspace(0, 1, self.number_of_steps)
+        relative_time = np.linspace(0, 1, self.number_of_steps+1)[1:]
         just_touching_gap = None
 
         original = dict()
@@ -397,22 +400,22 @@ class IterSemiSystem(_ModelStep):
 
             # make a new loads function if we need it
             if (previous_gap_shape is None or previous_gap_shape != just_touching_gap.shape) and im_mats:
-                span = just_touching_gap.shape
+                span = tuple([s*(2-pa) for s, pa in zip(just_touching_gap.shape, self._periodic_axes)])
                 max_pressure = self.reynolds.dimensionalise_pressure(min([surf_1_material.max_load,
                                                                           surf_2_material.max_load]), True)
                 self._nd_max_pressure = max_pressure
-                im1 = surf_1_material.influence_matrix(span=span, grid_spacing=[gs] * 2,
-                                                       components=['zz'])['zz']
-                im2 = surf_2_material.influence_matrix(span=span, grid_spacing=[gs] * 2,
-                                                       components=['zz'])['zz']
+                im1 = surf_1_material.influence_matrix(components=['zz'], grid_spacing=[gs] * 2,
+                                                       span=span, periodic_strides=self._periodic_im_repeats)['zz']
+                im2 = surf_2_material.influence_matrix(components=['zz'], grid_spacing=[gs] * 2, span=span,
+                                                       periodic_strides=self._periodic_im_repeats)['zz']
                 total_im = im1 + im2
                 loads_func = plan_convolve(just_touching_gap, total_im, circular=self._periodic_axes)
                 previous_gap_shape = just_touching_gap.shape
 
             elif not im_mats:
                 def loads_func(loads):
-                    return solve_normal_loading(loads=Loads(z=loads, x=None, y=None), model=self.model,
-                                                deflections='z', current_state=time_step_current_state)[0].z
+                    return solve_normal_loading(loads_z=loads, model=self.model,
+                                                deflections='z', current_state=time_step_current_state)[0]['z']
             # sort out initial guess
             if i >= 0:
                 initial_guess = 'previous'
@@ -581,21 +584,21 @@ class IterSemiSystem(_ModelStep):
             current_state = {**time_step_current_state, **results_this_it}
             pressure = current_state['pressure']
             if im_mats:
-                current_state['surface_1_displacement'] = \
-                    Displacements(z=plan_convolve(pressure, im1, circular=self._periodic_axes)(pressure))
-                current_state['surface_2_displacement'] = \
-                    Displacements(z=plan_convolve(pressure, im2, circular=self._periodic_axes)(pressure))
-                current_state['total_displacement'] = Displacements(z=current_state['total_displacement_z'])
+                current_state['surface_1_displacement_z'] = plan_convolve(pressure, im1,
+                                                                          circular=self._periodic_axes)(pressure)
+                current_state['surface_2_displacement_z'] = plan_convolve(pressure, im2,
+                                                                          circular=self._periodic_axes)(pressure)
+                current_state['total_displacement_z'] = current_state['total_displacement_z']
 
             else:
-                all_disp = solve_normal_loading(Loads(z=pressure), self.model, current_state, 'z')
-                current_state['total_displacement'] = all_disp[0]
-                current_state['surface_1_displacement'] = all_disp[1]
-                current_state['surface_2_displacement'] = all_disp[2]
+                all_disp = solve_normal_loading(pressure, self.model, current_state, 'z')
+                current_state['total_displacement_z'] = all_disp[0]
+                current_state['surface_1_displacement_z'] = all_disp[1]
+                current_state['surface_2_displacement_z'] = all_disp[2]
 
-            del current_state['total_displacement_z']
+            # del current_state['total_displacement_z']
             current_state['total_normal_load'] = total_load
-            current_state['loads'] = Loads(z=current_state['pressure'])
+            current_state['loads_z'] = current_state['pressure']
             current_state['converged'] = converged
             current_state['rolling_speed'] = self.rolling_speed
             current_state = self.solve_sub_models(current_state)
