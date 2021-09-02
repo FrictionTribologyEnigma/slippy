@@ -4,17 +4,18 @@ matrix:
   include:
       -   python: 3.8
           env: TOXENV=py38
+          deploy:
+              skip_existing: true
+              provider: pypi
+              distributions: sdist bdist_wheel
+              user: __token__
+              password:
+                  secure: NZJSDQtq2FuKoU2LaChV4TloTvjFVvdEEs/arAhIjO8KC449Zqe5cld60qWujBefEBtrGOvSJy9KmqzgWL7m0JzL8Xt1ITIYhl7XrscaUYvhbl7D5Imyk5Lr5vZ0UfHvOU2wJKFghoFJ1Z5v44o8Vhs1PhUGsqhTMp/HyOfHvx/agX77OaYo5RbhtyERt9EeBOXCfljihunqCX04f4AolDsXIXp4XTMcxfzrKdhTMGSG1A6wb/QXzp209ZCIk43CYe81NRRpdbFPEzQIl2zd511bkVRb8V9CqpX3fn13u1ClEqKx3U2oLkXNW2wL5H+DNUCdroIi5DSk0FHOeGwpFMZiwvP0zPZeK1bOcDqleCVtWa2lMuPFsq6iCT34al1Ksn9H5JCywWB9qeLjxWeQpVbv0Ln88AGrgj390txR3eug6EPGNT/lZjiewnVAsfTkizfAgJVv/MML+fU6Ba/aUHYQBoPQ2dR9mAfSs7dOfMqY5lvnJ4pFh35Wq2yCTW5grYtBaG/oAOlWOf33M96mGPLqIwz7Cm7FgVdwZlX/hd/GddsEFPo2aFW5qmHBRDBpLQEKhKK3Qf8lmk7mMpoN8WOGXEsjnuLFK58+qd/3vBRDxymTakBJvOHBSy1L9Ym0do1X9CPFwHwnWKq399AAIQPs/x2hYUze/ElTYvLjwas=
+              on:
+                  tags: true
+                  repo: FrictionTribologyEnigma/slippy
       -   env: TOXENV=flake8
 
 install: pip install -U tox-travis
 script: tox
-deploy:
-  skip_existing: true
-  provider: pypi
-  distributions: sdist bdist_wheel
-  user: __token__
-  password:
-    secure: NZJSDQtq2FuKoU2LaChV4TloTvjFVvdEEs/arAhIjO8KC449Zqe5cld60qWujBefEBtrGOvSJy9KmqzgWL7m0JzL8Xt1ITIYhl7XrscaUYvhbl7D5Imyk5Lr5vZ0UfHvOU2wJKFghoFJ1Z5v44o8Vhs1PhUGsqhTMp/HyOfHvx/agX77OaYo5RbhtyERt9EeBOXCfljihunqCX04f4AolDsXIXp4XTMcxfzrKdhTMGSG1A6wb/QXzp209ZCIk43CYe81NRRpdbFPEzQIl2zd511bkVRb8V9CqpX3fn13u1ClEqKx3U2oLkXNW2wL5H+DNUCdroIi5DSk0FHOeGwpFMZiwvP0zPZeK1bOcDqleCVtWa2lMuPFsq6iCT34al1Ksn9H5JCywWB9qeLjxWeQpVbv0Ln88AGrgj390txR3eug6EPGNT/lZjiewnVAsfTkizfAgJVv/MML+fU6Ba/aUHYQBoPQ2dR9mAfSs7dOfMqY5lvnJ4pFh35Wq2yCTW5grYtBaG/oAOlWOf33M96mGPLqIwz7Cm7FgVdwZlX/hd/GddsEFPo2aFW5qmHBRDBpLQEKhKK3Qf8lmk7mMpoN8WOGXEsjnuLFK58+qd/3vBRDxymTakBJvOHBSy1L9Ym0do1X9CPFwHwnWKq399AAIQPs/x2hYUze/ElTYvLjwas=
-  on:
-    tags: true
-    repo: FrictionTribologyEnigma/slippy
+
