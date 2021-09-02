@@ -1,6 +1,14 @@
 History
 =======
 
+0.3.0 (2021-09-2)
+-----------------
+
+* Sub surface stress calculations
+* Backend for coupled and multi convolutions
+* Contact stiffness and rolling sliding submodels
+* More efficient normal contact solver
+
 0.1.1 (2020-11-9)
 -----------------
 
