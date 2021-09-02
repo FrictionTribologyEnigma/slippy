@@ -31,7 +31,7 @@ def test_example_mixed_lubrication():
                           extent=(hertz_a * 4, hertz_a * 4), generate=True)
     flat = s.FlatSurface()
 
-    steel = c.Elastic('steel', {'E': youngs_modulus, 'v': p_ratio})
+    steel = c.Elastic('steel_1', {'E': youngs_modulus, 'v': p_ratio})
     ball.material = steel
     flat.material = steel
 

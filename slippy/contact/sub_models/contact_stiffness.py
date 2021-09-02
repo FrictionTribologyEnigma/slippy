@@ -3,9 +3,9 @@ import numpy as np
 import slippy
 if slippy.CUDA:
     import cupy as cp
-from slippy.abcs import _SubModelABC  # noqa: E402
-from slippy.contact.influence_matrix_utils import plan_convolve, bccg  # noqa: E402
-from slippy.contact.materials import _IMMaterial  # noqa: E402
+from slippy.core import _SubModelABC  # noqa: E402
+from slippy.core.influence_matrix_utils import plan_convolve, bccg  # noqa: E402
+from slippy.core.materials import _IMMaterial  # noqa: E402
 
 
 class ResultContactStiffness(_SubModelABC):
@@ -34,6 +34,9 @@ class ResultContactStiffness(_SubModelABC):
     periodic_axes: tuple, optional ((False, False))
         For each True value the corresponding axis will be solved by circular convolution, meaning the result is
         periodic in that direction
+    periodic_im_repeats: tuple, optional (1,1)
+        The number of times the influence matrix should be wrapped along periodic dimensions, only used if at least one
+        of periodic axes is True. This is necessary to ensure truly periodic behaviour, no physical limit exists
     boarder: int, optional (0)
         If set the contact stiffness will only be calculated for the central portion of the domain.
 
@@ -46,8 +49,10 @@ class ResultContactStiffness(_SubModelABC):
 
     """
 
-    def __init__(self, name: str, loading: bool = True, unloading: bool = True, direction: str = 'z', tol: float = 1e-6,
-                 max_it: int = None, definition: str = 'mean lines', periodic_axes=(False, False),
+    def __init__(self, name: str, loading: bool = True, unloading: bool = True,
+                 direction: str = 'z', tol: float = 1e-6,
+                 max_it: int = None, definition: str = 'mean lines',
+                 periodic_axes=(False, False), periodic_im_repeats: tuple = (1, 1),
                  boarder: int = 0):
 
         if type(definition) is not str:
@@ -74,7 +79,10 @@ class ResultContactStiffness(_SubModelABC):
         self.loading = loading
         self.unloading = unloading
         self._periodic_axes = periodic_axes
+        self._periodic_im_repeats = tuple([int(r) if a else 1 for r, a in zip(periodic_im_repeats, periodic_axes)])
         self.boarder = boarder
+        self._last_span = (0, 0)
+        self._conv_func_cache = dict()
 
         provides = set()
 
@@ -91,7 +99,11 @@ class ResultContactStiffness(_SubModelABC):
         self.max_it = max_it
         self.k_smooth = None
         self.last_converged_result = {True: None, False: None}
-        super().__init__(name, {'contact_nodes', 'loads'}, provides)
+        if loading:
+            requires = {'contact_nodes', 'loads_z'}
+        else:
+            requires = {'contact_nodes'}
+        super().__init__(name, requires, provides)
 
     def _solve(self, current_state, loading):
         rtn_dict = dict()
@@ -105,9 +117,9 @@ class ResultContactStiffness(_SubModelABC):
         if loading:
             max_pressure = min(surf_1.material.max_load, surf_2.material.max_load)
             contact_nodes = np.logical_and(current_state['contact_nodes'],
-                                           current_state['loads'].z < max_pressure * 0.99999)
+                                           current_state['loads_z'] < max_pressure * 0.99999)
             p_contact = np.mean(current_state['contact_nodes'])
-            p_plastic = np.mean(current_state['loads'].z > max_pressure * 0.99999)
+            p_plastic = np.mean(current_state['loads_z'] > max_pressure * 0.99999)
             print("Percentage contact nodes:", p_contact)
             print("Percentage plastic nodes:", p_plastic)
             print("Percentage of contact plastic:", p_plastic/p_contact)
@@ -117,19 +129,24 @@ class ResultContactStiffness(_SubModelABC):
         if self.boarder:
             contact_nodes = contact_nodes[self.boarder:-self.boarder, self.boarder:-self.boarder]
 
-        span = contact_nodes.shape
-
-        comp = self.component
-
-        im1 = surf_1.material.influence_matrix(span=span, grid_spacing=[surf_1.grid_spacing] * 2,
-                                               components=[comp])[comp]
-        im2 = surf_2.material.influence_matrix(span=span, grid_spacing=[surf_1.grid_spacing] * 2,
-                                               components=[comp])[comp]
-        total_im = im1 + im2
-
         displacement = np.ones(contact_nodes.shape)
 
-        convolution_func = plan_convolve(displacement, total_im, contact_nodes, circular=self._periodic_axes)
+        span = tuple([s * (2 - pa) for s, pa in zip(contact_nodes.shape, self._periodic_axes)])
+
+        if span != self._last_span:
+            self._conv_func_cache = dict()
+
+        comp = self.component
+        if comp in self._conv_func_cache:
+            convolution_func = self._conv_func_cache[comp]
+        else:
+
+            im1 = surf_1.material.influence_matrix(components=[comp], grid_spacing=[surf_1.grid_spacing] * 2,
+                                                   span=span, periodic_strides=self._periodic_im_repeats)[comp]
+            im2 = surf_2.material.influence_matrix(components=[comp], grid_spacing=[surf_1.grid_spacing] * 2,
+                                                   span=span, periodic_strides=self._periodic_im_repeats)[comp]
+            total_im = im1 + im2
+            convolution_func = plan_convolve(displacement, total_im, contact_nodes, circular=self._periodic_axes)
 
         try:
             initial_guess = self.last_converged_result[loading]
@@ -163,24 +180,6 @@ class ResultContactStiffness(_SubModelABC):
             all_disp[all_disp > 1] = 1
             all_disp[contact_nodes] = 1
             rtn_dict[f's_contact_stiffness_{load_str}_ml_'] = (k_rough / (1 - np.mean(all_disp))) / contact_nodes.size
-
-        ''' This was another definition based on the difference between the actual contact and a evenly distributed load
-                if self.k_smooth is None:
-                    convolution_func = plan_convolve(displacement, total_im, np.ones_like(contact_nodes))
-                    loads_in_domain, failed = bccg(convolution_func, displacement.flatten(), self.tol,
-                                                   self.max_it, x0=displacement.flatten(),
-                                                   min_pressure=0, max_pressure=np.inf)
-                    self.k_smooth = float(np.sum(loads_in_domain))
-
-                # (below) The deflection a smooth surface would have under the same total load as the rough surface
-                delta_s = k_rough/self.k_smooth  # works because we used 1 as the deflection grid_spacing cancels
-
-                contact_stiffness = k_rough/(1-delta_s)  # 1 is the deflection of the rough surface we solved for above
-
-                cs_normalised = contact_stiffness/contact_nodes.size  # again grid spacings cancel here
-
-                return cs_normalised, failed
-                '''
 
         return rtn_dict, failed
 
