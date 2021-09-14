@@ -22,6 +22,7 @@ def asnumpy(obj):
     return numpy.asarray(obj)
 
 
+CUBIC_EPS = 1e-7
 CORES = multiprocessing.cpu_count()
 OUTPUT_DIR = os.getcwd()
 ERROR_IF_MISSING_MODEL = True
