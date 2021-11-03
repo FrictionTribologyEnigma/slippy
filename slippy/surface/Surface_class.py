@@ -1,9 +1,3 @@
-# TODO mesh function
-
-# TODO documentation
-
-# TODO make list of all functionality
-
 import abc
 import copy
 import csv

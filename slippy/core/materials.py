@@ -11,10 +11,8 @@ from ._material_utils import memoize_components
 __all__ = ["_IMMaterial", "Rigid", "rigid"]
 
 
-# The base class for materials contains all the iteration functionality for contacts
 class _IMMaterial(_MaterialABC):
-    """ A class for describing material behaviour, the materials do the heavy lifting for the contact mechanics analysis
-    """
+    """ A class for describing material behaviour"""
     material_type: str
     name: str
     _subclass_registry = []

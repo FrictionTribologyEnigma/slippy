@@ -3,6 +3,7 @@ import typing
 import warnings
 import slippy
 import functools
+import abc
 
 __all__ = ['guess_loads_from_displacement', 'bccg', 'plan_convolve', 'plan_multi_convolve', 'plan_coupled_convolve',
            'polonsky_and_keer']
@@ -29,122 +30,170 @@ def guess_loads_from_displacement(displacements_z: np.array, zz_component: np.ar
     return displacements_z / max_im
 
 
+class ConvolutionFunction(abc.ABC):
+    def __init__(self):
+        pass
+
+    @abc.abstractmethod
+    def inner_with_domain(self, sub_loads, ignore_domain=False):
+        pass
+
+    @abc.abstractmethod
+    def inner_no_domain(self, full_loads, _):
+        pass
+
+    @abc.abstractmethod
+    def inverse_conv(self, deformations, ignore_domain):
+        pass
+
+    @abc.abstractmethod
+    def change_domain(self, new_domain):
+        pass
+
+    @abc.abstractmethod
+    def __call__(self, loads, ignore_domain):
+        pass
+
 try:
     import cupy as cp
 
     def n_pow_2(a):
         return 2 ** int(np.ceil(np.log2(a)))
 
-    def _plan_cuda_convolve(loads: np.ndarray, im: np.ndarray, domain: np.ndarray,
-                            circular: typing.Sequence[bool], no_shape_check: bool):
-        """Plans an FFT convolution, returns a function to carry out the convolution
-        CUDA implementation
+    class CudaConvolutionFunction(ConvolutionFunction):
 
-        Parameters
-        ----------
-        loads: np.ndarray
-            An example of a loads array, this is not altered or stored
-        im: np.ndarray
-            The influence matrix component for the transformation, this is not altered but it's fft is stored to
-            save time during convolution, this must be larger in every dimension than the loads array
-        domain: np.ndarray, optional
-            Array with same shape as loads filled with boolean values. If supplied this function will return a
-            function which first fills the supplied loads into the domain then computes the convolution.
-            This is typically used for finding loads from set displacements as the displacements are often not set
-            over the whole surface.
-        circular: Sequence[bool], optional (False)
-            If True the circular convolution will be calculated, to be used for periodic simulations
+        def __init__(self, loads: np.ndarray, im: np.ndarray, domain: np.ndarray,
+                     circular: typing.Sequence[bool], no_shape_check: bool):
+            """Plans an FFT convolution, CUDA implementation
 
-        Returns
-        -------
-        function
-            A function which takes a single input of loads and returns the result of the convolution with the original
-            influence matrix. If a domain was not supplied the input to the returned function must be exactly the same
-            shape as the loads array used in this function. If a domain was specified the length of the loads input to
-            the returned function must be the same as the number of non zero elements in domain.
+            Parameters
+            ----------
+            loads: np.ndarray
+                An example of a loads array, this is not altered or stored
+            im: np.ndarray
+                The influence matrix component for the transformation, this is not altered but it's fft is stored to
+                save time during convolution, this must be larger in every dimension than the loads array
+            domain: np.ndarray, optional
+                Array with same shape as loads filled with boolean values. If supplied this function will return a
+                function which first fills the supplied loads into the domain then computes the convolution.
+                This is typically used for finding loads from set displacements as the displacements are often not set
+                over the whole surface.
+            circular: Sequence[bool], optional (False)
+                If True the circular convolution will be calculated, to be used for periodic simulations
 
-        Notes
-        -----
-        This function uses CUDA to run on a GPU if your computer dons't have cupy installed this should not have loaded
-        if it is for some reason, this can be manually overridden by first importing slippy then setting the CUDA
-        variable to False:
+            Notes
+            -----
+            This function uses CUDA to run on a GPU if your computer dons't have cupy installed this should not have
+            loaded if it is for some reason, this can be manually overridden by first importing slippy then setting the
+            CUDA variable to False:
 
-        >>> import slippy
-        >>> slippy.CUDA = False
-        >>> import slippy.contact
-        >>> ...
+            >>> import slippy
+            >>> slippy.CUDA = False
+            >>> import slippy.contact
+            >>> ...
 
-        Examples
-        --------
-        >>> import numpy as np
-        >>> import slippy.contact as c
-        >>> result = c.hertz_full([1,1], [np.inf, np.inf], [200e9, 200e9], [0.3, 0.3], 1e4)
-        >>> X,Y = np.meshgrid(*[np.linspace(-0.005,0.005,256)]*2)
-        >>> grid_spacing = X[1][1]-X[0][0]
-        >>> loads = result['pressure_f'](X,Y)
-        >>> disp_analytical = result['surface_displacement_b_f'][0](X,Y)['uz']
-        >>> im = c.elastic_influence_matrix('zz', (512,512), (grid_spacing,grid_spacing), 200e9/(2*(1+0.3)), 0.3)
-        >>> convolve_func = plan_convolve(loads, im, None, [False, False])
-        >>> disp_numerical = convolve_func(loads)
+            Examples
+            --------
+            >>> import numpy as np
+            >>> import slippy.contact as c
+            >>> result = c.hertz_full([1,1], [np.inf, np.inf], [200e9, 200e9], [0.3, 0.3], 1e4)
+            >>> X,Y = np.meshgrid(*[np.linspace(-0.005,0.005,256)]*2)
+            >>> grid_spacing = X[1][1]-X[0][0]
+            >>> loads = result['pressure_f'](X,Y)
+            >>> disp_analytical = result['surface_displacement_b_f'][0](X,Y)['uz']
+            >>> im = c.elastic_influence_matrix('zz', (512,512), (grid_spacing,grid_spacing), 200e9/(2*(1+0.3)), 0.3)
+            >>> convolve_func = plan_convolve(loads, im, None, [False, False])
+            >>> disp_numerical = convolve_func(loads)
 
-        """
-        loads = cp.asarray(loads)
-        im = cp.asarray(im)
-        im_shape_orig = im.shape
-        if domain is not None:
-            domain = cp.asarray(domain)
-        input_shape = []
-        for i in range(2):
-            if circular[i]:
-                if not no_shape_check:
-                    assert loads.shape[i] == im.shape[i], "For circular convolution loads and im must be same shape"
-                input_shape.append(loads.shape[i])
+            """
+            super().__init__()
+            loads = cp.asarray(loads)
+            im = cp.asarray(im)
+            im_shape_orig = im.shape
+            if domain is not None:
+                domain = cp.asarray(domain)
+            self._domain = domain
+            input_shape = []
+            for i in range(2):
+                if circular[i]:
+                    if not no_shape_check:
+                        assert loads.shape[i] == im.shape[i], "For circular convolution loads and im must be same shape"
+                    input_shape.append(loads.shape[i])
+                else:
+                    if not no_shape_check:
+                        msg = "For non circular convolution influence matrix must be double loads"
+                        assert loads.shape[i] == im.shape[i] // 2, msg
+                    input_shape.append(n_pow_2(max(loads.shape[i], im.shape[i])))
+            input_shape = tuple(input_shape)
+            fft_shape = tuple([input_shape[0], input_shape[1]])
+            self.forward_trans = functools.partial(cp.fft.fft2, s=fft_shape)
+            self.backward_trans = functools.partial(cp.fft.ifft2, s=input_shape)
+            shape_diff = [[0, (b - a)] for a, b in zip(im.shape, input_shape)]
+
+            self.norm_inv = (input_shape[0] * input_shape[1]) ** 0.5
+            norm = 1 / self.norm_inv
+            self.norm = norm
+            im = cp.pad(im, shape_diff, mode='constant')
+            im = cp.roll(im, tuple(-((sz - 1) // 2) for sz in im_shape_orig), (-2, -1))
+            self.fft_im = self.forward_trans(im) * norm
+            self.shape = loads.shape
+            self.dtype = loads.dtype
+
+            if domain is None:
+                self.callback = self.inner_no_domain
             else:
-                if not no_shape_check:
-                    msg = "For non circular convolution influence matrix must be double loads"
-                    assert loads.shape[i] == im.shape[i] // 2, msg
-                input_shape.append(n_pow_2(max(loads.shape[i], im.shape[i])))
-        input_shape = tuple(input_shape)
-        forward_trans = functools.partial(cp.fft.fft2, s=input_shape)
-        backward_trans = functools.partial(cp.fft.ifft2, s=input_shape)
-        shape_diff = [[0, (b - a)] for a, b in zip(im.shape, input_shape)]
+                self.callback = self.inner_with_domain
 
-        norm_inv = (input_shape[0] * input_shape[1]) ** 0.5
-        norm = 1 / norm_inv
-        im = cp.pad(im, shape_diff, mode='constant')
-        im = cp.roll(im, tuple(-((sz - 1) // 2) for sz in im_shape_orig), (-2, -1))
-        fft_im = forward_trans(im) * norm
-        shape = loads.shape
-        dtype = loads.dtype
-
-        def inner_with_domain(sub_loads, ignore_domain=False):
-            full_loads = cp.zeros(shape, dtype=dtype)
-            full_loads[domain] = sub_loads
-            fft_loads = forward_trans(full_loads)
-            full = norm_inv * cp.real(backward_trans(fft_loads * fft_im))
+        def inner_with_domain(self, sub_loads, ignore_domain=False):
+            full_loads = cp.zeros(self.shape, dtype=self.dtype)
+            full_loads[self._domain] = sub_loads
+            fft_loads = self.forward_trans(full_loads)
+            full = self.norm_inv * cp.real(self.backward_trans(fft_loads * self.fft_im))
             full = full[:full_loads.shape[0], :full_loads.shape[1]]
             if ignore_domain:
                 return full
-            return full[domain]
+            return full[self._domain]
 
-        def inner_no_domain(full_loads):
+        def inner_no_domain(self, full_loads, _):
             full_loads = cp.asarray(full_loads)
-            if full_loads.shape == shape:
+            if full_loads.shape == self.shape:
                 flat = False
             else:
-                full_loads = cp.reshape(full_loads, loads.shape)
+                full_loads = cp.reshape(full_loads, self.shape)
                 flat = True
-            fft_loads = forward_trans(full_loads)
-            full = norm_inv * cp.real(backward_trans(fft_loads * fft_im))
+            fft_loads = self.forward_trans(full_loads)
+            full = self.norm_inv * cp.real(self.backward_trans(fft_loads * self.fft_im))
             full = full[:full_loads.shape[0], :full_loads.shape[1]]
             if flat:
                 full = full.flatten()
             return full
 
-        if domain is None:
-            return inner_no_domain
-        else:
-            return inner_with_domain
+        def inverse_conv(self, deformations, ignore_domain):
+            if self._domain is not None:
+                full_defs = cp.zeros(self.shape, dtype=self.dtype)
+                full_defs[self._domain] = deformations
+                flat = False
+            else:
+                full_defs = deformations
+                if full_defs.shape == self.shape:
+                    flat = False
+                else:
+                    full_defs = cp.reshape(full_defs, self.shape)
+                    flat = True
+            fft_loads = self.forward_trans(full_defs)
+            full = self.norm * cp.real(self.backward_trans(fft_loads / self.fft_im))
+            full = full[:full_defs.shape[0], :full_defs.shape[1]]
+            if ignore_domain:
+                return full
+            if flat:
+                return full.flatten()
+            return full[self._domain]
+
+        def change_domain(self, new_domain):
+            self._domain = new_domain
+
+        def __call__(self, loads, ignore_domain=False):
+            return self.callback(loads, ignore_domain)
 
     def _plan_cuda_multi_convolve(loads: np.ndarray, ims: np.ndarray, domain: np.ndarray = None,
                                   circular: typing.Sequence[bool] = (False, False)):
@@ -215,7 +264,8 @@ try:
                 input_shape.append(n_pow_2(max(loads.shape[i], im.shape[i])))
 
         input_shape = tuple(input_shape)
-        forward_trans = functools.partial(cp.fft.fft2, s=input_shape)
+        fft_shape = tuple([input_shape[0], input_shape[1]])
+        forward_trans = functools.partial(cp.fft.fft2, s=fft_shape)
         backward_trans = functools.partial(cp.fft.ifft2, s=input_shape)
         shape_diff = [[0, (b - a)] for a, b in zip(im.shape, input_shape)]
 
@@ -518,119 +568,145 @@ except ImportError:
 try:
     import pyfftw
 
-    def _plan_fftw_convolve(loads: np.ndarray, im: np.ndarray, domain: np.ndarray, circular: typing.Sequence[bool],
-                            no_shape_check: bool):
-        """Plans an FFT convolution, returns a function to carry out the convolution
-        FFTW implementation
+    class FftwConvolutionFunction(ConvolutionFunction):
+        def __init__(self, loads: np.ndarray, im: np.ndarray, domain: np.ndarray, circular: typing.Sequence[bool],
+                     no_shape_check: bool):
+            """Plans an FFT convolution, returns a function to carry out the convolution
+            FFTW implementation
 
-        Parameters
-        ----------
-        loads: np.ndarray
-            An example of a loads array, this is not altered or stored
-        im: np.ndarray
-            The influence matrix component for the transformation, this is not altered but it's fft is stored to
-            save time during convolution, this must be larger in every dimension than the loads array
-        domain: np.ndarray, optional (None)
-            Array with same shape as loads filled with boolean values. If supplied this function will return a
-            function which first fills the supplied loads into the domain then computes the convolution.
-            This is typically used for finding loads from set displacements as the displacements are often not set
-            over the whole surface.
-        circular: Sequence[bool]
-            If True the circular convolution will be calculated, to be used for periodic simulations
+            Parameters
+            ----------
+            loads: np.ndarray
+                An example of a loads array, this is not altered or stored
+            im: np.ndarray
+                The influence matrix component for the transformation, this is not altered but it's fft is stored to
+                save time during convolution, this must be larger in every dimension than the loads array
+            domain: np.ndarray, optional (None)
+                Array with same shape as loads filled with boolean values. If supplied this function will return a
+                function which first fills the supplied loads into the domain then computes the convolution.
+                This is typically used for finding loads from set displacements as the displacements are often not set
+                over the whole surface.
+            circular: Sequence[bool]
+                If True the circular convolution will be calculated, to be used for periodic simulations
 
-        Returns
-        -------
-        function
-            A function which takes a single input of loads and returns the result of the convolution with the original
-            influence matrix. If a domain was not supplied the input to the returned function must be exactly the same
-            shape as the loads array used in this function. If a domain was specified the length of the loads input to
-            the returned function must be the same as the number of non zero elements in domain.
 
-        Notes
-        -----
-        This function uses FFTW, if you want to use the CUDA implementation make sure that cupy is installed and
-        importable. If cupy can be imported slippy will use the CUDA implementations by default
+            Notes
+            -----
+            This function uses FFTW, if you want to use the CUDA implementation make sure that cupy is installed and
+            importable. If cupy can be imported slippy will use the CUDA implementations by default
 
-        Examples
-        --------
-        >>> import numpy as np
-        >>> import slippy.contact as c
-        >>> result = c.hertz_full([1,1], [np.inf, np.inf], [200e9, 200e9], [0.3, 0.3], 1e4)
-        >>> X,Y = np.meshgrid(*[np.linspace(-0.005,0.005,256)]*2)
-        >>> grid_spacing = X[1][1]-X[0][0]
-        >>> loads = result['pressure_f'](X,Y)
-        >>> disp_analytical = result['surface_displacement_b_f'][0](X,Y)['uz']
-        >>> im = c.elastic_influence_matrix('zz', (512,512), (grid_spacing,grid_spacing), 200e9/(2*(1+0.3)), 0.3)
-        >>> convolve_func = plan_convolve(loads, im, None, [False, False])
-        >>> disp_numerical = convolve_func(loads)
+            Examples
+            --------
+            >>> import numpy as np
+            >>> import slippy.contact as c
+            >>> result = c.hertz_full([1,1], [np.inf, np.inf], [200e9, 200e9], [0.3, 0.3], 1e4)
+            >>> X,Y = np.meshgrid(*[np.linspace(-0.005,0.005,256)]*2)
+            >>> grid_spacing = X[1][1]-X[0][0]
+            >>> loads = result['pressure_f'](X,Y)
+            >>> disp_analytical = result['surface_displacement_b_f'][0](X,Y)['uz']
+            >>> im = c.elastic_influence_matrix('zz', (512,512), (grid_spacing,grid_spacing), 200e9/(2*(1+0.3)), 0.3)
+            >>> convolve_func = plan_convolve(loads, im, None, [False, False])
+            >>> disp_numerical = convolve_func(loads)
 
-        """
-        loads = np.asarray(loads)
-        im = np.asarray(im)
-        im_shape_orig = im.shape
-        if domain is not None:
-            domain = np.asarray(domain, dtype=np.bool)
-        input_shape = []
-        for i in range(2):
-            if circular[i]:
-                if not no_shape_check:
-                    assert loads.shape[i] == im.shape[i], "For circular convolution loads and im must be same shape"
-                input_shape.append(loads.shape[i])
+            """
+            super().__init__()
+            loads = np.asarray(loads)
+            self._loads_shape = loads.shape
+            im = np.asarray(im)
+            im_shape_orig = im.shape
+            if domain is not None:
+                domain = np.asarray(domain, dtype=np.bool)
+            self._domain = domain
+            input_shape = []
+            for i in range(2):
+                if circular[i]:
+                    if not no_shape_check:
+                        assert loads.shape[i] == im.shape[i], "For circular convolution loads and im must be same shape"
+                    input_shape.append(loads.shape[i])
+                else:
+                    if not no_shape_check:
+                        msg = "For non circular convolution influence matrix must be double loads"
+                        assert loads.shape[i] == im.shape[i] // 2, msg
+                    input_shape.append(pyfftw.next_fast_len(im.shape[i]))
+            input_shape = tuple(input_shape)
+
+            fft_shape = [input_shape[0], input_shape[1] // 2 + 1]
+            in_empty = pyfftw.empty_aligned(input_shape, dtype=loads.dtype)
+            out_empty = pyfftw.empty_aligned(fft_shape, dtype='complex128')
+            ret_empty = pyfftw.empty_aligned(input_shape, dtype=loads.dtype)
+            self.forward_trans = pyfftw.FFTW(in_empty, out_empty, axes=(0, 1),
+                                             direction='FFTW_FORWARD', threads=slippy.CORES)
+            self.backward_trans = pyfftw.FFTW(out_empty, ret_empty, axes=(0, 1),
+                                              direction='FFTW_BACKWARD', threads=slippy.CORES)
+            self.norm_inv = self.forward_trans.N ** 0.5
+            norm = 1 / self.norm_inv
+            self.norm = norm
+
+            shape_diff = [[0, (b - a)] for a, b in zip(im.shape, input_shape)]
+            im = np.pad(im, shape_diff, 'constant')
+            im = np.roll(im, tuple(-((sz - 1) // 2) for sz in im_shape_orig), (-2, -1))
+            self.fft_im = self.forward_trans(im) * norm
+            self.inv_fft_im = 1/self.fft_im
+
+            self._shape_diff_loads = [[0, (b - a)] for a, b in zip(loads.shape, input_shape)]
+
+            self.shape = loads.shape
+            self.dtype = loads.dtype
+
+            if domain is None:
+                self.callback = self.inner_no_domain
             else:
-                if not no_shape_check:
-                    msg = "For non circular convolution influence matrix must be double loads"
-                    assert loads.shape[i] == im.shape[i] // 2, msg
-                input_shape.append(pyfftw.next_fast_len(im.shape[i]))
-        input_shape = tuple(input_shape)
+                self.callback = self.inner_with_domain
 
-        fft_shape = [input_shape[0], input_shape[1] // 2 + 1]
-        in_empty = pyfftw.empty_aligned(input_shape, dtype=loads.dtype)
-        out_empty = pyfftw.empty_aligned(fft_shape, dtype='complex128')
-        ret_empty = pyfftw.empty_aligned(input_shape, dtype=loads.dtype)
-        forward_trans = pyfftw.FFTW(in_empty, out_empty, axes=(0, 1),
-                                    direction='FFTW_FORWARD', threads=slippy.CORES)
-        backward_trans = pyfftw.FFTW(out_empty, ret_empty, axes=(0, 1),
-                                     direction='FFTW_BACKWARD', threads=slippy.CORES)
-        norm_inv = forward_trans.N ** 0.5
-        norm = 1 / norm_inv
+        def inner_with_domain(self, sub_loads, ignore_domain=False):
+            full_loads = np.zeros(self.shape, dtype=self.dtype)
+            full_loads[self._domain] = sub_loads
+            loads_pad = np.pad(full_loads, self._shape_diff_loads, 'constant')
+            full = self.backward_trans(self.forward_trans(loads_pad) * self.fft_im)
+            same = self.norm_inv * full[:full_loads.shape[0], :full_loads.shape[1]]
+            if ignore_domain:
+                return same
+            return same[self._domain]
 
-        shape_diff = [[0, (b - a)] for a, b in zip(im.shape, input_shape)]
-        im = np.pad(im, shape_diff, 'constant')
-        im = np.roll(im, tuple(-((sz - 1) // 2) for sz in im_shape_orig), (-2, -1))
-        fft_im = forward_trans(im) * norm
-
-        shape_diff_loads = [[0, (b - a)] for a, b in zip(loads.shape, input_shape)]
-
-        shape = loads.shape
-        dtype = loads.dtype
-
-        def inner_no_domain(full_loads):
-            if full_loads.shape == shape:
+        def inner_no_domain(self, full_loads, _):
+            if full_loads.shape == self.shape:
                 flat = False
             else:
-                full_loads = np.reshape(full_loads, loads.shape)
+                full_loads = np.reshape(full_loads, self.shape)
                 flat = True
-            loads_pad = np.pad(full_loads, shape_diff_loads, 'constant')
-            full = backward_trans(forward_trans(loads_pad) * fft_im)
-            full = norm_inv * full[:full_loads.shape[0], :full_loads.shape[1]]
+            loads_pad = np.pad(full_loads, self._shape_diff_loads, 'constant')
+            full = self.backward_trans(self.forward_trans(loads_pad) * self.fft_im)
+            full = self.norm_inv * full[:full_loads.shape[0], :full_loads.shape[1]]
             if flat:
                 full = full.flatten()
             return full
 
-        def inner_with_domain(sub_loads, ignore_domain=False):
-            full_loads = np.zeros(shape, dtype=dtype)
-            full_loads[domain] = sub_loads
-            loads_pad = np.pad(full_loads, shape_diff_loads, 'constant')
-            full = backward_trans(forward_trans(loads_pad) * fft_im)
-            same = norm_inv * full[:full_loads.shape[0], :full_loads.shape[1]]
+        def inverse_conv(self, deformations, ignore_domain):
+            if self._domain is not None:
+                full_defs = np.zeros(self.shape, dtype=self.dtype)
+                full_defs[self._domain] = deformations
+                flat = False
+            else:
+                full_defs = deformations
+                if full_defs.shape == self.shape:
+                    flat = False
+                else:
+                    full_defs = np.reshape(full_defs, self.shape)
+                    flat = True
+            defs_pad = np.pad(full_defs, self._shape_diff_loads, 'constant')
+            full = self.backward_trans(self.forward_trans(defs_pad) * self.inv_fft_im)
+            full = self.norm * full[:self.shape[0], :self.shape[1]]
             if ignore_domain:
-                return same
-            return same[domain]
+                return full
+            if flat:
+                return full.flatten()
+            return full[self._domain]
 
-        if domain is None:
-            return inner_no_domain
-        else:
-            return inner_with_domain
+        def change_domain(self, new_domain):
+            self._domain = new_domain
+
+        def __call__(self, loads, ignore_domain=False):
+            return self.callback(loads, ignore_domain)
 
     def _plan_fftw_multi_convolve(loads: np.ndarray, ims: np.ndarray, domain: np.ndarray = None,
                                   circular: typing.Sequence[bool] = (False, False)):
@@ -988,7 +1064,7 @@ except ImportError:
 
 
 def plan_convolve(loads, im, domain: np.ndarray = None, circular: typing.Union[bool, typing.Sequence[bool]] = False,
-                  no_shape_check: bool = False):
+                  no_shape_check: bool = False) -> ConvolutionFunction:
     """Plans an FFT convolution, returns a function to carry out the convolution
     CUDA / FFTW implementation
 
@@ -1013,7 +1089,7 @@ def plan_convolve(loads, im, domain: np.ndarray = None, circular: typing.Union[b
 
     Returns
     -------
-    function
+    ConvolutionFunction
         A function which takes a single input of loads and returns the result of the convolution with the original
         influence matrix. If a domain was not supplied the input to the returned function must be exactly the same
         shape as the loads array used in this function. If a domain was specified the length of the loads input to
@@ -1058,9 +1134,9 @@ def plan_convolve(loads, im, domain: np.ndarray = None, circular: typing.Union[b
         raise ValueError(f"Circular must be a bool or a 2 element list of bool, length was {length}")
 
     if slippy.CUDA:
-        return _plan_cuda_convolve(loads, im, domain, circular, no_shape_check)
+        return CudaConvolutionFunction(loads, im, domain, circular, no_shape_check)
     else:
-        return _plan_fftw_convolve(loads, im, domain, circular, no_shape_check)
+        return FftwConvolutionFunction(loads, im, domain, circular, no_shape_check)
 
 
 def plan_multi_convolve(loads, ims: np.array, domain: np.ndarray = None,
