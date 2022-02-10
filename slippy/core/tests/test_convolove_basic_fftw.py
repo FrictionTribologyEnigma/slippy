@@ -5,7 +5,7 @@ import slippy
 import slippy.core as c
 from scipy.signal import fftconvolve
 
-e_im = c.elastic_influence_matrix
+e_im = c.elastic_influence_matrix_spatial
 
 loads_shapes = [(128, 128),
                 (127, 128), (129, 128), (128, 127), (128, 129),
@@ -26,7 +26,7 @@ def test_non_circ_convolve_vs_scipy():
             im = e_im('zx', im_s, (0.01, 0.01), 200e9, 0.3)
             loads = 1000*np.random.rand(*l_s)
             scipy_result = fftconvolve(loads, im, mode='same')
-            conv_func = c.plan_convolve(loads, im, no_shape_check=True)
+            conv_func = c.plan_convolve(loads, im, fft_im=False)
             slippy_result = conv_func(loads)
             err_msg = f'Non circular convolution did not match scipy output for loads shape: {l_s} and IM shape: {im_s}'
             npt.assert_allclose(slippy_result, scipy_result, err_msg=err_msg)
@@ -112,3 +112,13 @@ def test_dont_raise_equal_shapes_circ():
             except:  # noqa: E722
                 raise AssertionError(f"Plan convolve raised wrong error for mixed "
                                      f"convolution load shape: {l_s}, circ: {circ}")
+
+
+def test_inverse_conv():
+    np.random.seed(0)
+    with slippy.OverRideCuda():
+        loads = np.random.rand(128, 128)
+        im = e_im('zz', loads.shape, (1e-6, 1e-6), 200e9, 0.3)
+        conv_func = c.plan_convolve(loads, im, circular=True, fft_im=False)
+        recovered = conv_func.inverse_conv(conv_func(loads), True)
+        npt.assert_allclose(loads, recovered)

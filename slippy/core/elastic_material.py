@@ -1,10 +1,10 @@
 import numpy as np
 import typing
-from collections import namedtuple
+from collections import namedtuple, abc
 from .materials import _IMMaterial
 from ._elastic_sub_surface_stresses import normal_conv_kernels, tangential_conv_kernels
 
-__all__ = ['Elastic', 'elastic_influence_matrix']
+__all__ = ['Elastic', 'elastic_influence_matrix_spatial', 'elastic_influence_matrix_frequency', 'get_angular_velocity']
 
 ElasticProps = namedtuple('ElasticProperties', 'K E v Lam M G', defaults=(None,) * 6)
 
@@ -21,9 +21,12 @@ class Elastic(_IMMaterial):
         dict of properties, dicts must have exactly 2 items.
         Allowed keys are : 'E', 'v', 'G', 'K', 'M', 'Lam'
         See notes for definitions
-    max_load: float
+    max_load: float, optional (float('inf'))
         The maximum load on the surface, loads above this will be cropped during analysis, if this is specified a
         plastic deformation sub model should be added to the end of each model step to make the deformation permanent
+    use_frequency_domain: bool, optional (True)
+        If True the frequency domain definition of the influence matrix is used, otherwise the spatial domain definition
+        is used.
 
     Methods
     -------
@@ -65,8 +68,8 @@ class Elastic(_IMMaterial):
     _last_set = []
     density = None
 
-    def __init__(self, name: str, properties: dict, max_load: float = np.inf):
-        super().__init__(name, max_load)
+    def __init__(self, name: str, properties: dict, max_load: float = np.inf, use_frequency_domain: bool = True):
+        super().__init__(name, use_frequency_domain, max_load)
 
         if len(properties) > 2:
             raise ValueError("Too many properties supplied, must be 1 or 2")
@@ -74,8 +77,8 @@ class Elastic(_IMMaterial):
         for item in properties.items():
             self._set_props(*item)
 
-    def _influence_matrix(self, components: typing.Union[typing.Sequence[str], str],
-                          grid_spacing: {typing.Sequence[float], float}, span: typing.Sequence[int]):
+    def _influence_matrix_spatial(self, components: typing.Union[typing.Sequence[str], str],
+                                  grid_spacing: {typing.Sequence[float], float}, span: typing.Sequence[int]):
         """
         Influence matrix for an elastic material
 
@@ -131,32 +134,26 @@ class Elastic(_IMMaterial):
         contact problems
 
         """
-
-        # if other is not None:
-        #     if isinstance(other, Elastic) or isinstance(other, Rigid):
-        #         shear_modulus_2 = other.G
-        #         v_2 = other.v
-        #     else:
-        #         raise NotImplementedError("Combined influence matrix cannot be found for this material pair")
-        # else:
         shear_modulus_2 = None
         v_2 = None
 
         shear_modulus = self.G
         v = self.v
 
-        if len(span) == 1:
-            span *= 2
-        if len(grid_spacing) == 1:
-            grid_spacing *= 2
-
-        if components == 'all':
-            components = ['xx', 'xy', 'xz', 'yx', 'yy', 'yz', 'zx', 'zy', 'zz']
-
-        components = {comp: elastic_influence_matrix(comp, span, grid_spacing, shear_modulus, v,
-                                                     shear_mod_2=shear_modulus_2, v_2=v_2) for comp in components}
+        components = {comp: elastic_influence_matrix_spatial(comp, span, grid_spacing, shear_modulus, v,
+                                                             shear_mod_2=shear_modulus_2, v_2=v_2) for comp in
+                      components}
 
         return components
+
+    def _influence_matrix_frequency(self, components: typing.Sequence[str], grid_spacing: typing.Sequence[float],
+                                    span: typing.Sequence[int]):
+        x_omega, y_omega = get_angular_velocity(span, grid_spacing)
+        norm_2 = x_omega ** 2 + y_omega ** 2
+        norm = np.sqrt(norm_2)
+        rtn_dict = {key: elastic_influence_matrix_frequency(y_omega, x_omega, norm, norm_2, key, self.E, self.v)
+                    for key in components}
+        return rtn_dict
 
     def _del_props(self, prop):
         # delete any of the material properties
@@ -315,8 +312,8 @@ class Elastic(_IMMaterial):
             print(span)
             gs = grid_spacing[span.index(z_len)]
             print(gs)
-            z = gs*np.arange(z_len//2)
-            z[0] = z[1]*1e-4
+            z = gs * np.arange(z_len // 2)
+            z[0] = z[1] * 1e-4
         all_matrices = normal_conv_kernels(span, z, grid_spacing, self.E, self.v, cuda=cuda)
         return {comp: all_matrices[comp] for comp in components}
 
@@ -326,8 +323,8 @@ class Elastic(_IMMaterial):
         if z is None:
             z_len = min(span)
             gs = grid_spacing[span.index(z_len)]
-            z = gs*np.arange(z_len//2)
-            z[0] = z[1]*1e-4
+            z = gs * np.arange(z_len // 2)
+            z[0] = z[1] * 1e-4
         all_matrices = tangential_conv_kernels(span, z, grid_spacing, self.v, cuda=cuda)
         return {comp: all_matrices[comp] for comp in components}
 
@@ -467,11 +464,63 @@ def _get_properties(set_props: dict):
     return out
 
 
+def get_angular_velocity(span, gs):
+    r_omega = np.fft.fftfreq(span[1], d=gs[1]) * (2 * np.pi)
+    c_omega = np.fft.fftfreq(span[0], d=gs[0]) * (2 * np.pi)
+    return np.meshgrid(r_omega, c_omega)
+
+
+def elastic_influence_matrix_frequency(y_omega, x_omega, norm, norm_2, comp: str, e: float, v: float):
+    """
+
+    Parameters
+    ----------
+    y_omega: np.ndarray
+        rotational velocity components in the y direction
+    x_omega: np.ndarray
+        rotational velocity components in the x direction
+    norm: np.ndarray
+        The norm of the velocity vectors
+    norm_2: np.ndarray
+        The squared norm of the velocity vectors
+    comp: str
+        The component to find for example 'xy' gives the deformations in the y direction caused by a load in the x
+        direction
+    e: float
+        The Young's modulus of the material
+    v: float
+        The Poission's ratio of the material
+
+    Returns
+    -------
+    The influence matrix component in the frequency domain
+
+    """
+    with np.errstate(divide='ignore', invalid='ignore'):
+        if comp == 'zz':
+            fact = 2 * (1 - v ** 2)
+        elif comp == 'yy':
+            fact = 2 * (1 + v) * (1 - v * y_omega ** 2 / norm_2)
+        elif comp == 'xx':
+            fact = 2 * (1 + v) * (1 - v * x_omega ** 2 / norm_2)
+        elif comp in ('xy', 'yx'):
+            fact = y_omega * x_omega * 2 * v * (1 + v) / norm_2
+        elif comp in ('yz', 'zy'):
+            fact = 1j * y_omega * (1 + v) * (1 - 2 * v) / norm * (-1 if comp == 'zy' else 1)
+        elif comp in ('xz', 'zx'):
+            fact = 1j * x_omega * (1 + v) * (1 - 2 * v) / norm * (-1 if comp == 'zx' else 1)
+        else:
+            raise ValueError('component name not recognised: ' + comp + ', components must be lower case')
+        rtn = fact * (1 / (e * norm))
+    rtn[0, 0] = 0.0
+    return rtn
+
+
 # noinspection PyTypeChecker
-def elastic_influence_matrix(comp: str, span: typing.Sequence[int], grid_spacing: typing.Sequence[float],
-                             shear_mod: float, v: float,
-                             shear_mod_2: typing.Optional[float] = None,
-                             v_2: typing.Optional[float] = None) -> np.array:
+def elastic_influence_matrix_spatial(comp: str, span: typing.Sequence[int], grid_spacing: typing.Sequence[float],
+                                     shear_mod: float, v: float,
+                                     shear_mod_2: typing.Optional[float] = None,
+                                     v_2: typing.Optional[float] = None) -> np.array:
     """Find influence matrix components for an elastic contact problem
 
     Parameters
@@ -490,6 +539,8 @@ def elastic_influence_matrix(comp: str, span: typing.Sequence[int], grid_spacing
         The shear modulus of the second surface for a combined stiffness matrix
     v_2: float (optional) None
         The Poisson's ratio of the second surface for a combined stiffness matrix
+    fft: bool
+        If true the fft of the influence matrix will be returned
 
     Returns
     -------
@@ -546,7 +597,7 @@ def elastic_influence_matrix(comp: str, span: typing.Sequence[int], grid_spacing
                       n * np.log((el + np.sqrt(el ** 2 + n ** 2)) / (k + np.sqrt(k ** 2 + n ** 2)))))
 
         const = (1 - v) / (2 * np.pi * shear_mod) + second_surface * ((1 - v_2) / (2 * np.pi * shear_mod_2))
-        return const * c_zz
+        ret = const * c_zz
     elif comp == 'xx':
         c_xx = (hx * (1 - v) * (k * np.log((m + np.sqrt(k ** 2 + m ** 2)) / (n + np.sqrt(k ** 2 + n ** 2))) +
                                 el * np.log(
@@ -554,36 +605,37 @@ def elastic_influence_matrix(comp: str, span: typing.Sequence[int], grid_spacing
                 hy * (m * np.log((k + np.sqrt(k ** 2 + m ** 2)) / (el + np.sqrt(el ** 2 + m ** 2))) +
                       n * np.log((el + np.sqrt(el ** 2 + n ** 2)) / (k + np.sqrt(k ** 2 + n ** 2)))))
         const = 1 / (2 * np.pi * shear_mod) + second_surface * (1 / (2 * np.pi * shear_mod_2))
-        return const * c_xx
+        ret = const * c_xx
     elif comp == 'yy':
         c_yy = (hx * (k * np.log((m + np.sqrt(k ** 2 + m ** 2)) / (n + np.sqrt(k ** 2 + n ** 2))) +
                       el * np.log((n + np.sqrt(el ** 2 + n ** 2)) / (m + np.sqrt(el ** 2 + m ** 2)))) +
                 hy * (1 - v) * (m * np.log((k + np.sqrt(k ** 2 + m ** 2)) / (el + np.sqrt(el ** 2 + m ** 2))) +
                                 n * np.log((el + np.sqrt(el ** 2 + n ** 2)) / (k + np.sqrt(k ** 2 + n ** 2)))))
         const = 1 / (2 * np.pi * shear_mod) + second_surface * (1 / (2 * np.pi * shear_mod_2))
-        return const * c_yy
+        ret = const * c_yy
     elif comp in ['xz', 'zx']:
         c_xz = (hy / 2 * (m * np.log((k ** 2 + m ** 2) / (el ** 2 + m ** 2)) +
                           n * np.log((el ** 2 + n ** 2) / (k ** 2 + n ** 2))) +
                 hx * (k * (np.arctan(m / k) - np.arctan(n / k)) +
                       el * (np.arctan(n / el) - np.arctan(m / el))))
-        const = (2 * v - 1) / (4 * np.pi * shear_mod) + second_surface * (
-            (2 * v_2 - 1) / (4 * np.pi * shear_mod_2))
-        return const * c_xz
+        const = ((2 * v - 1) / (4 * np.pi * shear_mod) + second_surface * (
+            (2 * v_2 - 1) / (4 * np.pi * shear_mod_2))) * (-1 if comp == 'zx' else 1)
+        ret = const * c_xz
     elif comp in ['yx', 'xy']:
         c_yx = (np.sqrt(hy ** 2 * n ** 2 + hx ** 2 * k ** 2) -
                 np.sqrt(hy ** 2 * m ** 2 + hx ** 2 * k ** 2) +
                 np.sqrt(hy ** 2 * m ** 2 + hx ** 2 * el ** 2) -
                 np.sqrt(hy ** 2 * n ** 2 + hx ** 2 * el ** 2))
         const = v / (2 * np.pi * shear_mod) + second_surface * (v_2 / (2 * np.pi * shear_mod_2))
-        return const * c_yx
+        ret = const * c_yx
     elif comp in ['zy', 'yz']:
         c_zy = (hx / 2 * (k * np.log((k ** 2 + m ** 2) / (n ** 2 + k ** 2)) +
                           el * np.log((el ** 2 + n ** 2) / (m ** 2 + el ** 2))) +
                 hy * (m * (np.arctan(k / m) - np.arctan(el / m)) +
                       n * (np.arctan(el / n) - np.arctan(k / n))))
-        const = (1 - 2 * v) / (4 * np.pi * shear_mod) + second_surface * (1 - 2 * v_2) / (
-            4 * np.pi * shear_mod_2)
-        return const * c_zy
+        const = ((1 - 2 * v) / (4 * np.pi * shear_mod) + second_surface * (1 - 2 * v_2) / (
+            4 * np.pi * shear_mod_2)) * (-1 if comp == 'zy' else 1)
+        ret = const * c_zy
     else:
         ValueError('component name not recognised: ' + comp + ', components must be lower case')
+    return ret

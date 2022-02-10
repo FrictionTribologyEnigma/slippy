@@ -40,10 +40,10 @@ class QuasiStaticStep(_ModelStep):
         * A 2 by n array of n absolute position values and n time values normalised to a 0-1 scale. array[0] should be
           position values and array[1] should be time values, time values must be between 0 and 1. The
           movement_interpolation_mode will be used to generate intermediate values
-    interference, normal_load: float or Sequence of float, optional (None)
-        The interference and normal load between the surfaces, only one of these can be set (the other will be solved
-        for) setting neither keeps the interference as it is at the start of this model step. As above for the off sets,
-        either of these parameters can be:
+    interference, normal_load, mean_gap: float or Sequence of float, optional (None)
+        The interference, normal load and mean gap between the surfaces, only one of these can be set, setting neither
+        keeps the interference as it is at the start of this model step. As above for the off sets, either of these
+        parameters can be:
 
         * A constant (float) value, indicating a constant load/ interference between the surfaces.
         * A two element sequence of floats, indicating the the start and finish load. interference, if this is used, the
@@ -82,21 +82,20 @@ class QuasiStaticStep(_ModelStep):
     periodic_im_repeats: tuple, optional (1,1)
         The number of times the influence matrix should be wrapped along periodic dimensions, only used if at least one
         of periodic axes is True. This is necessary to ensure truly periodic behaviour, no physical limit exists
-    method: {'auto', 'pk', 'double'}, optional ('auto')
+    method: {'auto', 'pk', 'double', 'rey'}, optional ('auto')
         The method by which the normal contact is solved, only used for load controlled contact.
         'pk' uses the Polonsky and Keer algorithm for elastic contact.
         'double' uses a double iteration procedure, suitable for elastic contact with a maximum pressure.
         'auto' automatically selects 'pk' if there is no maximum pressure and 'double' if there is.
-    max_it_interference: int, optional (100)
-        The maximum number of iterations used to find the interference between the surfaces, only used if
-        a total normal load is specified (Not used if contact is displacement controlled)
-    rtol_interference: float, optional (1e-3)
-        The relative tolerance on the load used as the convergence criteria for the interference optimisation loop, only
-        used if a total normal load is specified (Not used if contact is displacement controlled)
-    max_it_displacement: int, optional (100)
-        The maximum number of iterations used to find the surface pressures from the interference, used for all IM
-        based materials
-    rtol_displacement: float, optional (1e-4)
+    max_it: int, optional (1000)
+        The maximum number of iterations used in the main loop
+    tolerance: float, optional (1e-8)
+        The relative tolerance used for convergnece of the main loop
+    max_it_outer: int, optional (100)
+        Only used for the double iteration method
+    tolerance_outer: float, optional (1e-4)
+        The norm of the residual used to declare convergence of the bccg iterations
+    tolerance: float, optional (1e-4)
         The norm of the residual used to declare convergence of the bccg iterations
     no_update_warning: bool, optional (True)
         Change to False to suppress warning given when no movement or loading changes are specified
@@ -154,6 +153,7 @@ class QuasiStaticStep(_ModelStep):
                  off_set_y: typing.Union[float, typing.Sequence[float]] = 0.0,
                  interference: typing.Union[float, typing.Sequence[float]] = None,
                  normal_load: typing.Union[float, typing.Sequence[float]] = None,
+                 mean_gap: typing.Union[float, typing.Sequence[float]] = None,
                  relative_loading: bool = False,
                  adhesion: bool = True,
                  unloading: bool = False,
@@ -163,8 +163,9 @@ class QuasiStaticStep(_ModelStep):
                  profile_interpolation_mode: str = 'nearest',
                  periodic_geometry: bool = False, periodic_axes: tuple = (False, False),
                  periodic_im_repeats: tuple = (1, 1), method: str = 'auto',
-                 max_it_interference: int = 100, rtol_interference=1e-3,
-                 max_it_displacement: int = None, rtol_displacement=1e-5, no_update_warning: bool = True,
+                 max_it: int = 1000, tolerance=1e-8,
+                 max_it_outer: int = 100, tolerance_outer=1e-4,
+                 no_update_warning: bool = True,
                  upper: float = 4.0):
 
         # movement interpolation mode sort out movement interpolation mode make array of values
@@ -181,14 +182,24 @@ class QuasiStaticStep(_ModelStep):
         self.profile_interpolation_mode = profile_interpolation_mode
         self._periodic_profile = periodic_geometry
         self._periodic_axes = periodic_axes
-        self._max_it_interference = max_it_interference
-        self._rtol_interference = rtol_interference
-        self._max_it_displacement = max_it_displacement
-        self._rtol_displacement = rtol_displacement
+        self._max_it_outer = max_it_outer
+        self._r_tol_outer = tolerance_outer
+        self._max_it = max_it
+        self._r_tol = tolerance
         self.number_of_steps = number_of_steps
 
-        if method not in {'auto', 'pk', 'double'}:
+        if method not in {'auto', 'pk', 'double', 'rey'}:
             raise ValueError(f"Unrecognised method for step {step_name}: {method}")
+        sum_param = (normal_load is not None) + (interference is not None) + (mean_gap is not None)
+        if sum_param > 1 or sum_param == 0:
+            raise ValueError(f"Exactly one of normal_load, interference and mean_gap must be set, {sum_param} were set")
+        if mean_gap is not None:
+            if method not in {'auto', 'rey'}:
+                raise ValueError("pk and double methods don't support mean gap")
+            else:
+                method = 'rey'
+        if interference is not None and method == 'rey':
+            raise ValueError("Rey method doesn't support interference")
 
         self._method = method
         self._height_optimisation_func = None
@@ -223,6 +234,8 @@ class QuasiStaticStep(_ModelStep):
                 raise ValueError("Cannot have no set load or interference and not relative loading, set either the"
                                  "normal load, normal interference or change relative_loading to True")
 
+        self.load_controlled = False
+
         if normal_load is not None:
             if isinstance(normal_load, Number):
                 self.normal_load = normal_load
@@ -235,6 +248,17 @@ class QuasiStaticStep(_ModelStep):
         else:
             self.normal_load = None
 
+        if mean_gap is not None:
+            if isinstance(mean_gap, Number):
+                self.mean_gap = mean_gap
+            else:
+                self.mean_gap = None
+                self._mean_gap_upd = make_interpolation_func(mean_gap, movement_interpolation_mode,
+                                                             'mean_gap')
+                self.update.add('mean_gap')
+        else:
+            self.mean_gap = None
+
         if interference is not None:
             if isinstance(interference, Number):
                 self.interference = interference
@@ -243,7 +267,8 @@ class QuasiStaticStep(_ModelStep):
                 self._interference_upd = make_interpolation_func(interference, movement_interpolation_mode,
                                                                  'interference')
                 self.update.add('interference')
-            self.load_controlled = False
+        else:
+            self.interference = None
 
         if not self.update and no_update_warning:
             warnings.warn("Nothing set to update")
@@ -282,6 +307,17 @@ class QuasiStaticStep(_ModelStep):
                 np.array([0, 0])
 
         self._adhesion_model = self.model.adhesion if self._adhesion else None
+        max_pressure = min(self.model.surface_1.material.max_load, self.model.surface_2.material.max_load)
+
+        if self._method == 'auto':
+            if not np.isinf(max_pressure):
+                if self._adhesion_model:
+                    raise ValueError("Adhesion and maximum load not allowed")
+                self._method = 'double'
+            elif self._adhesion_model is not None:
+                self._method = 'rey'
+            else:
+                self._method = 'pk'
 
         current_state = dict()
 
@@ -344,11 +380,12 @@ class QuasiStaticStep(_ModelStep):
                                                   model=self.model,
                                                   adhesion_model=self._adhesion_model,
                                                   initial_contact_nodes=self._initial_contact_nodes,
-                                                  max_it_inner=self._max_it_displacement,
-                                                  tol_inner=self._rtol_displacement,
+                                                  max_it=self._max_it,
+                                                  rtol=self._r_tol,
                                                   material_options=dict(),
                                                   max_set_load=self.normal_load,
-                                                  tolerance=self._rtol_interference,
+                                                  rtol_outer=self._r_tol_outer,
+                                                  max_it_outer=self._max_it_outer,
                                                   periodic_axes=self._periodic_axes,
                                                   periodic_im_repeats=self._periodic_im_repeats)
             self._height_optimisation_func = opt_func
@@ -360,15 +397,13 @@ class QuasiStaticStep(_ModelStep):
         else:
             contact_nodes = None
             # contact_nodes = np.ones(self._just_touching_gap.shape, dtype=np.bool)
-        if self._method == 'auto':
-            if np.isinf(opt_func.max_pressure):
-                self._method = 'pk'
-            else:
-                self._method = 'double'
 
         if self._method == 'pk':
             opt_func.contact_nodes = None
             opt_func.p_and_k(self.normal_load)
+        elif self._method == 'rey':
+            opt_func.contact_nodes = None
+            opt_func.rey(target_load=self.normal_load)
         else:
             opt_func.change_load(self.normal_load, contact_nodes)
             # need to set bounds and pick a sensible starting point
@@ -379,8 +414,8 @@ class QuasiStaticStep(_ModelStep):
             else:
                 brackets = (0, upper)
             print(f'Bounds adjusted using cache to: {brackets}')
-            print(f'Interference tolerance set to {self._rtol_interference} Relative')
-            opt_func.brent(0, upper, r_tol=self._rtol_interference, max_iter=self._max_it_interference)
+            print(f'Interference tolerance set to {self._r_tol_outer} Relative')
+            opt_func.brent(0, upper)
 
         # noinspection PyProtectedMember
 
@@ -390,21 +425,27 @@ class QuasiStaticStep(_ModelStep):
         return results
 
     def _solve_displacement_controlled(self, current_state):
+        # Note also includes gap control for rey
         if not self._no_time or self._height_optimisation_func is None:
-            h_opt_func = HeightOptimisationFunction(just_touching_gap=self._just_touching_gap,
-                                                    model=self.model,
-                                                    adhesion_model=self._adhesion_model,
-                                                    initial_contact_nodes=self._initial_contact_nodes,
-                                                    max_it_inner=self._max_it_displacement,
-                                                    tol_inner=self._rtol_displacement,
-                                                    material_options=dict(),
-                                                    max_set_load=1,
-                                                    tolerance=self._rtol_interference,
-                                                    periodic_axes=self._periodic_axes,
-                                                    periodic_im_repeats=self._periodic_im_repeats)
-            self._height_optimisation_func = h_opt_func
+            opt_func = HeightOptimisationFunction(just_touching_gap=self._just_touching_gap,
+                                                  model=self.model,
+                                                  adhesion_model=self._adhesion_model,
+                                                  initial_contact_nodes=self._initial_contact_nodes,
+                                                  max_it=self._max_it,
+                                                  rtol=self._r_tol,
+                                                  material_options=dict(),
+                                                  max_set_load=1,
+                                                  rtol_outer=self._r_tol_outer,
+                                                  max_it_outer=self._max_it_outer,
+                                                  periodic_axes=self._periodic_axes,
+                                                  periodic_im_repeats=self._periodic_im_repeats)
+            self._height_optimisation_func = opt_func
         else:
-            h_opt_func = self._height_optimisation_func
+            opt_func = self._height_optimisation_func
+
+        if self._method == 'rey':
+            opt_func.rey(target_mean_gap=self.mean_gap)
+            return opt_func.results
 
         if self._unloading and 'contact_nodes' in current_state:
             contact_nodes = current_state['contact_nodes']
@@ -412,11 +453,11 @@ class QuasiStaticStep(_ModelStep):
             contact_nodes = None
             # contact_nodes = np.ones(self._just_touching_gap.shape, dtype=np.bool)
 
-        h_opt_func.change_load(1, contact_nodes)
-        _ = h_opt_func(self.interference, current_state)
-        results = h_opt_func.results
+        opt_func.change_load(1, contact_nodes)
+        _ = opt_func(self.interference, current_state)
+        results = opt_func.results
         results['interference'] = self.interference
-        results['converged'] = not h_opt_func.last_call_failed
+        results['converged'] = not opt_func.last_call_failed
         return results
 
     def __repr__(self):

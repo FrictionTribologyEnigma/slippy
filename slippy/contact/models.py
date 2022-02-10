@@ -10,7 +10,7 @@ from contextlib import redirect_stdout, ExitStack
 from datetime import datetime
 from slippy.core.outputs import OutputSaver, OutputRequest
 
-from slippy.core import _SurfaceABC, _LubricantModelABC, _ContactModelABC
+from slippy.core import _SurfaceABC, _LubricantModelABC, _ContactModelABC, _AdhesionModelABC
 from slippy.contact.steps import _ModelStep, InitialStep
 
 __all__ = ['ContactModel']
@@ -27,8 +27,10 @@ class ContactModel(_ContactModelABC):
         A surface object with the height profile and the material for the surface set. The first surface will be the
         master surface, when grid points are not aligned surface 2 will be interpolated on the grid points for
         surface 1.
-    lubricant: _LubricantModelABC
+    lubricant: _LubricantModelABC, optional (None)
         A lubricant model
+    adhesion: _AdhesionModelABC, optional (None)
+        An adhesion model
     output_dir: str, optional (None)
         Path to an output directory can be relative or absolute, slippy will attempt to make directory if it does not
         exist, defaults to slippy.OUTPUT_DIR, which defaults to the current working directory.
@@ -59,17 +61,18 @@ class ContactModel(_ContactModelABC):
     """Flag set to true if one of the surfaces is rigid"""
     _is_rigid: bool = False
     steps: OrderedDict
-    adhesion = None
     _current_state_debug: dict = None
     _all_step_outputs = []
 
     def __init__(self, name: str, surface_1: _SurfaceABC, surface_2: _SurfaceABC = None,
-                 lubricant: _LubricantModelABC = None, output_dir: str = None):
+                 lubricant: _LubricantModelABC = None, adhesion: _AdhesionModelABC = None, output_dir: str = None):
         self.surface_1 = surface_1
         self.surface_2 = surface_2
         self.name = name
-        if lubricant is not None:
-            self.lubricant_model = lubricant
+        self.lubricant_model = lubricant
+        self.adhesion = adhesion
+        if adhesion is not None and lubricant is not None:
+            warnings.warn("No steps can handle both adhesion and lubrication at this time")
         self.steps = OrderedDict({'Initial': InitialStep()})
         self.current_step = None
         self.current_step_start_time = None

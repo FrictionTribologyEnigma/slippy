@@ -10,8 +10,8 @@ class SurfaceTensedMaterial(_IMMaterial):
         self.s = 2 * tau_0 / self.e_star
         self.int_tol = im_intergration_error
 
-    def _influence_matrix(self, components: typing.Sequence[str], grid_spacing: typing.Sequence[float],
-                          span: typing.Sequence[int]):
+    def _influence_matrix_spatial(self, components: typing.Sequence[str], grid_spacing: typing.Sequence[float],
+                                  span: typing.Sequence[int]):
         if len(components) > 1 or 'zz' not in components:
             raise ValueError("Only normal loading is implemented for surface tensed materials")
 

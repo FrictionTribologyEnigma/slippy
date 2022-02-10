@@ -18,16 +18,13 @@ if slippy.CUDA:
 else:
     cp = None
 
-from slippy.core import _ContactModelABC, bccg, plan_convolve, _IMMaterial, polonsky_and_keer  # noqa: E402
+from slippy.core import _ContactModelABC, bccg, plan_convolve, _IMMaterial, polonsky_and_keer, rey, \
+    ConvolutionFunction, _AdhesionModelABC  # noqa: E402
 
 __all__ = ['solve_normal_interference', 'get_next_file_num', 'OffSetOptions', 'solve_normal_loading',
            'HeightOptimisationFunction', 'make_interpolation_func']
 
 OffSetOptions = namedtuple('off_set_options', ['off_set', 'abs_off_set', 'periodic', 'interpolation_mode'])
-
-_iter = 100
-_xtol = 2e-12
-_rtol = 4 * np.finfo(float).eps
 
 
 def make_interpolation_func(values, kind, name: str):
@@ -79,17 +76,16 @@ class HeightOptimisationFunction:
         The maximum adhesive pressure between the surfaces
     initial_contact_nodes:
         If set the solution will be constrained to these nodes, if this is not wanted use None
-    max_it_inner: int
-        The maximum number of iterations for the inner loops
-    tol_inner: float
-        The tolerance used to declare convergence for the inner loops
+    max_it: int
+        The maximum number of iterations (for the inner loops if double optimisation is used)
+    rtol: float
+        The tolerance used to declare convergence (for the inner loops if double optimisation is used)
     material_options: dict, list of dict
         Material options for the materials in the model
     max_set_load: float
         The target total load in the normal direction, this must be kept up to date if the same function is being reused
-    tolerance: float
-        The tolerance used in the outer loop, the loop that this functions is optimised over, this is necessary to
-        ensure a full solution is always returned (the final solution will not be returned from the cache)
+    rtol_outer: float
+        The tolerance used in the outer loop, only used if double optimisation method is used
     use_cache: bool, optional (True)
         If False the cache won't be used
     cache_loads: bool, optional (True)
@@ -102,10 +98,11 @@ class HeightOptimisationFunction:
     set_contact_nodes = False
 
     def __init__(self, just_touching_gap: np.ndarray, model: _ContactModelABC,
-                 adhesion_model: float, initial_contact_nodes: np.ndarray,
-                 max_it_inner: int, tol_inner: float, material_options: typing.Union[typing.Sequence[dict], dict],
-                 max_set_load: float, tolerance: float, use_cache: bool = True, cache_loads=True,
-                 periodic_axes: typing.Tuple[bool] = (False, False), periodic_im_repeats: typing.Tuple[int] = (1, 1)):
+                 adhesion_model: _AdhesionModelABC, initial_contact_nodes: np.ndarray,
+                 max_it: int, rtol: float, material_options: typing.Union[typing.Sequence[dict], dict],
+                 max_set_load: float, rtol_outer: float = 0, max_it_outer: int = 0, use_cache: bool = True,
+                 cache_loads=True, periodic_axes: typing.Tuple[bool] = (False, False),
+                 periodic_im_repeats: typing.Tuple[int] = (1, 1)):
         if slippy.CUDA:
             xp = cp
             cache_loads = False
@@ -115,12 +112,13 @@ class HeightOptimisationFunction:
         self._grid_spacing = model.surface_1.grid_spacing
 
         self._just_touching_gap = xp.asarray(just_touching_gap)
-
         self._model = model
         self._adhesion_model = adhesion_model
         self.initial_contact_nodes = initial_contact_nodes
-        self._max_it_inner = max_it_inner
-        self._tol_inner = tol_inner
+        self._max_it = max_it
+        self._tol = rtol
+        self._max_it_outer = max_it_outer
+        self._tol_outer = rtol_outer
         self._material_options = material_options
         self._original_set_load = max_set_load
         self._set_load = float(max_set_load)
@@ -128,7 +126,7 @@ class HeightOptimisationFunction:
         self.cache_heights = [0.0]
         self.cache_total_load = [0.0]
         self.cache_surface_loads = [xp.zeros(just_touching_gap.shape)]
-        self.tolerance = tolerance
+
         self.it = 0
         self.use_cache = use_cache
         self.use_loads_cache = cache_loads
@@ -136,7 +134,7 @@ class HeightOptimisationFunction:
         surf_2 = model.surface_2
 
         self.im_mats = False
-        self.conv_func: typing.Callable = None
+        self.conv_func: ConvolutionFunction = None
         self.cache_max = False
         self.last_call_failed = False
         self._last_converged_loads = None
@@ -285,8 +283,7 @@ class HeightOptimisationFunction:
 
         return float(lower_bound), float(upper_bound)
 
-    def brent(self, xa: float, xb: float, xg: float = None, x_tol: float = _xtol, r_tol: float = _rtol,
-              max_iter: int = _iter, current_state: dict = None):
+    def brent(self, xa: float, xb: float, xg: float = None, x_tol: float = np.inf):
         """
         A 'nan safe' version of the brent root finding algorithm
 
@@ -296,18 +293,10 @@ class HeightOptimisationFunction:
             The lower and upper bracket values respectively (f(xa) must be smaller than 0, f(xb) must be larger than 0)
         xg: float, optional (None)
             An optional first guess at the zero location, zero can be above or below this value
-        x_tol: float, optional (2e-12)
+        x_tol: float, optional (inf)
             The computed root x0 will satisfy np.allclose(x, x0, atol=x_tol, rtol=r_tol), where x is the exact root. The
             parameter must be non-negative. For nice functions, Brent’s method will often satisfy the above condition
             with x_tol/2 and r_tol/2. [Brent1973]
-        r_tol: float, optional (4 * np.finfo(float).eps)
-            The computed root x0 will satisfy np.allclose(x, x0, atol=x_tol, rtol=r_tol), where x is the exact root. The
-            parameter cannot be smaller than its default value of 4*np.finfo(float).eps. For nice functions, Brent’s
-            method will often satisfy the above condition with x_tol/2 and r_tol/2. [Brent1973]
-        max_iter: int, optional (100)
-            The maximum number of iterations
-        current_state: dict, optional (None)
-            The current model state, for compatibility with future behaviour
 
         Returns
         -------
@@ -322,8 +311,51 @@ class HeightOptimisationFunction:
         functions with a zero for a positive value of x. It is also tolerant to single nan values from the function to
         help with convergence.
 
+        The relative tolerance is set to self._r_tol_outer, the max iterations is set to self._max_it_outer.
+
         """
-        return safe_brent(self, xa, xb, xg, x_tol, r_tol, max_iter)
+        failed, _ = safe_brent(self, xa, xb, xg, x_tol, self._tol_outer, self._max_it_outer)
+        self._results['converged'] = not failed
+
+    def rey(self, target_load: float = None, target_mean_gap: float = None, add_to_cache: bool = True):
+        """ Solve the contact problem using the Rey algorithm
+
+        Parameters
+        ----------
+        target_load: float
+            The target total load
+        target_mean_gap: float
+            The target mean gap
+        add_to_cache: bool
+            If True the result will be cached
+
+        Returns
+        -------
+        None
+
+        Notes
+        -----
+        The results from this method can be accessed by accessing the results property of this class, this will
+        automatically fill in displacement for both surfaces and the rigid body interference result.
+
+        The contact nodes property must be set to None before using this method, this remakes the convolution function.
+        """
+        if self.max_pressure < np.inf:
+            raise ValueError("Rey algorithm cannot be used with a maximum pressure")
+        if target_load is None:
+            target_mean_pressure = None
+        else:
+            target_mean_pressure = target_load/(self._just_touching_gap.size*self._grid_spacing**2)
+        failed, pressure, gap, total_displacement, contact_nodes = rey(self._just_touching_gap, self.conv_func,
+                                                                       self._adhesion_model, self._tol,
+                                                                       self._max_it, target_mean_gap,
+                                                                       target_mean_pressure)
+        self._results = {'loads_z': pressure, 'total_displacement_z': total_displacement,
+                         'interference': np.mean((slippy.asnumpy(self._just_touching_gap) +
+                                                  slippy.asnumpy(total_displacement))[slippy.asnumpy(pressure > 0)]),
+                         'converged': not failed}
+        if add_to_cache:
+            self.add_to_cache(self._results['interference'], target_load, pressure, failed)
 
     def p_and_k(self, target_load: float, pressure_guess: np.ndarray = None, add_to_cache: bool = True):
         """ Solve the set contact problem using the Polonsky and Keer algorithm
@@ -335,6 +367,8 @@ class HeightOptimisationFunction:
         pressure_guess: array, optional (None)
             The initial guess for the pressure solution, if none is supplied the last converged solution is used if
             there is no last converged solution a flat array (ones) is used.
+        add_to_cache: bool
+            If True the result will be cached
 
         Returns
         -------
@@ -353,11 +387,12 @@ class HeightOptimisationFunction:
         if pressure_guess is None:
             pressure_guess = self._last_converged_loads or np.ones_like(self._just_touching_gap)
         failed, pressure, gap = polonsky_and_keer(self.conv_func, pressure_guess, self._just_touching_gap, target_load,
-                                                  self._grid_spacing, self._tol_inner, self._max_it_inner)
+                                                  self._grid_spacing, self._tol, self._max_it)
         total_displacement = self.conv_func(pressure)
         self._results = {'loads_z': pressure, 'total_displacement_z': total_displacement,
                          'interference': np.mean((slippy.asnumpy(self._just_touching_gap) +
-                                                  slippy.asnumpy(total_displacement))[slippy.asnumpy(pressure > 0)])}
+                                                  slippy.asnumpy(total_displacement))[slippy.asnumpy(pressure > 0)]),
+                         'converged':not failed}
         if add_to_cache:
             self.add_to_cache(self._results['interference'], target_load, pressure, failed)
 
@@ -390,8 +425,8 @@ class HeightOptimisationFunction:
                     pressure_initial_guess = xp.zeros_like(z)
                 z_in = z[contact_nodes]
                 pressure_guess_in = pressure_initial_guess[contact_nodes]
-                loads_in_domain, failed = bccg(self.conv_func, z_in, self._tol_inner,
-                                               self._max_it_inner, pressure_guess_in,
+                loads_in_domain, failed = bccg(self.conv_func, z_in, self._tol,
+                                               self._max_it, pressure_guess_in,
                                                0, self.max_pressure)
                 self._results = {'loads_in_domain': loads_in_domain, 'domain': self.contact_nodes,
                                  'interference': height}
@@ -421,9 +456,9 @@ class HeightOptimisationFunction:
                                       current_state=current_state,
                                       adhesive_pressure=self._adhesion_model,
                                       contact_nodes=self.contact_nodes,
-                                      max_iter=self._max_it_inner,
+                                      max_iter=self._max_it,
                                       material_options=self._material_options,
-                                      tol=self._tol_inner,
+                                      tol=self._tol,
                                       initial_guess_loads=pressure_initial_guess)
 
         self._results['loads_z'] = loads
@@ -473,8 +508,8 @@ class HeightOptimisationFunction:
                 self.cache_surface_loads.insert(index, loads)
 
 
-def safe_brent(f: typing.Callable, xa: float, xb: float, xg: float = None, x_tol: float = _xtol, r_tol: float = _rtol,
-               max_iter: int = _iter):
+def safe_brent(f: typing.Callable, xa: float, xb: float, xg: typing.Optional[float], x_tol: float, r_tol: float,
+               max_iter: int):
     """
     A 'nan safe' version of the brent root finding algorithm
 
@@ -486,15 +521,15 @@ def safe_brent(f: typing.Callable, xa: float, xb: float, xg: float = None, x_tol
         The lower and upper bracket values respectively (f(xa) must be smaller than 0, f(xb) must be larger than 0)
     xg: float, optional (None)
         An optional first guess at the zero location, zero can be above or below this value
-    x_tol: float, optional (2e-12)
+    x_tol: float
         The computed root x0 will satisfy np.allclose(x, x0, atol=xtol, rtol=rtol), where x is the exact root. The
         parameter must be non-negative. For nice functions, Brent’s method will often satisfy the above condition with
         xtol/2 and rtol/2. [Brent1973]
-    r_tol: float, optional (4 * np.finfo(float).eps)
+    r_tol: float
         The computed root x0 will satisfy np.allclose(x, x0, atol=xtol, rtol=rtol), where x is the exact root. The
         parameter cannot be smaller than its default value of 4*np.finfo(float).eps. For nice functions, Brent’s method
         will often satisfy the above condition with xtol/2 and rtol/2. [Brent1973]
-    max_iter: int, optional (100)
+    max_iter: int
         The maximum number of iterations
 
     Returns

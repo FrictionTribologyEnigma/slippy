@@ -37,9 +37,9 @@ class StaticStep(_ModelStep):
         The total time period of this model step, used for solving sub-models and writing outputs
     off_set_x, off_set_y: float
         The off set between the surfaces origins, in the same units as the grid spacings of the surfaces.
-    normal_load, interference: float
+    normal_load, interference, mean_gap: float
         The total compressive load and the interference between the two surfaces (measured from the point of first
-        contact). Exactly one of these must be set.
+        contact). Exactly one of these must be set. See notes for valid methods for each parameter.
     relative_loading: bool, optional (False)
         If True the load or displacement will be applied relative to the value at the start of the step,
         otherwise the absolute value will be used. eg, if the previous step ended with a load of 10N and this step ramps
@@ -61,22 +61,32 @@ class StaticStep(_ModelStep):
     periodic_im_repeats: tuple, optional (1,1)
         The number of times the influence matrix should be wrapped along periodic dimensions, only used if at least one
         of periodic axes is True. This is necessary to ensure truly periodic behaviour, no physical limit exists
-    method: {'auto', 'pk', 'double'}, optional ('auto')
+    method: {'auto', 'pk', 'double', 'rey'}, optional ('auto')
         The method by which the normal contact is solved, only used for load controlled contact.
-        'pk' uses the Polonsky and Keer algorithm for elastic contact.
+        'pk' uses the Polonsky and Keer algorithm linear contact.
         'double' uses a double iteration procedure, suitable for elastic contact with a maximum pressure.
+        'rey' uses the Rey algorithm for adhesive contact.
         'auto' automatically selects 'pk' if there is no maximum pressure and 'double' if there is.
-    max_it_interference: int, optional (100)
-        The maximum number of iterations used to find the interference between the surfaces, only used if
-        a total normal load is specified (Not used if contact is displacement controlled)
-    rtol_interference: float, optional (1e-3)
-        The relative tolerance on the load used as the convergence criteria for the interference optimisation loop, only
-        used if a total normal load is specified (Not used if contact is displacement controlled)
-    max_it_displacement: int, optional (100)
-        The maximum number of iterations used to find the surface pressures from the interference, used for all IM
-        based materials
-    rtol_displacement: float, optional (1e-4)
+    max_it: int, optional (1000)
+        The maximum number of iterations used in the main loop
+    tolerance: float, optional (1e-8)
+        The relative tolerance used for convergnece of the main loop
+    max_it_outer: int, optional (100)
+        Only used for the double iteration method
+    tolerance_outer: float, optional (1e-4)
         The norm of the residual used to declare convergence of the bccg iterations
+
+    Notes
+    -----
+    Not all methods can be used for all set parameters and periodic combinations:
+    rey: Both axes must be periodic, mean_gap or normal_load can be set, adhesion allowed, linear materials
+    pk: Any combination of periodic axes, normal load or interference set (interference requires spartially
+        defined influence matrix), no adhesion, linear materials
+    double: Any combination of periodic axes, normal load or interference set (interference requires spartially
+        defined influence matrix), no adhesion, maximum load allowed for materials.
+
+    Setting the method to 'auto' will choose a method automatically or raise an error if no method can be used. If
+    multiple methods can be used the pk solver is used.
 
     Examples
     --------
@@ -106,12 +116,13 @@ class StaticStep(_ModelStep):
     def __init__(self, step_name: str, time_period: float = 1.0,
                  off_set_x: float = 0.0, off_set_y: float = 0.0,
                  normal_load: float = None, interference: float = None,
+                 mean_gap: float = None,
                  relative_loading: bool = False, adhesion: bool = True,
                  unloading: bool = False, profile_interpolation_mode: str = 'nearest',
                  periodic_geometry: bool = False, periodic_axes: tuple = (False, False),
                  periodic_im_repeats: tuple = (1, 1), method: str = 'auto',
-                 max_it_interference: int = 100, rtol_interference=1e-3,
-                 max_it_displacement: int = None, rtol_displacement=1e-4):
+                 max_it: int = 1000, tolerance=1e-8,
+                 max_it_outer: int = 100, tolerance_outer=1e-4):
 
         self._periodic_im_repeats = periodic_im_repeats
         self._off_set = (off_set_x, off_set_y)
@@ -119,34 +130,36 @@ class StaticStep(_ModelStep):
         self.profile_interpolation_mode = profile_interpolation_mode
         self._periodic_profile = periodic_geometry
         self._periodic_axes = periodic_axes
-        self._max_it_interference = max_it_interference
-        self._rtol_interference = rtol_interference
-        self._max_it_displacement = max_it_displacement
-        self._rtol_displacement = rtol_displacement
+        self._max_it = max_it
+        self._rtol = tolerance
+        self._max_it_outer = max_it_outer
+        self._rtol_outer = tolerance_outer
         self._height_optimisation_func = None
         self._adhesion = adhesion
         self._unloading = unloading
 
-        if method not in {'auto', 'pk', 'double'}:
+        if method not in {'auto', 'pk', 'double', 'rey'}:
             raise ValueError(f"Unrecognised method for step {step_name}: {method}")
+        self._opt_func = None
+        sum_param = (normal_load is not None) + (interference is not None) + (mean_gap is not None)
+        if sum_param > 1 or sum_param == 0:
+            raise ValueError(f"Exactly one of normal_load, interference and mean_gap must be set, {sum_param} were set")
+        if mean_gap is not None:
+            if method not in {'auto', 'rey'}:
+                raise ValueError("pk and double methods don't support mean gap")
+            else:
+                method = 'rey'
+        if interference is not None and method == 'rey':
+            raise ValueError("Rey method doesn't support interference")
 
         self._method = method
-        self._opt_func = None
-
-        if normal_load is not None and interference is not None:
-            raise ValueError("Both normal_load and interference are set, only one of these can be set")
-        if normal_load is None and interference is None:
-            if relative_loading:
-                interference = 0
-            else:
-                raise ValueError("Cannot have no set load or interference and not relative loading, set either the"
-                                 "normal load, normal interference or change relative_loading to True")
-
+        # noinspection PyTypeChecker
         self.interference = interference
         # noinspection PyTypeChecker
         self.normal_load = normal_load
+        self.mean_gap = mean_gap
 
-        self.load_controlled = interference is None
+        self.load_controlled = normal_load is not None
 
         provides = {'off_set', 'loads_z', 'surface_1_displacement_z', 'surface_2_displacement_z',
                     'total_displacement_z',
@@ -199,23 +212,29 @@ class StaticStep(_ModelStep):
         opt_func = HeightOptimisationFunction(just_touching_gap=just_touching_gap, model=self.model,
                                               adhesion_model=adhesion_model,
                                               initial_contact_nodes=initial_contact_nodes,
-                                              max_it_inner=self._max_it_displacement, tol_inner=self._rtol_displacement,
+                                              max_it=self._max_it, rtol=self._rtol,
                                               max_set_load=max_load,
-                                              tolerance=self._rtol_interference, material_options=None,
+                                              rtol_outer=self._rtol_outer, max_it_outer=self._max_it_outer,
+                                              material_options=None,
                                               periodic_axes=self._periodic_axes, )
         self._opt_func = opt_func
 
         if self._method == 'auto':
-            if np.isinf(opt_func.max_pressure):
-                self._method = 'pk'
-            else:
+            if not np.isinf(opt_func.max_pressure):
+                if adhesion_model:
+                    raise ValueError("Adhesion and maximum load not allowed")
                 self._method = 'double'
+            elif adhesion_model is not None:
+                self._method = 'rey'
+            else:
+                self._method = 'pk'
 
         if self._unloading and 'contact_nodes' in previous_state:
             contact_nodes = previous_state['contact_nodes']
         else:
             contact_nodes = None
 
+        converged = None
         if self.load_controlled:
             if self._relative_loading:
                 load = previous_state['total_normal_load'] + self.normal_load
@@ -226,27 +245,35 @@ class StaticStep(_ModelStep):
                 print('Solving contact by PK method')
                 opt_func.contact_nodes = None
                 opt_func.p_and_k(load)
+            elif self._method == 'rey':
+                print('Solving contact by Rey method')
+                opt_func.contact_nodes = None
+                opt_func.rey(target_load=load)
             else:
                 upper = 3 * max(just_touching_gap.flatten())
                 print(f'upper bound set at: {upper}')
-                print(f'Interference tolerance set to {self._rtol_displacement} Relative')
+                print(f'Interference tolerance set to {self._rtol_outer} Relative')
                 opt_func.change_load(load, contact_nodes)
-                opt_func.brent(0, upper, r_tol=self._rtol_interference, max_iter=self._max_it_interference)
-            converged = (np.abs(opt_func.results['total_normal_load']-self.normal_load) /
-                         self.normal_load < 0.05 and not opt_func.last_call_failed)
+                opt_func.brent(0, upper)
         else:
             if self._relative_loading:
                 interference = previous_state['interference'] + self.interference
             else:
                 interference = self.interference
-            opt_func.change_load(1, contact_nodes)
-            _ = opt_func(interference, current_state)
-            converged = not opt_func.last_call_failed
+            if self._method == 'rey':
+                # safe because of error checking in init
+                opt_func.rey(target_mean_gap=self.mean_gap)
+            else:
+                opt_func.change_load(1, contact_nodes)
+                _ = opt_func(interference, current_state)
+                converged = not opt_func.last_call_failed
 
         current_state.update(opt_func.results)
-        current_state['converged'] = converged
-        current_state['gap'] = (just_touching_gap - current_state['interference'] +
-                                opt_func.results['total_displacement_z'])
+        if converged is not None:
+            current_state['converged'] = converged
+        if 'gap' not in current_state:
+            current_state['gap'] = (just_touching_gap - current_state['interference'] +
+                                    opt_func.results['total_displacement_z'])
         self.solve_sub_models(current_state)
         self.save_outputs(current_state, output_file)
 
@@ -259,6 +286,6 @@ class StaticStep(_ModelStep):
                   f'relative_loading:={self._relative_loading}, adhesion={self._adhesion},'
                   f'unloading={self._unloading}, profile_interpolation_mode={self.profile_interpolation_mode},'
                   f'periodic_geometry={self._periodic_profile}, periodic_axes{self._periodic_axes},'
-                  f'max_it_interference={self._max_it_interference}, rtol_interference:{self._rtol_interference},'
-                  f'max_it_displacement={self._max_it_displacement}, rtol_displacement={self._rtol_displacement})')
+                  f'max_it_interference={self._max_it}, rtol_interference:{self._rtol},'
+                  f'max_it_displacement={self._max_it_outer}, rtol_displacement={self._rtol_outer})')
         return string
