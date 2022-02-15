@@ -20,5 +20,5 @@ __all__ = ['_SurfaceABC', '_AdhesionModelABC', '_MaterialABC', '_StepABC', '_Fri
            '_NonDimensionalReynoldSolverABC', '_SubModelABC', '_IMMaterial', 'Rigid', 'rigid', 'Elastic',
            'bccg', 'plan_convolve', 'OutputReader', 'OutputRequest', 'OutputSaver', 'guess_loads_from_displacement',
            'elastic_influence_matrix_spatial', 'elastic_influence_matrix_frequency', 'get_angular_velocity',
-           'read_output', 'plan_multi_convolve', 'plan_coupled_convolve', 'ConvolutionFunction',
+           'read_output', 'plan_multi_convolve', 'plan_coupled_convolve', 'ConvolutionFunction', 'rey',
            'get_derived_stresses', 'polonsky_and_keer', 'gmres', 'solve_cubic']

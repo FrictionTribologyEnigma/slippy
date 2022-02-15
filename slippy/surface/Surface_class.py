@@ -1873,6 +1873,7 @@ class SurfaceCombination(_AnalyticalSurface):
         """This will be overwritten on init"""
         pass
 
+
 """
 class RollingSurface(_Surface):
     def __init__(self, stationary_surface:_Surface, rolling_surface:Surface, allow_non_integer_roll = True,

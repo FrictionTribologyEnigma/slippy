@@ -58,9 +58,6 @@ class StaticStep(_ModelStep):
     periodic_axes: tuple, optional ((False, False))
         For each True value the corresponding axis will be solved by circular convolution, meaning the result is
         periodic in that direction
-    periodic_im_repeats: tuple, optional (1,1)
-        The number of times the influence matrix should be wrapped along periodic dimensions, only used if at least one
-        of periodic axes is True. This is necessary to ensure truly periodic behaviour, no physical limit exists
     method: {'auto', 'pk', 'double', 'rey'}, optional ('auto')
         The method by which the normal contact is solved, only used for load controlled contact.
         'pk' uses the Polonsky and Keer algorithm linear contact.
@@ -120,11 +117,10 @@ class StaticStep(_ModelStep):
                  relative_loading: bool = False, adhesion: bool = True,
                  unloading: bool = False, profile_interpolation_mode: str = 'nearest',
                  periodic_geometry: bool = False, periodic_axes: tuple = (False, False),
-                 periodic_im_repeats: tuple = (1, 1), method: str = 'auto',
+                 method: str = 'auto',
                  max_it: int = 1000, tolerance=1e-8,
                  max_it_outer: int = 100, tolerance_outer=1e-4):
 
-        self._periodic_im_repeats = periodic_im_repeats
         self._off_set = (off_set_x, off_set_y)
         self._relative_loading = bool(relative_loading)
         self.profile_interpolation_mode = profile_interpolation_mode
@@ -271,9 +267,6 @@ class StaticStep(_ModelStep):
         current_state.update(opt_func.results)
         if converged is not None:
             current_state['converged'] = converged
-        if 'gap' not in current_state:
-            current_state['gap'] = (just_touching_gap - current_state['interference'] +
-                                    opt_func.results['total_displacement_z'])
         self.solve_sub_models(current_state)
         self.save_outputs(current_state, output_file)
 

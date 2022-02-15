@@ -26,7 +26,8 @@ class _IMMaterial(_MaterialABC):
     _fft: bool = True
     _spatial: bool = True
 
-    def __init__(self, name: str, default_fft: bool = True, max_load: float = np.inf):
+    def __init__(self, name: str, default_fft: bool = True, max_load: float = np.inf,
+                 periodic_im_repeats: tuple = (1, 1), zero_frequency_value: float = None):
         if name in slippy.material_names:
             raise ValueError(f"Materials must have unique names, currently in use names are: {slippy.material_names}")
         slippy.material_names.append(name)
@@ -37,6 +38,8 @@ class _IMMaterial(_MaterialABC):
             self.use_frequency = True
         else:
             self.use_frequency = False
+        self.periodic_im_repeats = periodic_im_repeats
+        self.zero_frequency_value = zero_frequency_value
 
     # keeps a registry of the materials
     @classmethod
@@ -79,8 +82,7 @@ class _IMMaterial(_MaterialABC):
     @memoize_components(False)
     def influence_matrix(self, components: typing.Sequence[str],
                          grid_spacing: typing.Union[typing.Sequence[float], float],
-                         span: typing.Union[typing.Sequence[int], int], periodic_strides=(1, 1),
-                         zero_frequency_value: typing.Union[dict, float] = None,
+                         span: typing.Union[typing.Sequence[int], int],
                          fft: bool = True):
         """
         Find the influence matrix components for the material relating surface pressures to
@@ -115,6 +117,9 @@ class _IMMaterial(_MaterialABC):
         Notes
         -----
         """
+        periodic_strides = self.periodic_im_repeats
+        zero_frequency_value = self.zero_frequency_value
+
         if not isinstance(span, Sequence):
             try:
                 span = int(span)
@@ -389,7 +394,7 @@ class Rigid(_IMMaterial):
     M = None
 
     def __init__(self, name: str):
-        super().__init__(name)
+        super().__init__(name, True, np.inf, (1, 1), 0.0)
 
     def _influence_matrix_spatial(self, components: typing.Sequence[str], grid_spacing: typing.Sequence[float],
                                   span: typing.Sequence[int]):

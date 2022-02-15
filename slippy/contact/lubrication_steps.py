@@ -85,9 +85,6 @@ class IterSemiSystem(_ModelStep):
         periodic in that direction. NOTE: this only controls the deformation result from the materials, ensure that the
         reynolds equation solver used supports periodic solutions and is set to produce a periodic solution to the
         pressure equation. Additionally, ensure that the axes of periodicity match.
-    periodic_im_repeats: tuple, optional (1,1)
-        The number of times the influence matrix should be wrapped along periodic dimensions, only used if at least one
-        of periodic axes is True. This is necessary to ensure truly periodic behaviour, no physical limit exists
     max_it_pressure: int, optional (100)
         The maximum number of iterations in the fluid pressure calculation loop
     rtol_pressure: float, optional (1e-7)
@@ -206,7 +203,6 @@ class IterSemiSystem(_ModelStep):
                  movement_interpolation_mode: str = 'linear',
                  profile_interpolation_mode: str = 'nearest',
                  periodic_geometry: bool = False, periodic_axes: tuple = (False, False),
-                 periodic_im_repeats: tuple = (1, 1),
                  max_it_pressure: int = 5000, rtol_pressure: float = 2e-6,
                  max_it_interference: int = 5000,
                  rtol_interference: float = 1e-4,
@@ -222,7 +218,6 @@ class IterSemiSystem(_ModelStep):
         self.profile_interpolation_mode = profile_interpolation_mode
         self._periodic_profile = periodic_geometry
         self._periodic_axes = periodic_axes
-        self._periodic_im_repeats = periodic_im_repeats
         self._max_it_pressure = max_it_pressure
         self._max_it_interference = max_it_interference
         self._rtol_pressure = rtol_pressure
@@ -404,10 +399,8 @@ class IterSemiSystem(_ModelStep):
                 max_pressure = self.reynolds.dimensionalise_pressure(min([surf_1_material.max_load,
                                                                           surf_2_material.max_load]), True)
                 self._nd_max_pressure = max_pressure
-                im1 = surf_1_material.influence_matrix(components=['zz'], grid_spacing=[gs] * 2,
-                                                       span=span, periodic_strides=self._periodic_im_repeats)['zz']
-                im2 = surf_2_material.influence_matrix(components=['zz'], grid_spacing=[gs] * 2, span=span,
-                                                       periodic_strides=self._periodic_im_repeats)['zz']
+                im1 = surf_1_material.influence_matrix(components=['zz'], grid_spacing=[gs] * 2, span=span)['zz']
+                im2 = surf_2_material.influence_matrix(components=['zz'], grid_spacing=[gs] * 2, span=span)['zz']
                 total_im = im1 + im2
                 loads_func = plan_convolve(just_touching_gap, total_im, circular=self._periodic_axes)
                 previous_gap_shape = just_touching_gap.shape

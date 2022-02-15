@@ -54,6 +54,7 @@ class ConvolutionFunction(abc.ABC):
     def __call__(self, loads, ignore_domain):
         pass
 
+
 try:
     import cupy as cp
 
@@ -101,7 +102,8 @@ try:
             >>> grid_spacing = X[1][1]-X[0][0]
             >>> loads = result['pressure_f'](X,Y)
             >>> disp_analytical = result['surface_displacement_b_f'][0](X,Y)['uz']
-            >>> im = c.elastic_influence_matrix_spatial('zz', (512,512), (grid_spacing,grid_spacing), 200e9/(2*(1+0.3)), 0.3)
+            >>> im = c.elastic_influence_matrix_spatial('zz', (512,512), (grid_spacing,grid_spacing),
+            >>>                                         200e9/(2*(1+0.3)), 0.3)
             >>> convolve_func = plan_convolve(loads, im, None, [False, False])
             >>> disp_numerical = convolve_func(loads)
 
@@ -130,10 +132,10 @@ try:
             norm = 1 / self.norm_inv
             self.norm = norm
             if fft_im:
-                self.fft_im = im * norm
+                self.fft_im = im
             else:
                 im = cp.roll(im, tuple(-((sz - 1) // 2) for sz in im_shape_orig), (-2, -1))
-                self.fft_im = self.forward_trans(im) * norm
+                self.fft_im = self.forward_trans(im)
             self.inv_fft_im = 1 / self.fft_im
 
             if cp.isinf(self.inv_fft_im[0, 0]):
@@ -151,7 +153,7 @@ try:
             full_loads = cp.zeros(self.shape, dtype=self.dtype)
             full_loads[self._domain] = sub_loads
             fft_loads = self.forward_trans(full_loads)
-            full = self.norm_inv * cp.real(self.backward_trans(fft_loads * self.fft_im))
+            full = cp.real(self.backward_trans(fft_loads * self.fft_im))
             full = full[:full_loads.shape[0], :full_loads.shape[1]]
             if ignore_domain:
                 return full
@@ -165,7 +167,7 @@ try:
                 full_loads = cp.reshape(full_loads, self.shape)
                 flat = True
             fft_loads = self.forward_trans(full_loads)
-            full = self.norm_inv * cp.real(self.backward_trans(fft_loads * self.fft_im))
+            full = cp.real(self.backward_trans(fft_loads * self.fft_im))
             full = full[:full_loads.shape[0], :full_loads.shape[1]]
             if flat:
                 full = full.flatten()
@@ -184,7 +186,7 @@ try:
                     full_defs = cp.reshape(full_defs, self.shape)
                     flat = True
             fft_defs = self.forward_trans(full_defs)
-            full = self.norm * cp.real(self.backward_trans(fft_defs * self.inv_fft_im))
+            full = cp.real(self.backward_trans(fft_defs * self.inv_fft_im))
             full = full[:full_defs.shape[0], :full_defs.shape[1]]
             if ignore_domain:
                 return full
@@ -375,7 +377,8 @@ try:
             >>> grid_spacing = X[1][1]-X[0][0]
             >>> loads = result['pressure_f'](X,Y)
             >>> disp_analytical = result['surface_displacement_b_f'][0](X,Y)['uz']
-            >>> im = c.elastic_influence_matrix_spatial('zz', (512,512), (grid_spacing,grid_spacing), 200e9/(2*(1+0.3)), 0.3)
+            >>> im = c.elastic_influence_matrix_spatial('zz', (512,512), (grid_spacing,grid_spacing),
+            >>>                                         200e9/(2*(1+0.3)), 0.3)
             >>> convolve_func = plan_convolve(loads, im, None, [False, False])
             >>> disp_numerical = convolve_func(loads)
 
@@ -412,10 +415,10 @@ try:
             self.norm = norm
 
             if fft_im:
-                self.fft_im = im[:fft_shape[0], :fft_shape[1]] * norm
+                self.fft_im = im[:fft_shape[0], :fft_shape[1]]
             else:
                 im = np.roll(im, tuple(-((sz - 1) // 2) for sz in im_shape_orig), (-2, -1))
-                self.fft_im = self.forward_trans(im) * norm
+                self.fft_im = self.forward_trans(im).copy()
 
             with np.errstate(divide='ignore'):
                 self.inv_fft_im = 1/self.fft_im
@@ -426,6 +429,7 @@ try:
 
             self.shape = loads.shape
             self.dtype = loads.dtype
+            self.all_circ = circular[0] and circular[1]
 
             if domain is None:
                 self.callback = self.inner_no_domain
@@ -437,7 +441,7 @@ try:
             full_loads[self._domain] = sub_loads
             loads_pad = np.pad(full_loads, self._shape_diff_loads, 'constant')
             full = self.backward_trans(self.forward_trans(loads_pad) * self.fft_im)
-            same = self.norm_inv * full[:full_loads.shape[0], :full_loads.shape[1]]
+            same = full[:full_loads.shape[0], :full_loads.shape[1]].copy()
             if ignore_domain:
                 return same
             return same[self._domain]
@@ -450,12 +454,14 @@ try:
                 flat = True
             loads_pad = np.pad(full_loads, self._shape_diff_loads, 'constant')
             full = self.backward_trans(self.forward_trans(loads_pad) * self.fft_im)
-            full = self.norm_inv * full[:full_loads.shape[0], :full_loads.shape[1]]
+            full = full[:full_loads.shape[0], :full_loads.shape[1]].copy()
             if flat:
                 full = full.flatten()
             return full
 
         def inverse_conv(self, deformations, ignore_domain):
+            if not self.all_circ:
+                raise ValueError("Inverse convolution only possible with fully periodic contacts")
             if self._domain is not None:
                 full_defs = np.zeros(self.shape, dtype=self.dtype)
                 full_defs[self._domain] = deformations
@@ -469,7 +475,7 @@ try:
                     flat = True
             defs_pad = np.pad(full_defs, self._shape_diff_loads, 'constant')
             full = self.backward_trans(self.forward_trans(defs_pad) * self.inv_fft_im)
-            full = self.norm * full[:self.shape[0], :self.shape[1]]
+            full = full[:self.shape[0], :self.shape[1]].copy()
             if ignore_domain:
                 return full
             if flat:
@@ -1008,7 +1014,7 @@ def bccg(f: typing.Callable, b: np.ndarray, tol: float, max_it: int, x0: np.ndar
     small = 1e-14
     it = 0
     it_inn = 0
-    rho_prev = cp.nan
+    rho_prev = xp.nan
     rho = 0.0
     r, p, r_prev = 0, 0, 0
     failed = False
@@ -1210,7 +1216,8 @@ def rey(h: np.ndarray, f: ConvolutionFunction, adhesion_energy_derivative: typin
         max_it = h.size
 
     if adhesion_energy_derivative is None:
-        adhesion_energy_derivative = lambda x: 0
+        def adhesion_energy_derivative(_):
+            return 0
 
     if slippy.CUDA and cp is not None:
         xp = cp
@@ -1304,4 +1311,4 @@ def rey(h: np.ndarray, f: ConvolutionFunction, adhesion_energy_derivative: typin
     q = q1 + adhesion_energy_derivative(g)
     min_q = xp.min(q)
     p = q1 - min_q
-    return failed, p, g, u, xp.logical_not(non_contact_nodes)
+    return failed, p, g, u, g <= 0.0

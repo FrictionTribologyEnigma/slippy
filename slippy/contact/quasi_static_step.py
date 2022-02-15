@@ -79,9 +79,6 @@ class QuasiStaticStep(_ModelStep):
     periodic_axes: tuple, optional ((False, False))
         For each True value the corresponding axis will be solved by circular convolution, meaning the result is
         periodic in that direction
-    periodic_im_repeats: tuple, optional (1,1)
-        The number of times the influence matrix should be wrapped along periodic dimensions, only used if at least one
-        of periodic axes is True. This is necessary to ensure truly periodic behaviour, no physical limit exists
     method: {'auto', 'pk', 'double', 'rey'}, optional ('auto')
         The method by which the normal contact is solved, only used for load controlled contact.
         'pk' uses the Polonsky and Keer algorithm for elastic contact.
@@ -162,7 +159,7 @@ class QuasiStaticStep(_ModelStep):
                  movement_interpolation_mode: str = 'linear',
                  profile_interpolation_mode: str = 'nearest',
                  periodic_geometry: bool = False, periodic_axes: tuple = (False, False),
-                 periodic_im_repeats: tuple = (1, 1), method: str = 'auto',
+                 method: str = 'auto',
                  max_it: int = 1000, tolerance=1e-8,
                  max_it_outer: int = 100, tolerance_outer=1e-4,
                  no_update_warning: bool = True,
@@ -176,7 +173,6 @@ class QuasiStaticStep(_ModelStep):
         self.total_time = time_period
         if not no_time and fast_ld:
             raise ValueError("Cannot have time dependence and fast_ld, either set no_time True or set fast_ld False")
-        self._periodic_im_repeats = periodic_im_repeats
         self._fast_ld = fast_ld
         self._relative_loading = relative_loading
         self.profile_interpolation_mode = profile_interpolation_mode
@@ -350,8 +346,6 @@ class QuasiStaticStep(_ModelStep):
 
             results = update_func(current_state)
             current_state.update(results)
-            current_state['gap'] = (just_touching_gap - current_state['interference'] +
-                                    current_state['total_displacement_z'])
             current_time += self.time_step
             current_state['time'] = current_time
             # solve sub models
@@ -386,8 +380,7 @@ class QuasiStaticStep(_ModelStep):
                                                   max_set_load=self.normal_load,
                                                   rtol_outer=self._r_tol_outer,
                                                   max_it_outer=self._max_it_outer,
-                                                  periodic_axes=self._periodic_axes,
-                                                  periodic_im_repeats=self._periodic_im_repeats)
+                                                  periodic_axes=self._periodic_axes)
             self._height_optimisation_func = opt_func
         else:
             opt_func = self._height_optimisation_func
@@ -437,8 +430,7 @@ class QuasiStaticStep(_ModelStep):
                                                   max_set_load=1,
                                                   rtol_outer=self._r_tol_outer,
                                                   max_it_outer=self._max_it_outer,
-                                                  periodic_axes=self._periodic_axes,
-                                                  periodic_im_repeats=self._periodic_im_repeats)
+                                                  periodic_axes=self._periodic_axes)
             self._height_optimisation_func = opt_func
         else:
             opt_func = self._height_optimisation_func

@@ -1,6 +1,6 @@
 import numpy as np
 import typing
-from collections import namedtuple, abc
+from collections import namedtuple
 from .materials import _IMMaterial
 from ._elastic_sub_surface_stresses import normal_conv_kernels, tangential_conv_kernels
 
@@ -27,6 +27,15 @@ class Elastic(_IMMaterial):
     use_frequency_domain: bool, optional (True)
         If True the frequency domain definition of the influence matrix is used, otherwise the spatial domain definition
         is used.
+    periodic_im_repeats: tuple, optional (1,1)
+        The number of times the influence matrix should be wrapped in each dimension, used with spatially defined
+        influence matrices and to set the zero frequency value for frequency domain influence matrices. Should not
+        be used with non periodic contacts, for periodic contacts the total size should match the physical size. This
+        is necessary to ensure truly periodic behaviour, no physical limit exists:
+        (an infinitely long contact with any load per unit length will cause infinite displacement).
+    zero_frequency_value: float, optional (None)
+        If the frequency domain influence matrix is used the zero frequency value can be set, this defaults to the sum
+        of the spatial influence matrix of the correct size. Should be set to 0 for fully periodic contacts.
 
     Methods
     -------
@@ -68,8 +77,11 @@ class Elastic(_IMMaterial):
     _last_set = []
     density = None
 
-    def __init__(self, name: str, properties: dict, max_load: float = np.inf, use_frequency_domain: bool = True):
-        super().__init__(name, use_frequency_domain, max_load)
+    def __init__(self, name: str, properties: dict, max_load: float = np.inf,
+                 use_frequency_domain: bool = True, periodic_im_repeats: tuple = (1, 1),
+                 zero_frequency_value: float = None):
+        super().__init__(name, use_frequency_domain, max_load,
+                         periodic_im_repeats, zero_frequency_value)
 
         if len(properties) > 2:
             raise ValueError("Too many properties supplied, must be 1 or 2")

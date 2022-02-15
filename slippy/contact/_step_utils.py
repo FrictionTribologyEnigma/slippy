@@ -101,14 +101,12 @@ class HeightOptimisationFunction:
                  adhesion_model: _AdhesionModelABC, initial_contact_nodes: np.ndarray,
                  max_it: int, rtol: float, material_options: typing.Union[typing.Sequence[dict], dict],
                  max_set_load: float, rtol_outer: float = 0, max_it_outer: int = 0, use_cache: bool = True,
-                 cache_loads=True, periodic_axes: typing.Tuple[bool] = (False, False),
-                 periodic_im_repeats: typing.Tuple[int] = (1, 1)):
+                 cache_loads=True, periodic_axes: typing.Tuple[bool] = (False, False)):
         if slippy.CUDA:
             xp = cp
             cache_loads = False
         else:
             xp = np
-        self.periodic_im_repeats = tuple([int(r) if a else 1 for r, a in zip(periodic_im_repeats, periodic_axes)])
         self._grid_spacing = model.surface_1.grid_spacing
 
         self._just_touching_gap = xp.asarray(just_touching_gap)
@@ -141,13 +139,15 @@ class HeightOptimisationFunction:
 
         if isinstance(surf_1.material, _IMMaterial) and isinstance(surf_2.material, _IMMaterial):
             self.im_mats = True
+            self._zero_frequency_zero = (surf_1.material.zero_frequency_value == 0 and
+                                         surf_2.material.zero_frequency_value == 0)
             span = tuple([s * (2 - pa) for s, pa in zip(just_touching_gap.shape, periodic_axes)])
             max_pressure = min([surf_1.material.max_load, surf_2.material.max_load])
             self.max_pressure = max_pressure
             im1 = surf_1.material.influence_matrix(components=['zz'], grid_spacing=[surf_1.grid_spacing] * 2,
-                                                   span=span, periodic_strides=self.periodic_im_repeats)['zz']
+                                                   span=span)['zz']
             im2 = surf_2.material.influence_matrix(components=['zz'], grid_spacing=[surf_1.grid_spacing] * 2,
-                                                   span=span, periodic_strides=self.periodic_im_repeats)['zz']
+                                                   span=span)['zz']
             total_im = im1 + im2
             self.total_im = xp.asarray(total_im)
 
@@ -199,10 +199,10 @@ class HeightOptimisationFunction:
             span = tuple([s * (2 - pa) for s, pa in zip(self._just_touching_gap.shape, self._periodic_axes)])
             # noinspection PyUnresolvedReferences
             im1 = surf_1.material.influence_matrix(span=span, grid_spacing=[surf_1.grid_spacing] * 2,
-                                                   components=['zz'], periodic_strides=self.periodic_im_repeats)['zz']
+                                                   components=['zz'])['zz']
             # noinspection PyUnresolvedReferences
             im2 = surf_2.material.influence_matrix(span=span, grid_spacing=[surf_1.grid_spacing] * 2,
-                                                   components=['zz'], periodic_strides=self.periodic_im_repeats)['zz']
+                                                   components=['zz'])['zz']
 
             if 'domain' in self._results and 'loads_in_domain' in self._results:
                 full_loads = xp.zeros(self._just_touching_gap.shape)
@@ -228,10 +228,20 @@ class HeightOptimisationFunction:
 
             total_load = float(np.sum(full_loads) * self._grid_spacing ** 2)
 
+            if 'contact_nodes' in self._results:
+                contact_nodes = self._results['contact_nodes']
+            else:
+                contact_nodes = full_loads > 0
+
+            if 'gap' in self._results:
+                gap = self._results['gap']
+            else:
+                gap = self._just_touching_gap-self._results['interference']+full_disp
+
             results = {'loads_z': full_loads, 'total_displacement_z': full_disp,
                        'surface_1_displacement_z': disp_1, 'surface_2_displacement_z': disp_2,
-                       'contact_nodes': full_loads > 0, 'total_normal_load': total_load,
-                       'interference': self._results['interference']}
+                       'contact_nodes': contact_nodes, 'total_normal_load': total_load,
+                       'interference': self._results['interference'], 'gap': gap}
             return results
         else:
             return self._results
@@ -314,7 +324,7 @@ class HeightOptimisationFunction:
         The relative tolerance is set to self._r_tol_outer, the max iterations is set to self._max_it_outer.
 
         """
-        failed, _ = safe_brent(self, xa, xb, xg, x_tol, self._tol_outer, self._max_it_outer)
+        failed, _ = safe_brent(self, xa, xb, xg, self._tol_outer, self._tol_outer, self._max_it_outer)
         self._results['converged'] = not failed
 
     def rey(self, target_load: float = None, target_mean_gap: float = None, add_to_cache: bool = True):
@@ -340,12 +350,16 @@ class HeightOptimisationFunction:
 
         The contact nodes property must be set to None before using this method, this remakes the convolution function.
         """
+        if not self._zero_frequency_zero:
+            raise ValueError("Rey solver requires a zero frequency value of 0, set in material definitions")
+        if not all(self._periodic_axes):
+            raise ValueError("Rey solver requires fully periodic contact, set periodic axes to True in step definition")
         if self.max_pressure < np.inf:
             raise ValueError("Rey algorithm cannot be used with a maximum pressure")
         if target_load is None:
             target_mean_pressure = None
         else:
-            target_mean_pressure = target_load/(self._just_touching_gap.size*self._grid_spacing**2)
+            target_mean_pressure = target_load / (self._just_touching_gap.size * self._grid_spacing ** 2)
         failed, pressure, gap, total_displacement, contact_nodes = rey(self._just_touching_gap, self.conv_func,
                                                                        self._adhesion_model, self._tol,
                                                                        self._max_it, target_mean_gap,
@@ -353,7 +367,7 @@ class HeightOptimisationFunction:
         self._results = {'loads_z': pressure, 'total_displacement_z': total_displacement,
                          'interference': np.mean((slippy.asnumpy(self._just_touching_gap) +
                                                   slippy.asnumpy(total_displacement))[slippy.asnumpy(pressure > 0)]),
-                         'converged': not failed}
+                         'converged': not failed, 'gap': gap, 'contact_nodes': contact_nodes}
         if add_to_cache:
             self.add_to_cache(self._results['interference'], target_load, pressure, failed)
 
@@ -392,7 +406,7 @@ class HeightOptimisationFunction:
         self._results = {'loads_z': pressure, 'total_displacement_z': total_displacement,
                          'interference': np.mean((slippy.asnumpy(self._just_touching_gap) +
                                                   slippy.asnumpy(total_displacement))[slippy.asnumpy(pressure > 0)]),
-                         'converged':not failed}
+                         'converged': not failed}
         if add_to_cache:
             self.add_to_cache(self._results['interference'], target_load, pressure, failed)
 

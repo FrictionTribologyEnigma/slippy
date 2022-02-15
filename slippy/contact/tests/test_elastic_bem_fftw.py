@@ -72,15 +72,20 @@ def test_hertz_agreement_rey_static_load_fftw():
     with slippy.OverRideCuda():
         # make surfaces
         flat_surface = s.FlatSurface(shift=(0, 0))
-        round_surface = s.RoundSurface((1, 1, 1), extent=(0.006, 0.006), shape=(255, 255), generate=True)
+        round_surface = s.RoundSurface((1, 1, 1), extent=(0.006, 0.006), shape=(255, 255),
+                                       generate=True)
         # set materials
-        flat_surface.material = aluminum
-        round_surface.material = steel
+        alu_periodic = c.Elastic('Aluminum_periodic', {'E': 70e9, 'v': 0.33}, zero_frequency_value=0.0)
+        steel_periodic = c.Elastic('Steel_periodic', {'E': 200e9, 'v': 0.3}, zero_frequency_value=0.0)
+
+        flat_surface.material = alu_periodic
+        round_surface.material = steel_periodic
         # create model
         my_model = c.ContactModel('model-1', round_surface, flat_surface)
         # set model parameters
         total_load = 100
-        my_step = c.StaticStep('contact', normal_load=total_load, method='rey')
+        my_step = c.StaticStep('contact', normal_load=total_load, method='rey',
+                               periodic_axes=(True, True))
         my_model.add_step(my_step)
 
         out = my_model.solve(skip_data_check=True)
@@ -94,14 +99,13 @@ def test_hertz_agreement_rey_static_load_fftw():
         a_result = c.hertz_full([1, 1], [np.inf, np.inf], [200e9, 70e9], [0.3, 0.33], 100)
 
         # check max pressure
-        npt.assert_approx_equal(a_result['max_pressure'], max(out['loads_z'].flatten()), 3)
+        npt.assert_approx_equal(a_result['max_pressure'], max(out['loads_z'].flatten()), 2)
 
         # check contact area
         found_area = round_surface.grid_spacing ** 2 * sum(out['contact_nodes'].flatten())
         npt.assert_approx_equal(a_result['contact_area'], found_area, 2)
 
-        # check deflection
-        npt.assert_approx_equal(a_result['total_deflection'], out['interference'], 2)
+        # can't check deflection for fully periodic contact
 
 
 def test_hertz_agreement_pk_static_load_fftw_spatial_im():
@@ -174,7 +178,7 @@ def test_hertz_agreement_double_static_load_fftw():
         my_model = c.ContactModel('model-1', round_surface, flat_surface)
         # set model parameters
         total_load = 100
-        my_step = c.StaticStep('contact', normal_load=total_load, method='double')
+        my_step = c.StaticStep('contact', normal_load=total_load, method='double', tolerance_outer=1e-8)
         my_model.add_step(my_step)
 
         out = my_model.solve(skip_data_check=True)
