@@ -6,7 +6,7 @@ __all__ = ['FillDisplacements', ]
 
 class FillDisplacements(_SubModelABC):
     def __init__(self, load_directions, displacement_directions='xyz', periodic_axes=(False, False),
-                 periodic_im_repeats=(1, 1), name: str = 'fill_displacements', surfaces=('total',),
+                 name: str = 'fill_displacements', surfaces=('total',),
                  overwrite=True):
         """Find displacements caused by existing loads for influence matrix based materials
 
@@ -21,10 +21,6 @@ class FillDisplacements(_SubModelABC):
         periodic_axes: tuple, optional ((False, False))
             For each True value the corresponding axis will be solved by circular convolution, meaning the result is
             periodic in that direction
-        periodic_im_repeats: tuple, optional (1,1)
-            The number of times the influence matrix should be wrapped along periodic dimensions, only used if at least
-            one of periodic axes is True. This is necessary to ensure truly periodic behaviour, no physical limit exists
-            name
         surfaces: tuple {1, 2, 'total'}, optional (('total', ))
             The surface to find displacements on. A tuple containing any of the valid items or a single valid item.
         overwrite: bool, optional (True)
@@ -44,7 +40,6 @@ class FillDisplacements(_SubModelABC):
 
             self._surface_strs.append(st)
         self.load_directions = load_directions
-        self._periodic_repeats = periodic_im_repeats
         self._periodic_axes = periodic_axes
         self._overwrite = overwrite
         self._last_span = None
@@ -64,13 +59,13 @@ class FillDisplacements(_SubModelABC):
         if self._last_span is None or span != self._last_span:
             for st in self._surface_strs:
                 if st == 'total':
-                    im1 = mat1.influence_matrix(self.components, (gs, gs), span, self._periodic_repeats)
-                    im2 = mat2.influence_matrix(self.components, (gs, gs), span, self._periodic_repeats)
+                    im1 = mat1.influence_matrix(self.components, (gs, gs), span)
+                    im2 = mat2.influence_matrix(self.components, (gs, gs), span)
                     im = {key: im1[key] + im2[key] for key in self.components}
                 elif st[8] == '1':
-                    im = mat1.influence_matrix(self.components, (gs, gs), span, self._periodic_repeats)
+                    im = mat1.influence_matrix(self.components, (gs, gs), span)
                 elif st[8] == '2':
-                    im = mat2.influence_matrix(self.components, (gs, gs), span, self._periodic_repeats)
+                    im = mat2.influence_matrix(self.components, (gs, gs), span)
                 else:
                     raise ValueError("Something unexpected happened, please report")
 

@@ -34,9 +34,6 @@ class ResultContactStiffness(_SubModelABC):
     periodic_axes: tuple, optional ((False, False))
         For each True value the corresponding axis will be solved by circular convolution, meaning the result is
         periodic in that direction
-    periodic_im_repeats: tuple, optional (1,1)
-        The number of times the influence matrix should be wrapped along periodic dimensions, only used if at least one
-        of periodic axes is True. This is necessary to ensure truly periodic behaviour, no physical limit exists
     boarder: int, optional (0)
         If set the contact stiffness will only be calculated for the central portion of the domain.
 
@@ -52,7 +49,7 @@ class ResultContactStiffness(_SubModelABC):
     def __init__(self, name: str, loading: bool = True, unloading: bool = True,
                  direction: str = 'z', tol: float = 1e-6,
                  max_it: int = None, definition: str = 'mean lines',
-                 periodic_axes=(False, False), periodic_im_repeats: tuple = (1, 1),
+                 periodic_axes=(False, False),
                  boarder: int = 0):
 
         if type(definition) is not str:
@@ -79,7 +76,6 @@ class ResultContactStiffness(_SubModelABC):
         self.loading = loading
         self.unloading = unloading
         self._periodic_axes = periodic_axes
-        self._periodic_im_repeats = tuple([int(r) if a else 1 for r, a in zip(periodic_im_repeats, periodic_axes)])
         self.boarder = boarder
         self._last_span = (0, 0)
         self._conv_func_cache = dict()
@@ -142,9 +138,9 @@ class ResultContactStiffness(_SubModelABC):
         else:
 
             im1 = surf_1.material.influence_matrix(components=[comp], grid_spacing=[surf_1.grid_spacing] * 2,
-                                                   span=span, periodic_strides=self._periodic_im_repeats)[comp]
+                                                   span=span)[comp]
             im2 = surf_2.material.influence_matrix(components=[comp], grid_spacing=[surf_1.grid_spacing] * 2,
-                                                   span=span, periodic_strides=self._periodic_im_repeats)[comp]
+                                                   span=span)[comp]
             total_im = im1 + im2
             convolution_func = plan_convolve(displacement, total_im, contact_nodes, circular=self._periodic_axes)
 

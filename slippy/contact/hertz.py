@@ -690,8 +690,8 @@ def hertz_full(r1: typing.Union[typing.Sequence, float], r2: typing.Union[typing
             optimize.minimize(lambda psi: -0.5 * (-1 + 3 / 2 / (1 + psi ** 2) + psi * (1 + v1) * np.arctan(1 / psi)),
                               np.array([0.48086782]), bounds=[[0, 10]]) for v1 in v]
 
-        results['max_shear_stress_b'] = [out.fun[0] * (-1 * p0) if out.success else None for out in shear_opts]
-        results['max_shear_depth_b'] = [out.x[0] * a if out.success else None for out in shear_opts]
+        results['max_shear_stress_b'] = [out.fun * (-1 * p0) if out.success else None for out in shear_opts]
+        results['max_shear_depth_b'] = [out.x * a if out.success else None for out in shear_opts]
 
     else:
         if line:
@@ -1226,7 +1226,7 @@ def _sanitise_radii(radii):
     """
     if not isinstance(radii, abc.Sequence):
         try:
-            radii = [np.float(radii)] * 2
+            radii = [float(radii)] * 2
         except TypeError:
             raise TypeError("radii must be list or number, not a"
                             " {}".format(type(radii)))
@@ -1238,7 +1238,7 @@ def _sanitise_radii(radii):
             raise ValueError("Radii must be a two element list supplied radii"
                              " list has {} elements".format(len(radii)))
         try:
-            radii = [np.float(r) for r in radii]
+            radii = [float(r) for r in radii]
         except ValueError:
             raise TypeError("Elements of radii are not convertible to floats:"
                             "{}".format(radii))
@@ -1254,7 +1254,7 @@ def _sanitise_material(e, name):
     """
     if not isinstance(e, abc.Sequence):
         try:
-            e = 2 * [np.float(e)]
+            e = 2 * [float(e)]
         except ValueError:
             raise TypeError("Material properties should be sequence type or "
                             "convertible to float, "
@@ -1265,6 +1265,6 @@ def _sanitise_material(e, name):
         if any([e == 0 for e in e]) and name == 'e':
             raise ValueError('Zero moduli are not supported, supplied moduli'
                              f' were e={e}')
-        return np.array(e, dtype=np.float)
+        return np.array(e, dtype=float)
     else:
         raise ValueError(f"Too many elements supplied in {name}")
