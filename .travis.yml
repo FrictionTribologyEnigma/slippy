@@ -13,6 +13,18 @@ matrix:
       on:
         tags: true
         repo: FrictionTribologyEnigma/slippy
+  - python: 3.9
+    env: TOXENV=py39
+    deploy:
+      skip_existing: true
+      provider: pypi
+      distributions: bdist_wheel
+      user: __token__
+      password:
+          secure: Z9U8oq2bTgeAlFyOprIWs9zIJM9ax1MCaib40sQ1CvjBtEKT0vZs0C1KaX2ZqLI/hiz5OYpGYgoOaQNWoHNEFPzwU5W9Oupb2FYNsCLfWJrtjC7zEQ5Zs0yBYyt6lYZ2oaIlpMVEwU32Dh2EVzqTb9LU0jYT2b73xky58TTyRXI1pUa1T3CUppXuruXixpkRTSKP07wEYu3GA8S9o+7eC8wymV0nQgA/+RvHehnQ5AIIB6XJb3YYuNKqhfaioGMRhSk3d11fn83xLYXy81bIUt1gsFIBHuKGxNqcXp+Q+/NKMK6X3Xqc0g7XcjyQGWwSMSiOVGVh2OWa7SOq0tjny9FWUZUzM1p7UIZgaipoCtifaqIL7qXbazwPGCFlYqFa7NWZnaQOwQQl/k/o701RIjfgr+e2swRJgINIx1s2XNRIt4hDGikGqgnP8Ka9knRHxXmKecK6GLgtXAoh8z4NDwauoTlLinzQf93sJIoDhJ/zR3lyDTlltD4f9t0fsGW5v/1iWmugnq1jULb30q94SVDC8GfmuIYFjXGbWGYP+BzpPKRxWX9LZOVrwYOUy7C25wkQwP/lPOKxrDFuK0XdvX9V3Cib7wsyuth1OUMFH3Jpmmz7iwYy5On0zgy+XfjEg+Ccs0pLKx5IYTN4O/JSk3dwS4GlHvSWGJTgO4GwV2k=
+      on:
+        tags: true
+        repo: FrictionTribologyEnigma/slippy
   - env: TOXENV=flake8
 install: pip install -U tox-travis
 script: tox
