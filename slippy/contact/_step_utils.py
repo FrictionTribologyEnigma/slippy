@@ -109,7 +109,7 @@ class HeightOptimisationFunction:
             xp = np
         self._grid_spacing = model.surface_1.grid_spacing
 
-        self._just_touching_gap = xp.asarray(just_touching_gap)
+        self._just_touching_gap = np.asarray(just_touching_gap)
         self._model = model
         self._adhesion_model = adhesion_model
         self.initial_contact_nodes = initial_contact_nodes
@@ -159,7 +159,7 @@ class HeightOptimisationFunction:
                 max_elastic_disp = self.conv_func(max_loads)
                 self.cache_heights.append(xp.max(max_elastic_disp + xp.asarray(just_touching_gap)))
                 if cache_loads:
-                    self.cache_surface_loads.append(max_loads)
+                    self.cache_surface_loads.append(slippy.asnumpy(max_loads))
         else:
             self.contact_nodes = initial_contact_nodes
 
@@ -169,14 +169,10 @@ class HeightOptimisationFunction:
 
     @contact_nodes.setter
     def contact_nodes(self, value):
-        if slippy.CUDA:
-            xp = cp
-        else:
-            xp = np
         if value is None:
             self._contact_nodes = None
         else:
-            value = xp.array(value, dtype=bool)
+            value = np.array(value, dtype=bool)
             self._contact_nodes = value
         if self.im_mats:
             self.conv_func = plan_convolve(self._just_touching_gap, self.total_im, self._contact_nodes,
@@ -411,10 +407,6 @@ class HeightOptimisationFunction:
             self.add_to_cache(self._results['interference'], target_load, pressure, failed)
 
     def __call__(self, height, current_state=None):
-        if slippy.CUDA:
-            xp = cp
-        else:
-            xp = np
         # If the height guess is in the cache that can be out load guess
         height = float(height)
         if height in self.cache_heights:
@@ -429,24 +421,25 @@ class HeightOptimisationFunction:
             if not self.set_contact_nodes:
                 self.contact_nodes = z > 0  # this will remake the conv function as a side effect
             contact_nodes = self.contact_nodes
-            if not xp.any(contact_nodes):
+            if not np.any(contact_nodes):
                 print('no contact nodes')
                 total_load = 0
-                full_loads = xp.zeros(contact_nodes.shape, dtype=xp.float32)
+                full_loads = np.zeros(contact_nodes.shape)
                 failed = False
             else:
                 if pressure_initial_guess is None:
-                    pressure_initial_guess = xp.zeros_like(z)
+                    pressure_initial_guess = np.zeros(z.shape)
                 z_in = z[contact_nodes]
                 pressure_guess_in = pressure_initial_guess[contact_nodes]
                 loads_in_domain, failed = bccg(self.conv_func, z_in, self._tol,
                                                self._max_it, pressure_guess_in,
                                                0, self.max_pressure)
+                loads_in_domain = slippy.asnumpy(loads_in_domain)
                 self._results = {'loads_in_domain': loads_in_domain, 'domain': self.contact_nodes,
                                  'interference': height}
-                total_load = float(xp.sum(loads_in_domain) * self._grid_spacing ** 2)
+                total_load = float(np.sum(loads_in_domain) * self._grid_spacing ** 2)
                 if not failed:
-                    full_loads = xp.zeros(contact_nodes.shape)
+                    full_loads = np.zeros(contact_nodes.shape)
                     full_loads[contact_nodes] = loads_in_domain
                     self._last_converged_loads = full_loads
                 else:
@@ -455,7 +448,7 @@ class HeightOptimisationFunction:
             self.add_to_cache(height, total_load, full_loads, failed)
             if failed:
                 # noinspection PyUnboundLocalVariable
-                print(f'Failed: total load: {total_load}, height {height}, max_load {xp.max(loads_in_domain)}')
+                print(f'Failed: total load: {total_load}, height {height}, max_load {np.max(loads_in_domain)}')
                 self.last_call_failed = True
             else:
                 print(f'Solved: interference: {height}\tTotal load: {total_load}\tTarget load: {self._set_load}')

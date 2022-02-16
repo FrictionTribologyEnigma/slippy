@@ -389,7 +389,7 @@ try:
             im = np.asarray(im)
             im_shape_orig = im.shape
             if domain is not None:
-                domain = np.asarray(domain, dtype=np.bool)
+                domain = np.asarray(domain, dtype=bool)
             self._domain = domain
             input_shape = []
             for i in range(2):

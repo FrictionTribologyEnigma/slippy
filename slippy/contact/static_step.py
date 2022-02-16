@@ -119,7 +119,7 @@ class StaticStep(_ModelStep):
                  periodic_geometry: bool = False, periodic_axes: tuple = (False, False),
                  method: str = 'auto',
                  max_it: int = 1000, tolerance=1e-8,
-                 max_it_outer: int = 100, tolerance_outer=1e-4):
+                 max_it_outer: int = 100, tolerance_outer=1e-8):
 
         self._off_set = (off_set_x, off_set_y)
         self._relative_loading = bool(relative_loading)
