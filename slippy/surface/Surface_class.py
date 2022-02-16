@@ -1,9 +1,3 @@
-# TODO mesh function
-
-# TODO documentation
-
-# TODO make list of all functionality
-
 import abc
 import copy
 import csv
@@ -11,6 +5,7 @@ import os
 import typing
 import warnings
 from numbers import Number
+from collections import defaultdict
 from collections.abc import Sequence
 
 import numpy as np
@@ -148,6 +143,7 @@ class _Surface(_SurfaceABC):
     _size: typing.Optional[int] = None
     _subclass_registry = []
     _original_extent = None
+    wear_volumes: typing.Optional[defaultdict] = None
 
     def __init__(self, grid_spacing: typing.Optional[float] = None, extent: typing.Optional[tuple] = None,
                  shape: typing.Optional[tuple] = None, is_discrete: bool = False):
@@ -162,8 +158,6 @@ class _Surface(_SurfaceABC):
             self.extent = extent
         if shape is not None:
             self.shape = shape
-
-        self.wear_volumes = dict()
 
     @classmethod
     def __init_subclass__(cls, is_abstract=False, **kwargs):
@@ -305,6 +299,8 @@ class _Surface(_SurfaceABC):
 
         try:
             self.unworn_profile = np.asarray(value, dtype=float).copy()
+            # this has to be before _profile is set (rewritten for rolling surface)
+            self.wear_volumes = defaultdict(lambda: np.zeros_like(self.unworn_profile))
             self._profile = np.asarray(value, dtype=float).copy()
         except ValueError:
             msg = "Could not convert profile to array of floats, profile contains invalid values"
@@ -313,7 +309,6 @@ class _Surface(_SurfaceABC):
         self._shape = self._profile.shape
         self._size = self._profile.size
         self.dimensions = len(self._profile.shape)
-        self.wear_volumes = dict()
 
         if self.grid_spacing is not None:
             self._extent = tuple([self.grid_spacing * p for p in self.shape])
@@ -338,7 +333,7 @@ class _Surface(_SurfaceABC):
         del self.shape
         del self.extent
         del self.mask
-        self.wear_volumes = dict()
+        self.wear_volumes = None
         self.is_discrete = False
 
     @property
@@ -425,9 +420,6 @@ class _Surface(_SurfaceABC):
 
         if np.any(np.isnan(depth)):
             raise ValueError(f"Some wear depth values are nan for wear {name}")
-
-        if name not in self.wear_volumes:
-            self.wear_volumes[name] = np.zeros_like(self._profile)
 
         # equivalent to rounding and applying wear to nearest node
         x_ind = np.array(x_pts / self.grid_spacing + self.grid_spacing/2, dtype=np.uint16)
@@ -816,7 +808,7 @@ class _Surface(_SurfaceABC):
 
     def __sub__(self, other):
         if not isinstance(other, _Surface):
-            return Surface(profile=self.profile + other, grid_spacing=self.grid_spacing)
+            return Surface(profile=self.profile - other, grid_spacing=self.grid_spacing)
 
         if self.grid_spacing is not None and other.grid_spacing is not None and self.grid_spacing != other.grid_spacing:
             if self.grid_spacing < other.grid_spacing:
@@ -1880,3 +1872,45 @@ class SurfaceCombination(_AnalyticalSurface):
     def _height(self, x_mesh, y_mesh):
         """This will be overwritten on init"""
         pass
+
+
+"""
+class RollingSurface(_Surface):
+    def __init__(self, stationary_surface:_Surface, rolling_surface:Surface, allow_non_integer_roll = True,
+                 shape = None):
+        shape = shape or stationary_surface.shape
+        if shape is None:
+            raise ValueError("The shape of the stationary surface or the shape parameter must be set")
+        super().__init__(grid_spacing=rolling_surface.grid_spacing, shape=shape, is_discrete=True)
+        if stationary_surface.shape is None:
+            stationary_surface.shape = shape
+        elif stationary_surface.shape != shape:
+            raise ValueError("The shape of the stationary surface doesn't match the provided shape")
+        if stationary_surface.grid_spacing is None:
+            stationary_surface.grid_spacing = rolling_surface.grid_spacing
+        elif stationary_surface.grid_spacing != rolling_surface.grid_spacing:
+            raise ValueError("The shape of the stationary surface doesn't match the provided shape")
+        self.stationary_surface_profile = stationary_surface.profile
+        self.unworn_roughness = rolling_surface.profile
+        self._non_integer_roll = allow_non_integer_roll
+        self.current_offset_pts = (0,0)
+
+    @property
+    def _profile(self):
+        \"""The height data for the surface profile
+        \"""
+
+    @_profile.setter
+    def _profile(self, value):
+        pass
+
+    def __repr__(self):
+        pass
+
+    def wear(self, name: str, x_pts: np.ndarray, y_pts: np.ndarray, depth: np.ndarray):
+        y_pts -= self.current_offset_pts[0]
+        x_pts -= self.current_offset_pts[1]
+
+
+    def roll(self, x_):
+"""

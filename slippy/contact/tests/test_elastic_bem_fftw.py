@@ -37,6 +37,59 @@ def test_hertz_agreement_pk_static_load_fftw():
 
         out = my_model.solve(skip_data_check=True)
 
+        assert my_step._method == 'pk'
+
+        final_load = sum(out['loads_z'].flatten() * round_surface.grid_spacing ** 2)
+
+        # check the converged load is the same as the set load
+        npt.assert_approx_equal(final_load, total_load, 3)
+
+        # get the analytical hertz result
+        a_result = c.hertz_full([1, 1], [np.inf, np.inf], [200e9, 70e9], [0.3, 0.33], 100)
+
+        # check max pressure
+        npt.assert_approx_equal(a_result['max_pressure'], max(out['loads_z'].flatten()), 3)
+
+        # check contact area
+        found_area = round_surface.grid_spacing ** 2 * sum(out['contact_nodes'].flatten())
+        npt.assert_approx_equal(a_result['contact_area'], found_area, 2)
+
+        # check deflection
+        npt.assert_approx_equal(a_result['total_deflection'], out['interference'], 2)
+
+
+def test_hertz_agreement_rey_static_load_fftw():
+    """ Test that the load controlled static step gives approximately the same answer as the
+    analytical hertz solver
+
+    """
+    try:
+        import pyfftw  # noqa: F401
+    except ImportError:
+        warnings.warn("Could not import pyfftw, could not test the fftw backend")
+        return
+
+    with slippy.OverRideCuda():
+        # make surfaces
+        flat_surface = s.FlatSurface(shift=(0, 0))
+        round_surface = s.RoundSurface((1, 1, 1), extent=(0.006, 0.006), shape=(255, 255),
+                                       generate=True)
+        # set materials
+        alu_periodic = c.Elastic('Aluminum_periodic', {'E': 70e9, 'v': 0.33}, zero_frequency_value=0.0)
+        steel_periodic = c.Elastic('Steel_periodic', {'E': 200e9, 'v': 0.3}, zero_frequency_value=0.0)
+
+        flat_surface.material = alu_periodic
+        round_surface.material = steel_periodic
+        # create model
+        my_model = c.ContactModel('model-1', round_surface, flat_surface)
+        # set model parameters
+        total_load = 100
+        my_step = c.StaticStep('contact', normal_load=total_load, method='rey',
+                               periodic_axes=(True, True))
+        my_model.add_step(my_step)
+
+        out = my_model.solve(skip_data_check=True)
+
         final_load = sum(out['loads_z'].flatten() * round_surface.grid_spacing ** 2)
 
         # check the converged load is the same as the set load
@@ -52,11 +105,10 @@ def test_hertz_agreement_pk_static_load_fftw():
         found_area = round_surface.grid_spacing ** 2 * sum(out['contact_nodes'].flatten())
         npt.assert_approx_equal(a_result['contact_area'], found_area, 2)
 
-        # check deflection
-        npt.assert_approx_equal(a_result['total_deflection'], out['interference'], 4)
+        # can't check deflection for fully periodic contact
 
 
-def test_hertz_agreement_double_static_load_fftw():
+def test_hertz_agreement_pk_static_load_fftw_spatial_im():
     """ Test that the load controlled static step gives approximately the same answer as the
     analytical hertz solver
 
@@ -78,7 +130,7 @@ def test_hertz_agreement_double_static_load_fftw():
         my_model = c.ContactModel('model-1', round_surface, flat_surface)
         # set model parameters
         total_load = 100
-        my_step = c.StaticStep('contact', normal_load=total_load, method='double')
+        my_step = c.StaticStep('contact', normal_load=total_load)
         my_model.add_step(my_step)
 
         out = my_model.solve(skip_data_check=True)
@@ -92,14 +144,62 @@ def test_hertz_agreement_double_static_load_fftw():
         a_result = c.hertz_full([1, 1], [np.inf, np.inf], [200e9, 70e9], [0.3, 0.33], 100)
 
         # check max pressure
-        npt.assert_approx_equal(a_result['max_pressure'], max(out['loads_z'].flatten()), 2)
+        npt.assert_approx_equal(a_result['max_pressure'], max(out['loads_z'].flatten()), 3)
 
         # check contact area
         found_area = round_surface.grid_spacing ** 2 * sum(out['contact_nodes'].flatten())
         npt.assert_approx_equal(a_result['contact_area'], found_area, 2)
 
         # check deflection
-        npt.assert_approx_equal(a_result['total_deflection'], out['interference'], 4)
+        npt.assert_approx_equal(a_result['total_deflection'], out['interference'], 2)
+
+
+def test_hertz_agreement_double_static_load_fftw():
+    """ Test that the load controlled static step gives approximately the same answer as the
+    analytical hertz solver
+
+    """
+    try:
+        import pyfftw  # noqa: F401
+    except ImportError:
+        warnings.warn("Could not import pyfftw, could not test the fftw backend")
+        return
+
+    with slippy.OverRideCuda():
+        # make surfaces
+        flat_surface = s.FlatSurface(shift=(0, 0))
+        round_surface = s.RoundSurface((1, 1, 1), extent=(0.006, 0.006), shape=(255, 255), generate=True)
+        # set materials
+        steel_2 = c.Elastic('Steel_2a', {'E': 200e9, 'v': 0.3}, use_frequency_domain=False)
+        aluminum_2 = c.Elastic('Aluminum_2a', {'E': 70e9, 'v': 0.33}, use_frequency_domain=False)
+        flat_surface.material = aluminum_2
+        round_surface.material = steel_2
+        # create model
+        my_model = c.ContactModel('model-1', round_surface, flat_surface)
+        # set model parameters
+        total_load = 100
+        my_step = c.StaticStep('contact', normal_load=total_load, method='double', tolerance_outer=1e-8)
+        my_model.add_step(my_step)
+
+        out = my_model.solve(skip_data_check=True)
+
+        final_load = sum(out['loads_z'].flatten() * round_surface.grid_spacing ** 2)
+
+        # check the converged load is the same as the set load
+        npt.assert_approx_equal(final_load, total_load, 3)
+
+        # get the analytical hertz result
+        a_result = c.hertz_full([1, 1], [np.inf, np.inf], [200e9, 70e9], [0.3, 0.33], 100)
+
+        # check max pressure
+        npt.assert_approx_equal(a_result['max_pressure'], max(out['loads_z'].flatten()), 3)
+
+        # check contact area
+        found_area = round_surface.grid_spacing ** 2 * sum(out['contact_nodes'].flatten())
+        npt.assert_approx_equal(a_result['contact_area'], found_area, 2)
+
+        # check deflection
+        npt.assert_approx_equal(a_result['total_deflection'], out['interference'], 2)
 
 
 def test_hertz_agreement_static_interference_fftw():
@@ -133,7 +233,7 @@ def test_hertz_agreement_static_interference_fftw():
 
         # check that the load converged to the correct results
         num_total_load = round_surface.grid_spacing**2*sum(final_state['loads_z'].flatten())
-        npt.assert_approx_equal(num_total_load, set_load, significant=4)
+        npt.assert_approx_equal(num_total_load, set_load, significant=2)
 
         # check that the max pressure is the same
         npt.assert_approx_equal(a_result['max_pressure'], max(final_state['loads_z'].flatten()), significant=2)

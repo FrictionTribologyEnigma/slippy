@@ -18,16 +18,13 @@ if slippy.CUDA:
 else:
     cp = None
 
-from slippy.core import _ContactModelABC, bccg, plan_convolve, _IMMaterial, polonsky_and_keer  # noqa: E402
+from slippy.core import _ContactModelABC, bccg, plan_convolve, _IMMaterial, polonsky_and_keer, rey, \
+    ConvolutionFunction, _AdhesionModelABC  # noqa: E402
 
 __all__ = ['solve_normal_interference', 'get_next_file_num', 'OffSetOptions', 'solve_normal_loading',
            'HeightOptimisationFunction', 'make_interpolation_func']
 
 OffSetOptions = namedtuple('off_set_options', ['off_set', 'abs_off_set', 'periodic', 'interpolation_mode'])
-
-_iter = 100
-_xtol = 2e-12
-_rtol = 4 * np.finfo(float).eps
 
 
 def make_interpolation_func(values, kind, name: str):
@@ -79,17 +76,16 @@ class HeightOptimisationFunction:
         The maximum adhesive pressure between the surfaces
     initial_contact_nodes:
         If set the solution will be constrained to these nodes, if this is not wanted use None
-    max_it_inner: int
-        The maximum number of iterations for the inner loops
-    tol_inner: float
-        The tolerance used to declare convergence for the inner loops
+    max_it: int
+        The maximum number of iterations (for the inner loops if double optimisation is used)
+    rtol: float
+        The tolerance used to declare convergence (for the inner loops if double optimisation is used)
     material_options: dict, list of dict
         Material options for the materials in the model
     max_set_load: float
         The target total load in the normal direction, this must be kept up to date if the same function is being reused
-    tolerance: float
-        The tolerance used in the outer loop, the loop that this functions is optimised over, this is necessary to
-        ensure a full solution is always returned (the final solution will not be returned from the cache)
+    rtol_outer: float
+        The tolerance used in the outer loop, only used if double optimisation method is used
     use_cache: bool, optional (True)
         If False the cache won't be used
     cache_loads: bool, optional (True)
@@ -102,25 +98,25 @@ class HeightOptimisationFunction:
     set_contact_nodes = False
 
     def __init__(self, just_touching_gap: np.ndarray, model: _ContactModelABC,
-                 adhesion_model: float, initial_contact_nodes: np.ndarray,
-                 max_it_inner: int, tol_inner: float, material_options: typing.Union[typing.Sequence[dict], dict],
-                 max_set_load: float, tolerance: float, use_cache: bool = True, cache_loads=True,
-                 periodic_axes: typing.Tuple[bool] = (False, False), periodic_im_repeats: typing.Tuple[int] = (1, 1)):
+                 adhesion_model: _AdhesionModelABC, initial_contact_nodes: np.ndarray,
+                 max_it: int, rtol: float, material_options: typing.Union[typing.Sequence[dict], dict],
+                 max_set_load: float, rtol_outer: float = 0, max_it_outer: int = 0, use_cache: bool = True,
+                 cache_loads=True, periodic_axes: typing.Tuple[bool] = (False, False)):
         if slippy.CUDA:
             xp = cp
             cache_loads = False
         else:
             xp = np
-        self.periodic_im_repeats = tuple([int(r) if a else 1 for r, a in zip(periodic_im_repeats, periodic_axes)])
         self._grid_spacing = model.surface_1.grid_spacing
 
-        self._just_touching_gap = xp.asarray(just_touching_gap)
-
+        self._just_touching_gap = np.asarray(just_touching_gap)
         self._model = model
         self._adhesion_model = adhesion_model
         self.initial_contact_nodes = initial_contact_nodes
-        self._max_it_inner = max_it_inner
-        self._tol_inner = tol_inner
+        self._max_it = max_it
+        self._tol = rtol
+        self._max_it_outer = max_it_outer
+        self._tol_outer = rtol_outer
         self._material_options = material_options
         self._original_set_load = max_set_load
         self._set_load = float(max_set_load)
@@ -128,7 +124,7 @@ class HeightOptimisationFunction:
         self.cache_heights = [0.0]
         self.cache_total_load = [0.0]
         self.cache_surface_loads = [xp.zeros(just_touching_gap.shape)]
-        self.tolerance = tolerance
+
         self.it = 0
         self.use_cache = use_cache
         self.use_loads_cache = cache_loads
@@ -136,20 +132,22 @@ class HeightOptimisationFunction:
         surf_2 = model.surface_2
 
         self.im_mats = False
-        self.conv_func: typing.Callable = None
+        self.conv_func: ConvolutionFunction = None
         self.cache_max = False
         self.last_call_failed = False
         self._last_converged_loads = None
 
         if isinstance(surf_1.material, _IMMaterial) and isinstance(surf_2.material, _IMMaterial):
             self.im_mats = True
+            self._zero_frequency_zero = (surf_1.material.zero_frequency_value == 0 and
+                                         surf_2.material.zero_frequency_value == 0)
             span = tuple([s * (2 - pa) for s, pa in zip(just_touching_gap.shape, periodic_axes)])
             max_pressure = min([surf_1.material.max_load, surf_2.material.max_load])
             self.max_pressure = max_pressure
             im1 = surf_1.material.influence_matrix(components=['zz'], grid_spacing=[surf_1.grid_spacing] * 2,
-                                                   span=span, periodic_strides=self.periodic_im_repeats)['zz']
+                                                   span=span)['zz']
             im2 = surf_2.material.influence_matrix(components=['zz'], grid_spacing=[surf_1.grid_spacing] * 2,
-                                                   span=span, periodic_strides=self.periodic_im_repeats)['zz']
+                                                   span=span)['zz']
             total_im = im1 + im2
             self.total_im = xp.asarray(total_im)
 
@@ -161,7 +159,7 @@ class HeightOptimisationFunction:
                 max_elastic_disp = self.conv_func(max_loads)
                 self.cache_heights.append(xp.max(max_elastic_disp + xp.asarray(just_touching_gap)))
                 if cache_loads:
-                    self.cache_surface_loads.append(max_loads)
+                    self.cache_surface_loads.append(slippy.asnumpy(max_loads))
         else:
             self.contact_nodes = initial_contact_nodes
 
@@ -171,14 +169,10 @@ class HeightOptimisationFunction:
 
     @contact_nodes.setter
     def contact_nodes(self, value):
-        if slippy.CUDA:
-            xp = cp
-        else:
-            xp = np
         if value is None:
             self._contact_nodes = None
         else:
-            value = xp.array(value, dtype=bool)
+            value = np.array(value, dtype=bool)
             self._contact_nodes = value
         if self.im_mats:
             self.conv_func = plan_convolve(self._just_touching_gap, self.total_im, self._contact_nodes,
@@ -201,10 +195,10 @@ class HeightOptimisationFunction:
             span = tuple([s * (2 - pa) for s, pa in zip(self._just_touching_gap.shape, self._periodic_axes)])
             # noinspection PyUnresolvedReferences
             im1 = surf_1.material.influence_matrix(span=span, grid_spacing=[surf_1.grid_spacing] * 2,
-                                                   components=['zz'], periodic_strides=self.periodic_im_repeats)['zz']
+                                                   components=['zz'])['zz']
             # noinspection PyUnresolvedReferences
             im2 = surf_2.material.influence_matrix(span=span, grid_spacing=[surf_1.grid_spacing] * 2,
-                                                   components=['zz'], periodic_strides=self.periodic_im_repeats)['zz']
+                                                   components=['zz'])['zz']
 
             if 'domain' in self._results and 'loads_in_domain' in self._results:
                 full_loads = xp.zeros(self._just_touching_gap.shape)
@@ -230,10 +224,20 @@ class HeightOptimisationFunction:
 
             total_load = float(np.sum(full_loads) * self._grid_spacing ** 2)
 
+            if 'contact_nodes' in self._results:
+                contact_nodes = self._results['contact_nodes']
+            else:
+                contact_nodes = full_loads > 0
+
+            if 'gap' in self._results:
+                gap = self._results['gap']
+            else:
+                gap = self._just_touching_gap-self._results['interference']+full_disp
+
             results = {'loads_z': full_loads, 'total_displacement_z': full_disp,
                        'surface_1_displacement_z': disp_1, 'surface_2_displacement_z': disp_2,
-                       'contact_nodes': full_loads > 0, 'total_normal_load': total_load,
-                       'interference': self._results['interference']}
+                       'contact_nodes': contact_nodes, 'total_normal_load': total_load,
+                       'interference': self._results['interference'], 'gap': gap}
             return results
         else:
             return self._results
@@ -285,8 +289,7 @@ class HeightOptimisationFunction:
 
         return float(lower_bound), float(upper_bound)
 
-    def brent(self, xa: float, xb: float, xg: float = None, x_tol: float = _xtol, r_tol: float = _rtol,
-              max_iter: int = _iter, current_state: dict = None):
+    def brent(self, xa: float, xb: float, xg: float = None, x_tol: float = np.inf):
         """
         A 'nan safe' version of the brent root finding algorithm
 
@@ -296,18 +299,10 @@ class HeightOptimisationFunction:
             The lower and upper bracket values respectively (f(xa) must be smaller than 0, f(xb) must be larger than 0)
         xg: float, optional (None)
             An optional first guess at the zero location, zero can be above or below this value
-        x_tol: float, optional (2e-12)
+        x_tol: float, optional (inf)
             The computed root x0 will satisfy np.allclose(x, x0, atol=x_tol, rtol=r_tol), where x is the exact root. The
             parameter must be non-negative. For nice functions, Brent’s method will often satisfy the above condition
             with x_tol/2 and r_tol/2. [Brent1973]
-        r_tol: float, optional (4 * np.finfo(float).eps)
-            The computed root x0 will satisfy np.allclose(x, x0, atol=x_tol, rtol=r_tol), where x is the exact root. The
-            parameter cannot be smaller than its default value of 4*np.finfo(float).eps. For nice functions, Brent’s
-            method will often satisfy the above condition with x_tol/2 and r_tol/2. [Brent1973]
-        max_iter: int, optional (100)
-            The maximum number of iterations
-        current_state: dict, optional (None)
-            The current model state, for compatibility with future behaviour
 
         Returns
         -------
@@ -322,8 +317,55 @@ class HeightOptimisationFunction:
         functions with a zero for a positive value of x. It is also tolerant to single nan values from the function to
         help with convergence.
 
+        The relative tolerance is set to self._r_tol_outer, the max iterations is set to self._max_it_outer.
+
         """
-        return safe_brent(self, xa, xb, xg, x_tol, r_tol, max_iter)
+        failed, _ = safe_brent(self, xa, xb, xg, self._tol_outer, self._tol_outer, self._max_it_outer)
+        self._results['converged'] = not failed
+
+    def rey(self, target_load: float = None, target_mean_gap: float = None, add_to_cache: bool = True):
+        """ Solve the contact problem using the Rey algorithm
+
+        Parameters
+        ----------
+        target_load: float
+            The target total load
+        target_mean_gap: float
+            The target mean gap
+        add_to_cache: bool
+            If True the result will be cached
+
+        Returns
+        -------
+        None
+
+        Notes
+        -----
+        The results from this method can be accessed by accessing the results property of this class, this will
+        automatically fill in displacement for both surfaces and the rigid body interference result.
+
+        The contact nodes property must be set to None before using this method, this remakes the convolution function.
+        """
+        if not self._zero_frequency_zero:
+            raise ValueError("Rey solver requires a zero frequency value of 0, set in material definitions")
+        if not all(self._periodic_axes):
+            raise ValueError("Rey solver requires fully periodic contact, set periodic axes to True in step definition")
+        if self.max_pressure < np.inf:
+            raise ValueError("Rey algorithm cannot be used with a maximum pressure")
+        if target_load is None:
+            target_mean_pressure = None
+        else:
+            target_mean_pressure = target_load / (self._just_touching_gap.size * self._grid_spacing ** 2)
+        failed, pressure, gap, total_displacement, contact_nodes = rey(self._just_touching_gap, self.conv_func,
+                                                                       self._adhesion_model, self._tol,
+                                                                       self._max_it, target_mean_gap,
+                                                                       target_mean_pressure)
+        self._results = {'loads_z': pressure, 'total_displacement_z': total_displacement,
+                         'interference': np.mean((slippy.asnumpy(self._just_touching_gap) +
+                                                  slippy.asnumpy(total_displacement))[slippy.asnumpy(pressure > 0)]),
+                         'converged': not failed, 'gap': gap, 'contact_nodes': contact_nodes}
+        if add_to_cache:
+            self.add_to_cache(self._results['interference'], target_load, pressure, failed)
 
     def p_and_k(self, target_load: float, pressure_guess: np.ndarray = None, add_to_cache: bool = True):
         """ Solve the set contact problem using the Polonsky and Keer algorithm
@@ -335,6 +377,8 @@ class HeightOptimisationFunction:
         pressure_guess: array, optional (None)
             The initial guess for the pressure solution, if none is supplied the last converged solution is used if
             there is no last converged solution a flat array (ones) is used.
+        add_to_cache: bool
+            If True the result will be cached
 
         Returns
         -------
@@ -353,19 +397,16 @@ class HeightOptimisationFunction:
         if pressure_guess is None:
             pressure_guess = self._last_converged_loads or np.ones_like(self._just_touching_gap)
         failed, pressure, gap = polonsky_and_keer(self.conv_func, pressure_guess, self._just_touching_gap, target_load,
-                                                  self._grid_spacing, self._tol_inner, self._max_it_inner)
+                                                  self._grid_spacing, self._tol, self._max_it)
         total_displacement = self.conv_func(pressure)
         self._results = {'loads_z': pressure, 'total_displacement_z': total_displacement,
                          'interference': np.mean((slippy.asnumpy(self._just_touching_gap) +
-                                                  slippy.asnumpy(total_displacement))[slippy.asnumpy(pressure > 0)])}
+                                                  slippy.asnumpy(total_displacement))[slippy.asnumpy(pressure > 0)]),
+                         'converged': not failed}
         if add_to_cache:
             self.add_to_cache(self._results['interference'], target_load, pressure, failed)
 
     def __call__(self, height, current_state=None):
-        if slippy.CUDA:
-            xp = cp
-        else:
-            xp = np
         # If the height guess is in the cache that can be out load guess
         height = float(height)
         if height in self.cache_heights:
@@ -380,24 +421,25 @@ class HeightOptimisationFunction:
             if not self.set_contact_nodes:
                 self.contact_nodes = z > 0  # this will remake the conv function as a side effect
             contact_nodes = self.contact_nodes
-            if not xp.any(contact_nodes):
+            if not np.any(contact_nodes):
                 print('no contact nodes')
                 total_load = 0
-                full_loads = xp.zeros(contact_nodes.shape, dtype=xp.float32)
+                full_loads = np.zeros(contact_nodes.shape)
                 failed = False
             else:
                 if pressure_initial_guess is None:
-                    pressure_initial_guess = xp.zeros_like(z)
+                    pressure_initial_guess = np.zeros(z.shape)
                 z_in = z[contact_nodes]
                 pressure_guess_in = pressure_initial_guess[contact_nodes]
-                loads_in_domain, failed = bccg(self.conv_func, z_in, self._tol_inner,
-                                               self._max_it_inner, pressure_guess_in,
+                loads_in_domain, failed = bccg(self.conv_func, z_in, self._tol,
+                                               self._max_it, pressure_guess_in,
                                                0, self.max_pressure)
+                loads_in_domain = slippy.asnumpy(loads_in_domain)
                 self._results = {'loads_in_domain': loads_in_domain, 'domain': self.contact_nodes,
                                  'interference': height}
-                total_load = float(xp.sum(loads_in_domain) * self._grid_spacing ** 2)
+                total_load = float(np.sum(loads_in_domain) * self._grid_spacing ** 2)
                 if not failed:
-                    full_loads = xp.zeros(contact_nodes.shape)
+                    full_loads = np.zeros(contact_nodes.shape)
                     full_loads[contact_nodes] = loads_in_domain
                     self._last_converged_loads = full_loads
                 else:
@@ -406,7 +448,7 @@ class HeightOptimisationFunction:
             self.add_to_cache(height, total_load, full_loads, failed)
             if failed:
                 # noinspection PyUnboundLocalVariable
-                print(f'Failed: total load: {total_load}, height {height}, max_load {xp.max(loads_in_domain)}')
+                print(f'Failed: total load: {total_load}, height {height}, max_load {np.max(loads_in_domain)}')
                 self.last_call_failed = True
             else:
                 print(f'Solved: interference: {height}\tTotal load: {total_load}\tTarget load: {self._set_load}')
@@ -421,9 +463,9 @@ class HeightOptimisationFunction:
                                       current_state=current_state,
                                       adhesive_pressure=self._adhesion_model,
                                       contact_nodes=self.contact_nodes,
-                                      max_iter=self._max_it_inner,
+                                      max_iter=self._max_it,
                                       material_options=self._material_options,
-                                      tol=self._tol_inner,
+                                      tol=self._tol,
                                       initial_guess_loads=pressure_initial_guess)
 
         self._results['loads_z'] = loads
@@ -473,8 +515,8 @@ class HeightOptimisationFunction:
                 self.cache_surface_loads.insert(index, loads)
 
 
-def safe_brent(f: typing.Callable, xa: float, xb: float, xg: float = None, x_tol: float = _xtol, r_tol: float = _rtol,
-               max_iter: int = _iter):
+def safe_brent(f: typing.Callable, xa: float, xb: float, xg: typing.Optional[float], x_tol: float, r_tol: float,
+               max_iter: int):
     """
     A 'nan safe' version of the brent root finding algorithm
 
@@ -486,15 +528,15 @@ def safe_brent(f: typing.Callable, xa: float, xb: float, xg: float = None, x_tol
         The lower and upper bracket values respectively (f(xa) must be smaller than 0, f(xb) must be larger than 0)
     xg: float, optional (None)
         An optional first guess at the zero location, zero can be above or below this value
-    x_tol: float, optional (2e-12)
+    x_tol: float
         The computed root x0 will satisfy np.allclose(x, x0, atol=xtol, rtol=rtol), where x is the exact root. The
         parameter must be non-negative. For nice functions, Brent’s method will often satisfy the above condition with
         xtol/2 and rtol/2. [Brent1973]
-    r_tol: float, optional (4 * np.finfo(float).eps)
+    r_tol: float
         The computed root x0 will satisfy np.allclose(x, x0, atol=xtol, rtol=rtol), where x is the exact root. The
         parameter cannot be smaller than its default value of 4*np.finfo(float).eps. For nice functions, Brent’s method
         will often satisfy the above condition with xtol/2 and rtol/2. [Brent1973]
-    max_iter: int, optional (100)
+    max_iter: int
         The maximum number of iterations
 
     Returns

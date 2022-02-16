@@ -24,7 +24,7 @@ def test_read_write_output():
 
 
 def test_array_reading():
-    dtypes = [int, np.int64, float, np.float, np.complex64, np.complex128]
+    dtypes = [int, np.int64, float, np.complex64, np.complex128]
     shapes = [(1,), (5,), (5, 6), (5, 6, 7)]
     sizes = [1, 5, 30, 210]
     i = 0

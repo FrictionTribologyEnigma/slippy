@@ -40,8 +40,11 @@ class _SurfaceABC(abc.ABC):
 class _AdhesionModelABC(abc.ABC):
 
     @abc.abstractmethod
-    def __call__(self, surface_loads, deformed_gap, contact_nodes, model):
+    def energy_gradient(self, gap):
         pass
+
+    def __call__(self, gap):
+        return self.energy_gradient(gap)
 
     def __bool__(self):
         return True
@@ -66,7 +69,7 @@ class _ContactModelABC(abc.ABC):
 
     @lubricant_model.setter
     def lubricant_model(self, value):
-        if issubclass(type(value), _LubricantModelABC):
+        if issubclass(type(value), _LubricantModelABC) or value is None:
             self._lubricant = value
         else:
             raise ValueError("Unable to set lubricant, expected lubricant "
