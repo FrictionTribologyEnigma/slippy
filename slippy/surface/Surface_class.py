@@ -18,7 +18,7 @@ from .roughness_funcs import get_height_of_mat_vr, low_pass_filter
 from .roughness_funcs import get_mat_vr, get_summit_curvatures
 from .roughness_funcs import roughness, subtract_polynomial, find_summits
 
-__all__ = ['Surface', 'assurface', 'read_surface', '_Surface', '_AnalyticalSurface']
+__all__ = ['Surface', 'assurface', 'read_surface', '_Surface', '_AnalyticalSurface', 'RollingSurface']
 
 
 def assurface(profile, grid_spacing=None):
@@ -128,8 +128,6 @@ class _Surface(_SurfaceABC):
     dimensions: typing.Optional[int] = 2
     """ The number of spatial dimensions that """
     is_analytic: bool = False
-    """ A bool, true if the surface can be described by an equation and a  Z=height(X,Y) method is provided"""
-    invert_surface: bool = False
 
     _material: typing.Optional[_MaterialABC] = None
     unworn_profile: typing.Optional[np.ndarray] = None
@@ -285,10 +283,7 @@ class _Surface(_SurfaceABC):
     def profile(self):
         """The height data for the surface profile
         """
-        if self.invert_surface:
-            return -1 * self._profile
-        else:
-            return self._profile
+        return self._profile
 
     @profile.setter
     def profile(self, value: np.ndarray):
@@ -1189,9 +1184,9 @@ class _Surface(_SurfaceABC):
 
         Parameters
         ----------
-        x_points: np.ndarray
-            N by M array of x points, in the same units as the grid spacing
         y_points: np.ndarray
+            N by M array of x points, in the same units as the grid spacing
+        x_points: np.ndarray
             N by M array of y points, in the same units as the grid spacing
         mode: str {'nearest', 'linear', 'cubic'}, optional ('nearest')
             The mode of the interpolation
@@ -1207,8 +1202,8 @@ class _Surface(_SurfaceABC):
         assert (x_points.shape == y_points.shape)
 
         if mode == 'nearest':
-            x_index = np.array(x_points / self.grid_spacing, dtype='int32').flatten()
-            y_index = np.array(y_points / self.grid_spacing, dtype='int32').flatten()
+            x_index = np.array((x_points+self.grid_spacing/2) / self.grid_spacing, dtype='int32').flatten()
+            y_index = np.array((y_points+self.grid_spacing/2) / self.grid_spacing, dtype='int32').flatten()
             return np.reshape(self.profile[y_index, x_index], newshape=x_points.shape)
         elif mode == 'linear':
             if remake_interpolator or self._inter_func is None or self._inter_func.degrees != (1, 1):
@@ -1874,43 +1869,48 @@ class SurfaceCombination(_AnalyticalSurface):
         pass
 
 
-"""
 class RollingSurface(_Surface):
-    def __init__(self, stationary_surface:_Surface, rolling_surface:Surface, allow_non_integer_roll = True,
-                 shape = None):
-        shape = shape or stationary_surface.shape
-        if shape is None:
-            raise ValueError("The shape of the stationary surface or the shape parameter must be set")
-        super().__init__(grid_spacing=rolling_surface.grid_spacing, shape=shape, is_discrete=True)
-        if stationary_surface.shape is None:
-            stationary_surface.shape = shape
-        elif stationary_surface.shape != shape:
-            raise ValueError("The shape of the stationary surface doesn't match the provided shape")
-        if stationary_surface.grid_spacing is None:
-            stationary_surface.grid_spacing = rolling_surface.grid_spacing
-        elif stationary_surface.grid_spacing != rolling_surface.grid_spacing:
-            raise ValueError("The shape of the stationary surface doesn't match the provided shape")
-        self.stationary_surface_profile = stationary_surface.profile
-        self.unworn_roughness = rolling_surface.profile
-        self._non_integer_roll = allow_non_integer_roll
-        self.current_offset_pts = (0,0)
+    _initialised = False
+
+    def __init__(self, roughness: _Surface, static_profile: _Surface,
+                 interpolation_mode="nearest"):
+        super().__init__(grid_spacing=static_profile.grid_spacing,
+                         extent=None, shape=static_profile.shape)
+        self._roughness_surface = roughness
+        self._static_profile = static_profile
+        self.current_shift = np.array([0.0, 0.0])
+        self._interpolation_mode = interpolation_mode
+        self._initialised = True
 
     @property
-    def _profile(self):
-        \"""The height data for the surface profile
-        \"""
+    def profile(self):
+        if not self._initialised:
+            return None
+        y, x = self._convert_coordinates_to_roughness(*self._static_profile.get_points_from_extent())
+        return (self._static_profile.profile +
+                self._roughness_surface.interpolate(y, x, self._interpolation_mode))
 
-    @_profile.setter
-    def _profile(self, value):
-        pass
-
-    def __repr__(self):
-        pass
+    @profile.setter
+    def profile(self, value):
+        raise ValueError("The profile of a rolling surface cannot be set")
 
     def wear(self, name: str, x_pts: np.ndarray, y_pts: np.ndarray, depth: np.ndarray):
-        y_pts -= self.current_offset_pts[0]
-        x_pts -= self.current_offset_pts[1]
+        y_pts, x_pts = self._convert_coordinates_to_roughness(y_pts, x_pts)
+        self._roughness_surface.wear(name, x_pts, y_pts, depth)
 
+    def interpolate(self, y_points: np.ndarray, x_points: np.ndarray, mode: str = 'nearest',
+                    remake_interpolator: bool = False):
+        y, x = self._convert_coordinates_to_roughness(y_points, x_points)
+        return (self._static_profile.interpolate(y_points, x_points, mode, remake_interpolator) +
+                self._roughness_surface.interpolate(y, x, mode, remake_interpolator))
 
-    def roll(self, x_):
-"""
+    def _convert_coordinates_to_roughness(self, y_coord, x_coord):
+        return (np.remainder(y_coord + self.current_shift[0], self._roughness_surface.extent[0]),
+                np.remainder(x_coord + self.current_shift[1], self._roughness_surface.extent[1]))
+
+    def shift(self, delta_y, delta_x):
+        self.current_shift += np.array([delta_y, delta_x])
+
+    def __repr__(self):
+        return (f"RollingSurface({self._roughness_surface.__repr__()}, "
+                f"{self._static_profile.__repr__()}, )")

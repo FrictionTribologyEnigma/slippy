@@ -68,7 +68,7 @@ surface_like.
 
 
 from .ACF_class import ACF
-from .Surface_class import Surface, assurface, read_surface, _AnalyticalSurface
+from .Surface_class import Surface, assurface, read_surface, _AnalyticalSurface, RollingSurface
 from .Geometric import FlatSurface, RoundSurface, PyramidSurface
 from .Random import RandomFilterSurface, RandomPerezSurface
 from .FFTBased import ProbFreqSurface, DiscFreqSurface, HurstFractalSurface
@@ -79,4 +79,4 @@ from .read_tst_file import read_tst_file
 __all__ = ['Surface', 'assurface', 'read_surface', 'ACF', 'FlatSurface', 'RoundSurface', 'PyramidSurface',
            'RandomFilterSurface', 'RandomPerezSurface', 'ProbFreqSurface', 'DiscFreqSurface', 'HurstFractalSurface',
            'alicona_read', 'roughness', 'subtract_polynomial', 'get_mat_vr', 'get_height_of_mat_vr',
-           'read_tst_file', '_AnalyticalSurface']
+           'read_tst_file', '_AnalyticalSurface', 'RollingSurface']
