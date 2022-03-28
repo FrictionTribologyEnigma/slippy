@@ -31,7 +31,6 @@ class _TransientSubModelABC(core._SubModelABC, ABC):
         self.updated_dict.update(rtn_dict)
         return self.updated_dict
 
-
     @abstractmethod
     def _solve(self, current_state: dict, **kwargs) -> dict:
         pass
