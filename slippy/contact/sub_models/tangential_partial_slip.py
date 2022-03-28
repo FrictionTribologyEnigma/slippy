@@ -1,5 +1,4 @@
 import typing
-from scipy.interpolate import interp1d
 import numpy as np
 import slippy
 from ._TransientSubModelABC import _TransientSubModelABC
