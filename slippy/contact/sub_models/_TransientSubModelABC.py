@@ -6,7 +6,8 @@ from slippy.contact._step_utils import make_interpolation_func
 
 
 class _TransientSubModelABC(core._SubModelABC, ABC):
-    def __init__(self, name, requires, provides, transient_values, transient_names, interpolation_mode):
+    def __init__(self, name, requires, provides, transient_values, transient_names, interpolation_mode, overwrite=True):
+        self.overwrite = overwrite
         self.updated_dict = dict()
         self.update_funcs = dict()
         for key, value in zip(transient_names, transient_values):
@@ -26,8 +27,10 @@ class _TransientSubModelABC(core._SubModelABC, ABC):
     def solve(self, current_state: dict) -> dict:
         self.update_transience(current_state['time'])
         rtn_dict = self._solve(current_state, **self.updated_dict)
-        rtn_dict.update(self.updated_dict)
-        return rtn_dict
+        # safer to do this way in case sub model has overwritten the value (eg from another sub model)
+        self.updated_dict.update(rtn_dict)
+        return self.updated_dict
+
 
     @abstractmethod
     def _solve(self, current_state: dict, **kwargs) -> dict:
