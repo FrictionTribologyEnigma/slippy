@@ -31,13 +31,20 @@ class RigidBodyDisplacementSliding(_TransientSubModelABC):
 
 
 class RollingSliding1D(_TransientSubModelABC):
-    """Solve the one dimentional rolling sliding problem
+    """Solve the one dimensional rolling sliding problem
 
     Parameters
     ----------
-    creep: float, 2 element sequence of floats
-        Either a float indicating constant 1D creep, or a two element sequence of floats giving the creep at the start
-        and end of the model step, or a 2 by n array of n creep and time values respectively
+    creep_or_speed_difference: float, 2 element sequence of floats
+        Either a float indicating constant 1D value, or a two element sequence of floats giving the value at the start
+        and end of the model step, or a 2 by n array of n values and n times respectively. The interpretation of this
+        parameter depends on the from_contact_time parameter. If the rigid body displacement is calculated from the
+        contact time this parameter represents the speed difference, otherwise the rigid body displacement is calculated
+        from the distance to the leading edge and this parameter represents the creep.
+    from_contact_time: bool, optional (False)
+        If true the creep will be calculated from the contact time for each element, in this case the
+        creep_or_speed_difference parameter is interpreted as the difference in speed between the bodies, otherwise it
+        is interpreted as the creep (difference in speed divided by the mean speed)
     direction: {'x', 'y'}, optional ('x')
         The axis along which the creep is applied
     name: str, optional ('RollingSliding1D')
@@ -48,10 +55,6 @@ class RollingSliding1D(_TransientSubModelABC):
     periodic_axes: tuple, optional ((False, False))
         For each True value the corresponding axis will be solved by circular convolution, meaning the result is
         periodic in that direction
-    periodic_im_repeats: tuple, optional (1,1)
-            The number of times the influence matrix should be wrapped along periodic dimensions, only used if at least
-            one of periodic axes is True. This is necessary to ensure truly periodic behaviour, no physical limit exists
-            name
     tol: float, optional (1e-7)
         The tolerance used for convergence of the GMRES iterations
     max_inner_it: int, optional (None)
@@ -76,25 +79,26 @@ class RollingSliding1D(_TransientSubModelABC):
     --------
 
     """
-    def __init__(self, creep: typing.Union[typing.Sequence[float], float],
+
+    def __init__(self, creep_or_speed_difference: typing.Union[typing.Sequence[float], float],
+                 from_contact_time: bool = False,
                  direction: str = 'x',
                  name: str = 'RollingSliding1D',
                  interpolation_mode: str = 'linear',
                  periodic_axes: typing.Sequence[bool] = (False, False),
-                 periodic_im_repeats: typing.Sequence[int] = (1, 1),
                  tol: float = 1e-7, max_inner_it: int = None, restart: int = 20, max_outer_it: int = 100,
                  add_to_existing: bool = True):
         if direction not in {'x', 'y'}:
             raise ValueError("Creep direction should be 'x' or 'y'")
         self.component = direction * 2
         self.axis = int(direction == 'x')  # 1 if x 0 if y
+        self.from_contact_time = from_contact_time
         self._last_shape = None
         self._pre_solve_checks = False
         self._im_1 = None
         self._im_2 = None
         self._im_total = None
         self._periodic_axes = periodic_axes
-        self._periodic_im_repeats = periodic_im_repeats
         self._tol = tol
         self._max_it = max_inner_it
         self._restart = restart
@@ -104,14 +108,18 @@ class RollingSliding1D(_TransientSubModelABC):
         self.previous_domain = -10
         self.multiplier = 1.0
         self._add_to_existing = add_to_existing
+        requires = {'maximum_tangential_force', 'contact_nodes', 'time'}
+        if from_contact_time:
+            requires.add('contact_time_1')
+            requires.add('contact_time_2')
 
-        super().__init__(name, {'maximum_tangential_force', 'contact_nodes', 'time'},
+        super().__init__(name, requires,
                          {f'rigid_body_displacement_{direction}',
                           f'loads_{direction}',
                           f'total_displacement_{direction}',
                           f'total_tangential_force_{direction}',
                           'slip_nodes', f'{name}_failed'},
-                         [creep, ],
+                         [creep_or_speed_difference, ],
                          ['creep', ], interpolation_mode)
 
     def _check(self, shape):
@@ -122,10 +130,10 @@ class RollingSliding1D(_TransientSubModelABC):
                 span = tuple([s * (2 - pa) for s, pa in zip(shape, self._periodic_axes)])
                 im_1 = self.model.surface_1.material.influence_matrix([self.component],
                                                                       [self.model.surface_1.grid_spacing] * 2,
-                                                                      span, self._periodic_im_repeats)[self.component]
+                                                                      span)[self.component]
                 im_2 = self.model.surface_2.material.influence_matrix([self.component],
                                                                       [self.model.surface_1.grid_spacing] * 2,
-                                                                      span, self._periodic_im_repeats)[self.component]
+                                                                      span)[self.component]
                 self._im_1 = im_1
                 self._im_2 = im_2
                 self._im_total = im_1 + im_2
@@ -148,18 +156,24 @@ class RollingSliding1D(_TransientSubModelABC):
 
         domain = xp.array(current_state['contact_nodes'], dtype=bool)
 
-        x_1 = xp.asarray(self.model.surface_1.get_points_from_extent()[self.axis])
-        first = xp.argmax(domain, axis=self.axis)
-        if self.axis:
-            first_index = xp.arange(domain.shape[not self.axis], dtype=int), first
-            fp1 = xp.arange(domain.shape[not self.axis], dtype=int), first + 1
+        if self.from_contact_time:
+            rbd = (current_state['contact_time_1']+current_state['contact_time_2']) * creep/2
+            first = xp.argmax(xp.logical_and(xp.array(rbd) == 0, domain))
+            if self.axis:
+                first_index = xp.arange(domain.shape[not self.axis], dtype=int), first
+            else:
+                first_index = first, xp.arange(domain.shape[not self.axis], dtype=int)
         else:
-            first_index = first, xp.arange(domain.shape[not self.axis], dtype=int)
-            fp1 = first + 1, xp.arange(domain.shape[not self.axis], dtype=int)
-        off_sets = xp.expand_dims(x_1[first_index], self.axis)
-        x_1 -= off_sets
-        rbd = x_1 * creep
-
+            x_1 = xp.asarray(self.model.surface_1.get_points_from_extent()[self.axis])
+            first = xp.argmax(domain, axis=self.axis)
+            if self.axis:
+                first_index = xp.arange(domain.shape[not self.axis], dtype=int), first
+            else:
+                first_index = first, xp.arange(domain.shape[not self.axis], dtype=int)
+            off_sets = xp.expand_dims(x_1[first_index], self.axis)
+            x_1 -= off_sets
+            rbd = x_1 * creep * domain
+        rbd = xp.array(rbd)
         # checks for im materials makes self._base_conv_function if needed
         self._check(domain.shape)
 
@@ -170,16 +184,20 @@ class RollingSliding1D(_TransientSubModelABC):
         max_loads = xp.array(current_state['maximum_tangential_force'])
         max_loads[first_index] = 0
         disp_guess = self._base_conv_func(max_loads)
-        max_def = disp_guess[fp1] - disp_guess[first_index]
+        disp_offsets = xp.expand_dims(disp_guess[first_index], self.axis)
+        max_def = disp_guess - disp_offsets
         self.multiplier = xp.mean(disp_guess[first_index]) / np.mean(max_loads)
 
-        if self.previous_result is None or xp.any(domain ^ self.previous_domain):
+        try:
+            if self.previous_result is None or xp.any(domain ^ self.previous_domain):
+                initial_guess = max_loads[domain]
+            else:
+                initial_guess = self.previous_result[domain]
+        except ValueError:
             initial_guess = max_loads[domain]
-        else:
-            initial_guess = self.previous_result[domain]
 
         # noinspection PyTypeChecker
-        if np.all(max_def[first > 0] < (rbd[1, 1] - rbd[0, 0])):
+        if xp.all(max_def < rbd):
             # full slip
             print('full slip')
             sub_loads, failed = max_loads[domain], False
@@ -198,7 +216,7 @@ class RollingSliding1D(_TransientSubModelABC):
             failed = True
             sub_loads = None
             i = 0
-            while i < self._max_outer_it:
+            while i < self._max_outer_it and n > 0:
                 sub_loads, failed = gmres(conv_func, initial_guess, rbd[domain_unsat] - conv_func.conv_sat(),
                                           self._restart, max_it, self._tol)
                 if failed:

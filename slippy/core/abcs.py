@@ -29,12 +29,19 @@ class _MaterialABC(abc.ABC):
 
 class _SurfaceABC(abc.ABC):
     profile = None
+    moving_surface = False
     grid_spacing: float
     material: _MaterialABC
-    pass
+    shape: tuple
+
+    def max_shape(self):  # To be over written by the rolling surface
+        return self.shape
 
     def wear(self, name, x_pts, y_pts, depth):
         pass
+
+    def convert_coordinates(self, y_coord, x_coord):  # converts coordinates to the roughness, only for rolling surfaces
+        return y_coord, x_coord
 
 
 class _AdhesionModelABC(abc.ABC):
