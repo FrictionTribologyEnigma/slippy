@@ -182,7 +182,7 @@ class QuasiStaticStep(_ModelStep):
         self._r_tol_outer = tolerance_outer
         self._max_it = max_it
         self._r_tol = tolerance
-        self.number_of_steps = number_of_steps
+        self.number_of_steps = int(round(number_of_steps))
 
         if method not in {'auto', 'pk', 'double', 'rey'}:
             raise ValueError(f"Unrecognised method for step {step_name}: {method}")
@@ -215,11 +215,11 @@ class QuasiStaticStep(_ModelStep):
             off_set_y = [off_set_y] * 2 if isinstance(off_set_y, Number) else off_set_y
             off_set_x_func = make_interpolation_func(off_set_x, movement_interpolation_mode, 'relative_off_set_x')
             off_set_y_func = make_interpolation_func(off_set_y, movement_interpolation_mode, 'relative_off_set_y')
-            self._off_set_upd = lambda time: np.array([off_set_x_func(time), off_set_y_func(time)])
+            self._off_set_upd = lambda time: np.array([off_set_y_func(time), off_set_x_func(time)])
             self.update.add('off_set')
             self.off_set = None
         else:
-            self.off_set = np.array([off_set_x, off_set_y])
+            self.off_set = np.array([off_set_y, off_set_x])
 
         if normal_load is not None and interference is not None:
             raise ValueError("Both normal_load and interference are set, only one of these can be set")
@@ -292,6 +292,8 @@ class QuasiStaticStep(_ModelStep):
 
         relative_time = np.linspace(0, 1, self.number_of_steps + 1)[1:]
         just_touching_gap = None
+        surface_1_points = None
+        surface_2_points = None
 
         original = dict()
 

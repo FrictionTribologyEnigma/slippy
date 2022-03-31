@@ -29,8 +29,9 @@ from .dummy_value import DummyValue
 from .fill_displacements import FillDisplacements
 from ._TransientSubModelABC import _TransientSubModelABC
 from .shift_surface import UpdateShiftRollingSurface
+from .contact_time import ResultContactTime
 
 __all__ = ['ResultContactStiffness', 'WearElasticPerfectlyPlastic', 'FrictionCoulombSimple', 'TangentialPureSliding',
            'TangentialPartialSlip', 'SubsurfaceStress', 'RigidBodyDisplacementSliding',
            'RollingSliding1D', 'DummyValue', '_TransientSubModelABC', 'FillDisplacements',
-           'UpdateShiftRollingSurface']
+           'UpdateShiftRollingSurface', 'ResultContactTime']

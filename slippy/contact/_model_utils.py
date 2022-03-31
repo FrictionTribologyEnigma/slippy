@@ -2,19 +2,17 @@ import typing
 
 import numpy as np
 
-from slippy.core import _ContactModelABC
-
-__all__ = ['get_gap_from_model', 'non_dimentional_height']
+__all__ = ['get_gap_from_model', 'non_dimensional_height']
 
 
-def non_dimentional_height(height: float, youngs: float, v: float, load: float, gs_x: float, gs_y: float = None,
+def non_dimensional_height(height: float, youngs: float, v: float, load: float, gs_x: float, gs_y: float = None,
                            inverse: bool = False, return_uz: bool = False):
-    """Gives the non dimentional height from a dimentional height
+    """Gives the non dimensional height from a dimensional height
 
     Parameters
     ----------
     height: float
-        The height to be dimentionalised
+        The height to be dimensionalised
     youngs: float
         The Young's modulus of the material
     v: float
@@ -26,18 +24,18 @@ def non_dimentional_height(height: float, youngs: float, v: float, load: float, 
     gs_y: float, optional (None)
         The grid spacing of the descretisation grid in the y direction, if None it is assumed that the grid is square
     inverse: bool, optional (False)
-        If set to True the height will be re dimentionalised, else it will be non dimentionalised
+        If set to True the height will be re dimensionalised, else it will be non dimensionalised
     return_uz: bool, optional (False)
         If True the descriptive height uz will be returned
 
     Returns
     -------
-    non_dimentional_height: float
-        or the dimentionalised height if inverse is set to True
+    non_dimensional_height: float
+        or the dimensionalised height if inverse is set to True
 
     Notes
     -----
-    The height is non dimentionalised by dividing by the displacement caused by a the load on a single grid square:
+    The height is non dimensionalised by dividing by the displacement caused by a the load on a single grid square:
     H = h/u_z
     u_z found according to equation 3.25 in the reference
 
@@ -178,4 +176,3 @@ def get_gap_from_model(model, interference: float = 0,
     if _return_sub:
         return sub_1, sub_2
     return point_wise_interference, contact_points_1, contact_points_2
-

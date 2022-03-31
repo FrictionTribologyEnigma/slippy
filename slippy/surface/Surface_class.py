@@ -1202,8 +1202,10 @@ class _Surface(_SurfaceABC):
         assert (x_points.shape == y_points.shape)
 
         if mode == 'nearest':
-            x_index = np.array((x_points+self.grid_spacing/2) / self.grid_spacing, dtype='int32').flatten()
-            y_index = np.array((y_points+self.grid_spacing/2) / self.grid_spacing, dtype='int32').flatten()
+            x_index = np.mod(np.array((x_points+self.grid_spacing/2) / self.grid_spacing, dtype='int32').flatten(),
+                             self.shape[1])
+            y_index = np.mod(np.array((y_points+self.grid_spacing/2) / self.grid_spacing, dtype='int32').flatten(),
+                             self.shape[0])
             return np.reshape(self.profile[y_index, x_index], newshape=x_points.shape)
         elif mode == 'linear':
             if remake_interpolator or self._inter_func is None or self._inter_func.degrees != (1, 1):
@@ -1870,6 +1872,7 @@ class SurfaceCombination(_AnalyticalSurface):
 
 
 class RollingSurface(_Surface):
+    moving_surface = True
     _initialised = False
 
     def __init__(self, roughness: _Surface, static_profile: _Surface,
@@ -1880,13 +1883,14 @@ class RollingSurface(_Surface):
         self._static_profile = static_profile
         self.current_shift = np.array([0.0, 0.0])
         self._interpolation_mode = interpolation_mode
+        self.is_discrete = True
         self._initialised = True
 
     @property
     def profile(self):
         if not self._initialised:
             return None
-        y, x = self._convert_coordinates_to_roughness(*self._static_profile.get_points_from_extent())
+        y, x = self.convert_coordinates(*self._static_profile.get_points_from_extent())
         return (self._static_profile.profile +
                 self._roughness_surface.interpolate(y, x, self._interpolation_mode))
 
@@ -1894,17 +1898,21 @@ class RollingSurface(_Surface):
     def profile(self, value):
         raise ValueError("The profile of a rolling surface cannot be set")
 
+    def max_shape(self):
+        return self._roughness_surface.shape
+
     def wear(self, name: str, x_pts: np.ndarray, y_pts: np.ndarray, depth: np.ndarray):
-        y_pts, x_pts = self._convert_coordinates_to_roughness(y_pts, x_pts)
+        y_pts, x_pts = self.convert_coordinates(y_pts, x_pts)
         self._roughness_surface.wear(name, x_pts, y_pts, depth)
 
     def interpolate(self, y_points: np.ndarray, x_points: np.ndarray, mode: str = 'nearest',
                     remake_interpolator: bool = False):
-        y, x = self._convert_coordinates_to_roughness(y_points, x_points)
+        y, x = self.convert_coordinates(y_points, x_points)
         return (self._static_profile.interpolate(y_points, x_points, mode, remake_interpolator) +
                 self._roughness_surface.interpolate(y, x, mode, remake_interpolator))
 
-    def _convert_coordinates_to_roughness(self, y_coord, x_coord):
+    def convert_coordinates(self, y_coord, x_coord):
+        """Converts coordinates from the static profile to the roughness profile"""
         return (np.remainder(y_coord + self.current_shift[0], self._roughness_surface.extent[0]),
                 np.remainder(x_coord + self.current_shift[1], self._roughness_surface.extent[1]))
 
