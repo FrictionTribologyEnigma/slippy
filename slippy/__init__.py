@@ -5,7 +5,7 @@ import numpy
 
 __author__ = """Michael Watson"""
 __email__ = 'mike.watson@sheffield.ac.uk'
-__version__ = '0.5.1'
+__version__ = '0.5.2'
 
 try:
     import cupy  # noqa: F401
