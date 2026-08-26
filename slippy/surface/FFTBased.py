@@ -173,7 +173,7 @@ class ProbFreqSurface(_AnalyticalSurface):
         varience[np.logical_and((1 / freqs) >= (1 / self.qs), (1 / freqs) < (1 / self.qr))] = \
             (freqs[np.logical_and(1 / freqs >= 1 / self.qs, 1 / freqs < 1 / self.qr)] / self.qr) ** (-2 * (1 + self.h))
 
-        fou_trans = np.reshape(np.array([np.random.normal() * var ** 0.5 for var in varience.flatten()]), freqs.shape)
+        fou_trans = np.random.normal(size=freqs.shape) * np.sqrt(varience)
         return np.real(np.fft.ifft2(fou_trans))
 
     def __repr__(self):
@@ -406,13 +406,13 @@ def check_coords_are_simple(x_mesh, y_mesh):
     if not x_mesh[0, 0] == 0:
         raise ValueError('x and y points must start at 0')
 
-    if not x_mesh_check == x_mesh and y_mesh_check == y_mesh:
+    if not (np.array_equal(x_mesh_check, x_mesh) and np.array_equal(y_mesh_check, y_mesh)):
         raise ValueError("For discretising a Probabilistic frequency surface the x and y coordinates should form"
                          " an evenly spaced grid aligned with the axes")
 
     extent = (x_mesh[0, -1], x_mesh[0, -1])
     grid_spacing = difference[0]
-    shape = [ex / grid_spacing + 1 for ex in extent]
+    shape = [int(round(ex / grid_spacing)) + 1 for ex in extent]
     return grid_spacing, extent, shape
 
 

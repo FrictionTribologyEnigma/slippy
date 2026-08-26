@@ -83,7 +83,7 @@ class ResultContactTime(_SubModelABC):
         return rtn_dict
 
 
-@njit
+@njit(cache=True)
 def _interpolate_and_fill(current_times: np.ndarray, contact_nodes: np.ndarray, time_step: float):
     first_index = current_times == time_step
 

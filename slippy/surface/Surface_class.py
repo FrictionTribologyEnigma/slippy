@@ -304,6 +304,7 @@ class _Surface(_SurfaceABC):
         self._shape = self._profile.shape
         self._size = self._profile.size
         self.dimensions = len(self._profile.shape)
+        self._inter_func = None  # the cached interpolator is invalid for the new profile
 
         if self.grid_spacing is not None:
             self._extent = tuple([self.grid_spacing * p for p in self.shape])
@@ -1644,7 +1645,7 @@ class _AnalyticalSurface(_Surface):
             warnings.warn('surface contains over 10^7 points calculations will'
                           ' be slow, consider splitting surface for analysis')
 
-        x_mesh, y_mesh = self.get_points_from_extent()
+        y_mesh, x_mesh = self.get_points_from_extent()
         self.is_discrete = True
         self.profile = self.height(x_mesh, y_mesh)
 

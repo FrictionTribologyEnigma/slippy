@@ -315,7 +315,7 @@ class UnifiedReynoldsSolver(_NonDimensionalReynoldSolverABC):
         return nd_length * self.hertzian_half_width
 
 
-@njit
+@njit(cache=True)
 def _solve_row(epsilon, row, pressure, recip_dx_squared_rho, recip_dx, recip_dt, a_all, b_all, c_all, f_all,
                ak00, ak10, ak20, nd_gap, nd_density, previous_nd_density, previous_nd_gap):
     row_plus_1 = row + 1 if (row + 1) < len(epsilon[0, :]) else 0
@@ -358,7 +358,7 @@ def _solve_row(epsilon, row, pressure, recip_dx_squared_rho, recip_dx, recip_dt,
     return a_all, b_all, c_all, f_all
 
 
-@njit
+@njit(cache=True)
 def _solve_row_cyclic(epsilon, row, pressure, recip_dx_squared_rho, recip_dx, recip_dt, a_all, b_all, c_all, f_all,
                       ak00, ak10, ak20, nd_gap, nd_density, previous_nd_density, previous_nd_gap):
     row_plus_1 = row + 1 if (row + 1) < len(epsilon[0, :]) else 0

@@ -179,10 +179,15 @@ def _make_numba_cubic_solver(dtype):
                         r1[i] = u * np.cos(t) - b[i] / 3
                         r2[i] = u * np.cos(t - k) - b[i] / 3
                         r3[i] = u * np.cos(t - 2 * k) - b[i] / 3
-            # sort the array
-            r1[i], r2[i], r3[i] = np.sort(np.array([r1[i], r2[i], r3[i]]))
+            # sort the three roots with compare swaps, avoids allocating an array per element
+            if r1[i] > r2[i]:
+                r1[i], r2[i] = r2[i], r1[i]
+            if r2[i] > r3[i]:
+                r2[i], r3[i] = r3[i], r2[i]
+            if r1[i] > r2[i]:
+                r1[i], r2[i] = r2[i], r1[i]
 
-    numba_type = numba.__getattribute__(s_dtype)
+    numba_type = numba.from_dtype(np.dtype(dtype))
     raw_func = numba.guvectorize([(numba_type[:], numba_type[:], numba_type[:],
                                    numba_type[:], numba_type[:], numba_type[:])],
                                  "(n),(n),(n)->(n),(n),(n)",
