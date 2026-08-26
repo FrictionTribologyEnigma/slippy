@@ -3,14 +3,13 @@ import slippy.core as core
 import numpy as np
 import numpy.testing as npt
 import itertools
+import pytest
+
+cp = pytest.importorskip('cupy')
+slippy.CUDA = True
 
 
 def test_basic_multi_convolve_cuda():
-    try:
-        import cupy as cp
-        slippy.CUDA = True
-    except ImportError:
-        return
     comps = [a + b for a, b in itertools.product('xyz', 'xyz')]
     ims = np.array([core.elastic_influence_matrix_spatial(comp, (64, 64), [1e-6] * 2, 200e9, 0.3) for comp in comps])
     loads = np.zeros_like(ims[0])
@@ -21,11 +20,6 @@ def test_basic_multi_convolve_cuda():
 
 
 def test_vs_sequential():
-    try:
-        import cupy as cp
-        slippy.CUDA = True
-    except ImportError:
-        return
     periodics = [(False, False), (True, False), (False, True), (True, True)]
     domains = (None, 0.5 > np.random.rand(16, 16))
     comps = ['xz', 'zz']

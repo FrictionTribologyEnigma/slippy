@@ -14,6 +14,7 @@
    .. autosummary::
    
       ~Surface.__init__
+      ~Surface.convert_coordinates
       ~Surface.fill_holes
       ~Surface.find_summits
       ~Surface.get_acf
@@ -25,6 +26,7 @@
       ~Surface.get_summit_curvature
       ~Surface.interpolate
       ~Surface.low_pass_filter
+      ~Surface.max_shape
       ~Surface.mesh
       ~Surface.read_al3d
       ~Surface.read_csv
@@ -49,16 +51,17 @@
       ~Surface.extent
       ~Surface.fft
       ~Surface.grid_spacing
-      ~Surface.invert_surface
       ~Surface.is_analytic
       ~Surface.is_discrete
       ~Surface.mask
       ~Surface.material
+      ~Surface.moving_surface
       ~Surface.profile
       ~Surface.psd
       ~Surface.shape
       ~Surface.size
       ~Surface.surface_type
       ~Surface.unworn_profile
+      ~Surface.wear_volumes
    
    

@@ -133,10 +133,11 @@ class _IMMaterial(_MaterialABC):
             except TypeError:
                 raise ValueError("grid_spacing not recognised type")
 
+        # tuple() to avoid mutating a list passed by the caller
         if len(span) == 1:
-            span *= 2
+            span = tuple(span) * 2
         if len(grid_spacing) == 1:
-            grid_spacing *= 2
+            grid_spacing = tuple(grid_spacing) * 2
 
         if components == 'all':
             components = ['xx', 'xy', 'xz', 'yx', 'yy', 'yz', 'zx', 'zy', 'zz']
@@ -144,12 +145,12 @@ class _IMMaterial(_MaterialABC):
         ps = []
         for s in periodic_strides:
             try:
-                s = int(s)
-            except ValueError:
+                s_int = int(s)
+            except (ValueError, TypeError):
                 raise ValueError(f"Periodic strides must be odd integers, received: {s}")
-            if not s % 2:
+            if s_int != s or not s_int % 2:
                 raise ValueError(f"Periodic strides must be odd integers, received: {s}")
-            ps.append(s)
+            ps.append(s_int)
         total_span_spatial = [sp * s for sp, s in zip(span, ps)]
 
         if self.use_frequency:
@@ -187,8 +188,8 @@ class _IMMaterial(_MaterialABC):
         for key in rtn_dict:
             original = rtn_dict[key]
             rtn_dict[key] = np.zeros(span, slippy.dtype)
-            for i in range(periodic_strides[0]):
-                for j in range(periodic_strides[1]):
+            for i in range(ps[0]):
+                for j in range(ps[1]):
                     rtn_dict[key] += original[i*span[0]:(i+1)*span[0], j*span[1]:(j+1)*span[1]]
         if not fft:
             return rtn_dict

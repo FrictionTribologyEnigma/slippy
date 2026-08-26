@@ -912,7 +912,7 @@ def _min_fun_symmetric(alpha: np.ndarray, target_acf: np.ndarray):
     return np.sum(((target_acf - acf_estimate[:n1, :m1]).flatten()) ** 2)
 
 
-@njit
+@njit(cache=True)
 def _get_acf_estimate(alpha):
     n, m = alpha.shape
     acf_estimate = np.zeros_like(alpha)
@@ -952,9 +952,13 @@ def _get_grad_min_fun_symmetric(alpha, target_acf):
     return grads.flatten()
 
 
-@njit
+@njit(cache=True)
 def _grad_min_fun(alpha: np.ndarray, target_acf: np.ndarray, acf_estimate):
     """Gradient of the above optimisation function for minimisation methods
+
+    Note: this is O(n^2 m^2), the two inner sums are a cross correlation and a convolution of the
+    difference array with alpha, so an FFT formulation (like _get_acf_estimate_fft) is possible if
+    filter fitting is ever too slow for large filters.
 
     Parameters
     ----------

@@ -136,6 +136,7 @@ class HeightOptimisationFunction:
         self.cache_max = False
         self.last_call_failed = False
         self._last_converged_loads = None
+        self.max_pressure = np.inf  # overwritten below for influence matrix materials with a load limit
 
         if isinstance(surf_1.material, _IMMaterial) and isinstance(surf_2.material, _IMMaterial):
             self.im_mats = True
@@ -238,6 +239,8 @@ class HeightOptimisationFunction:
                        'surface_1_displacement_z': disp_1, 'surface_2_displacement_z': disp_2,
                        'contact_nodes': contact_nodes, 'total_normal_load': total_load,
                        'interference': self._results['interference'], 'gap': gap}
+            if 'converged' in self._results:
+                results['converged'] = self._results['converged']
             return results
         else:
             return self._results

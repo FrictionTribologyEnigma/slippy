@@ -1,10 +1,21 @@
 import numpy as np
-from scipy.misc import derivative
 from functools import partial
 from typing import Callable, Optional
 from slippy.core import _AdhesionModelABC
 
 __all__ = ['MDAdhesionPotential', 'AdhesionModelFromFunction']
+
+# central difference weights, replaces scipy.misc.derivative (removed in scipy 1.12)
+_CD_WEIGHTS = {3: (-0.5, 0.0, 0.5),
+               5: (1 / 12, -2 / 3, 0.0, 2 / 3, -1 / 12)}
+
+
+def _derivative(func, x0, dx=1e-8, order=3):
+    if order not in _CD_WEIGHTS:
+        raise ValueError(f"order must be one of {sorted(_CD_WEIGHTS)}, got {order}")
+    weights = _CD_WEIGHTS[order]
+    half = order // 2
+    return sum(w * func(x0 + (k - half) * dx) for k, w in enumerate(weights) if w) / dx
 
 
 class MDAdhesionPotential(_AdhesionModelABC):
@@ -51,7 +62,7 @@ class AdhesionModelFromFunction(_AdhesionModelABC):
             raise ValueError("Either the energy function or the energy gradient function must be set")
         self._energy_function = energy_function
         if energy_gradient_function is None:
-            energy_gradient_function = partial(derivative, energy_function, dx=dx, order=order)
+            energy_gradient_function = partial(_derivative, energy_function, dx=dx, order=order)
         self._energy_gradient_function = energy_gradient_function
 
     def energy_gradient(self, gap):

@@ -68,11 +68,12 @@ Ready to contribute? Here's how to set up `slippy` for local development.
 
     $ git clone git@github.com:your_name_here/slippy.git
 
-3. Install your local copy into a virtualenv. Assuming you have virtualenvwrapper installed, this is how you set up your fork for local development::
+3. Install your local copy into a virtual environment, in editable mode with the development extras::
 
-    $ mkvirtualenv slippy
     $ cd slippy/
-    $ python setup.py develop
+    $ python -m venv .venv
+    $ .venv/bin/activate  # on windows: .venv\Scripts\activate
+    $ python -m pip install -e .[dev,fftw]
 
 4. Create a branch for local development::
 
@@ -82,11 +83,11 @@ Ready to contribute? Here's how to set up `slippy` for local development.
 
 5. When you're done making changes, check that your changes pass flake8 (code style), the tests (code functionality) and test that the documentations will still compile::
 
-    $ flake8 slippy tests
-    $ python setup.py test or pytest
-    $ sphinx-build doc build
+    $ flake8 slippy --max-line-length 121
+    $ pytest slippy
+    $ sphinx-build doc doc/_build
 
-   To get flake8, pytest and sphinx, just pip install them into your virtualenv.
+   flake8 and pytest are installed by the [dev] extra, to build the docs pip install sphinx.
 
 6. Commit your changes and push your branch to GitHub::
 
@@ -109,7 +110,8 @@ Before you submit a pull request, check that it meets these guidelines:
    to it in the docstring of slippy.surface.__init__.py or slippy.contact.__init__.py
    and add the feature to the list in README.rst.
 3. Flake8 and pytest tests all pass, please run tests locally to reduce the
-   load/ cost of the automated testing service.
+   load/ cost of the automated testing service. Pull requests are tested
+   automatically by GitHub Actions on python 3.12+ on linux and windows.
 
 Deploying
 ---------
@@ -120,5 +122,5 @@ Then run::
 
 $ bump2version patch # possible: major / minor / patch
 $ git push --follow-tags
-
-Travis will then deploy to PyPI if tests pass.
+$ python -m build
+$ twine upload dist/*

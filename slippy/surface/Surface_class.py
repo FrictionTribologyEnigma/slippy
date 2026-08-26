@@ -232,7 +232,7 @@ class _Surface(_SurfaceABC):
             self.dimensions = len(value)
             if self.grid_spacing is not None:
                 self._shape = tuple([int(v / self.grid_spacing) for v in value])
-                self._size = np.product(self._shape)
+                self._size = np.prod(self._shape)
             if self._shape is not None:
                 self._grid_spacing = self._extent[0] / self._shape[0]
                 self._extent = tuple([sz * self._grid_spacing for sz in self._shape])
@@ -261,7 +261,7 @@ class _Surface(_SurfaceABC):
             raise ValueError("Cannot set shape when profile is present")
 
         self._shape = tuple([int(x) for x in value])
-        self._size = np.product(self._shape)
+        self._size = np.prod(self._shape)
         if self.grid_spacing is not None:
             self._extent = tuple([v * self.grid_spacing for v in value])
         elif self.extent is not None:
@@ -304,6 +304,7 @@ class _Surface(_SurfaceABC):
         self._shape = self._profile.shape
         self._size = self._profile.size
         self.dimensions = len(self._profile.shape)
+        self._inter_func = None  # the cached interpolator is invalid for the new profile
 
         if self.grid_spacing is not None:
             self._extent = tuple([self.grid_spacing * p for p in self.shape])
@@ -360,7 +361,7 @@ class _Surface(_SurfaceABC):
         if self.profile is None:
             if self.extent is not None:
                 self._shape = tuple([int(sz / grid_spacing) for sz in self.extent])
-                self._size = np.product(self._shape)
+                self._size = np.prod(self._shape)
                 self._extent = tuple([sz * grid_spacing for sz in self._shape])
             elif self.shape is not None:
                 self._extent = tuple([grid_spacing * pt for pt in self.shape])
@@ -1206,7 +1207,7 @@ class _Surface(_SurfaceABC):
                              self.shape[1])
             y_index = np.mod(np.array((y_points+self.grid_spacing/2) / self.grid_spacing, dtype='int32').flatten(),
                              self.shape[0])
-            return np.reshape(self.profile[y_index, x_index], newshape=x_points.shape)
+            return np.reshape(self.profile[y_index, x_index], x_points.shape)
         elif mode == 'linear':
             if remake_interpolator or self._inter_func is None or self._inter_func.degrees != (1, 1):
                 x0 = np.arange(0, self.extent[0], self.grid_spacing)
@@ -1581,8 +1582,7 @@ class Surface(_Surface):
             profile = profile[start_r:end_r, start_c:end_c]
             holes = holes[start_r:end_r, start_c:end_c]
 
-        profile_out = inpaint.inpaint_biharmonic(profile, holes,
-                                                 multichannel=False)
+        profile_out = inpaint.inpaint_biharmonic(profile, holes)
 
         if mk_copy:
             new_surf = Surface(profile=profile_out, grid_spacing=self.grid_spacing)
@@ -1645,7 +1645,7 @@ class _AnalyticalSurface(_Surface):
             warnings.warn('surface contains over 10^7 points calculations will'
                           ' be slow, consider splitting surface for analysis')
 
-        x_mesh, y_mesh = self.get_points_from_extent()
+        y_mesh, x_mesh = self.get_points_from_extent()
         self.is_discrete = True
         self.profile = self.height(x_mesh, y_mesh)
 

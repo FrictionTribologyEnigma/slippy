@@ -55,7 +55,8 @@ def cyclic_tdma(lower_diagonal, main_diagonal, upper_diagonal, right_hand_side):
     -----
     Nothing is mutated by this function
     """
-    # modify b
+    # modify b (on a copy, the caller's array must not change)
+    main_diagonal = np.array(main_diagonal)
     gamma = -main_diagonal[0] if main_diagonal[0] else 1.0
     main_diagonal[0] = main_diagonal[0] - gamma
     main_diagonal[-1] = main_diagonal[-1] - lower_diagonal[0] * upper_diagonal[-1] / gamma

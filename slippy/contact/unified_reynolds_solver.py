@@ -208,8 +208,7 @@ class UnifiedReynoldsSolver(_NonDimensionalReynoldSolverABC):
             if requirement not in previous_state:
                 raise ValueError(f"Unified reynolds solver requires {requirement}, but this is not provided by the "
                                  "step")
-        previous_state = set(self.provides)
-        return previous_state
+        return set(previous_state) | set(self.provides)
 
     def solve(self, previous_state: dict, max_pressure: float) -> dict:
         # rumble
@@ -316,7 +315,7 @@ class UnifiedReynoldsSolver(_NonDimensionalReynoldSolverABC):
         return nd_length * self.hertzian_half_width
 
 
-@njit
+@njit(cache=True)
 def _solve_row(epsilon, row, pressure, recip_dx_squared_rho, recip_dx, recip_dt, a_all, b_all, c_all, f_all,
                ak00, ak10, ak20, nd_gap, nd_density, previous_nd_density, previous_nd_gap):
     row_plus_1 = row + 1 if (row + 1) < len(epsilon[0, :]) else 0
@@ -359,10 +358,10 @@ def _solve_row(epsilon, row, pressure, recip_dx_squared_rho, recip_dx, recip_dt,
     return a_all, b_all, c_all, f_all
 
 
-@njit
+@njit(cache=True)
 def _solve_row_cyclic(epsilon, row, pressure, recip_dx_squared_rho, recip_dx, recip_dt, a_all, b_all, c_all, f_all,
                       ak00, ak10, ak20, nd_gap, nd_density, previous_nd_density, previous_nd_gap):
-    row_plus_1 = row + 1 if (row + 1) <= len(epsilon[0, :]) else 0
+    row_plus_1 = row + 1 if (row + 1) < len(epsilon[0, :]) else 0
     d1 = 0.5 * (epsilon[:, row] + np.roll(epsilon[:, row], 1))
     d2 = 0.5 * (epsilon[:, row] + np.roll(epsilon[:, row], -1))
     d4 = 0.5 * (epsilon[:, row] + epsilon[:, row - 1])

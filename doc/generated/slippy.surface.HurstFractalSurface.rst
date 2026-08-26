@@ -14,6 +14,7 @@
    .. autosummary::
    
       ~HurstFractalSurface.__init__
+      ~HurstFractalSurface.convert_coordinates
       ~HurstFractalSurface.discretise
       ~HurstFractalSurface.fill_holes
       ~HurstFractalSurface.find_summits
@@ -26,6 +27,7 @@
       ~HurstFractalSurface.get_summit_curvature
       ~HurstFractalSurface.interpolate
       ~HurstFractalSurface.low_pass_filter
+      ~HurstFractalSurface.max_shape
       ~HurstFractalSurface.mesh
       ~HurstFractalSurface.read_al3d
       ~HurstFractalSurface.read_csv
@@ -51,16 +53,17 @@
       ~HurstFractalSurface.extent
       ~HurstFractalSurface.fft
       ~HurstFractalSurface.grid_spacing
-      ~HurstFractalSurface.invert_surface
       ~HurstFractalSurface.is_analytic
       ~HurstFractalSurface.is_discrete
       ~HurstFractalSurface.mask
       ~HurstFractalSurface.material
+      ~HurstFractalSurface.moving_surface
       ~HurstFractalSurface.profile
       ~HurstFractalSurface.psd
       ~HurstFractalSurface.shape
       ~HurstFractalSurface.size
       ~HurstFractalSurface.surface_type
       ~HurstFractalSurface.unworn_profile
+      ~HurstFractalSurface.wear_volumes
    
    

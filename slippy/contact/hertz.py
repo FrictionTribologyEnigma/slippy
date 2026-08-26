@@ -382,7 +382,9 @@ def solve_hertz_point(*, r_rel=None,
         raise ValueError("Not enough parameters given!")
 
     if is_none is not None:
-        _system[is_none] = float(_system[is_none])
+        # item(): handles the 1 element arrays returned by the scipy solvers, float() on those was
+        # removed in numpy 1.25
+        _system[is_none] = np.asarray(_system[is_none]).item()
 
     # sort out materials
     if is_none == 'e_star':
@@ -430,7 +432,6 @@ def _root_tensile(system, is_none, max_tensile_stress):
     system = system.copy()
 
     def inner(value):
-        nonlocal system
         system[is_none] = abs(value)
         return (1 - 2 * system['v1']) * ((6 * system['load'] * (1 / ((1 - system['v1'] ** 2) / system['e1'] +
                                                                      (1 - system['v2'] ** 2) / system['e2'])) ** 2 /

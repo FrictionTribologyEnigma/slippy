@@ -27,9 +27,10 @@ class _TransientSubModelABC(core._SubModelABC, ABC):
     def solve(self, current_state: dict) -> dict:
         self.update_transience(current_state['time'])
         rtn_dict = self._solve(current_state, **self.updated_dict)
-        # safer to do this way in case sub model has overwritten the value (eg from another sub model)
-        self.updated_dict.copy().update(rtn_dict)
-        return self.updated_dict
+        # merge into a copy so sub model results can overwrite transient values without mutating them
+        merged = self.updated_dict.copy()
+        merged.update(rtn_dict)
+        return merged
 
     @abstractmethod
     def _solve(self, current_state: dict, **kwargs) -> dict:

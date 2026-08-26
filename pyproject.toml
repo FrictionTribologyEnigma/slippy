@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "slippy"
+version = "0.6.0"
+description = "A python package for tribologists"
+readme = "README.rst"
+requires-python = ">=3.12"
+license = "MIT"
+authors = [
+    {name = "Michael Watson", email = "mike.watson@sheffield.ac.uk"},
+]
+keywords = ["tribology", "contact mechanics", "surface roughness"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "numpy>=1.26",
+    "scipy>=1.11",
+    "numba>=0.61",
+    "sympy",
+    "scikit-image",
+    "matplotlib",
+    "tinydb>=4",
+]
+
+[project.optional-dependencies]
+# CPU FFT backend, required to solve contact models without a CUDA GPU
+fftw = ["pyfftw"]
+# the CUDA backend needs cupy, installed manually to match the local CUDA version
+dev = ["pytest", "flake8"]
+
+[project.urls]
+Homepage = "https://github.com/FrictionTribologyEnigma/slippy"
+Documentation = "https://slippy.readthedocs.io/en/latest/"
+
+# the sample data files in slippy/data are test fixtures (60+ MB), deliberately not shipped
+[tool.setuptools]
+include-package-data = false
+
+[tool.setuptools.packages.find]
+include = ["slippy*"]

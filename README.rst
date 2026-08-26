@@ -11,8 +11,8 @@
 .. |pypi| image:: https://img.shields.io/pypi/v/slippy.svg
         :target: https://pypi.python.org/pypi/slippy
 
-.. |citest| image:: https://img.shields.io/travis/FrictionTribologyEnigma/slippy.svg
-        :target: https://travis-ci.com/FrictionTribologyEnigma/slippy
+.. |citest| image:: https://github.com/FrictionTribologyEnigma/slippy/actions/workflows/test.yml/badge.svg
+        :target: https://github.com/FrictionTribologyEnigma/slippy/actions/workflows/test.yml
 
 .. |docs| image:: https://readthedocs.org/projects/slippy/badge/?version=latest
         :target: https://slippy.readthedocs.io/en/latest/?badge=latest
@@ -41,14 +41,14 @@ A python package for tribologists. Including:
 
 Installation
 ============
-To install slippy, you need to have python installed. If you are not familiar with python, we recommend installing the
-anaconda_ distribution, as it comes with many other useful tools. We also recommend installing slippy in a virtual
-environment. If you are using anaconda you can create a suitable virtual environment, install python and pip, and
-activate the environment, by running the following in the **anaconda prompt**:
+To install slippy, you need to have python 3.12 or newer installed. If you are not familiar with python, we recommend
+installing the anaconda_ distribution, as it comes with many other useful tools. We also recommend installing slippy
+in a virtual environment. If you are using anaconda you can create a suitable virtual environment, install python and
+pip, and activate the environment, by running the following in the **anaconda prompt**:
 
 .. code-block:: bash
 
-    conda create -n name_of_env python==3.8 pip
+    conda create -n name_of_env python=3.13 pip
     conda activate name_of_env
 
 Once activated, you should see the name of the environment in brackets in the command prompt. Packages are only
@@ -61,7 +61,11 @@ The last released version can be installed from the python package index PyPI:
 
 .. code-block:: bash
 
-    python -m pip install slippy
+    python -m pip install slippy[fftw]
+
+The ``[fftw]`` extra installs pyfftw, which provides the FFT backend used to solve contact models on the CPU. A plain
+``pip install slippy`` installs the surface analysis and analytical (hertzian) tools only; to solve numerical contact
+models you need either the ``[fftw]`` extra or the GPU backend described below.
 
 From github:
 ------------
@@ -70,7 +74,7 @@ development:
 
 .. code-block:: bash
 
-    python -m pip install git+https://github.com/FrictionTribologyEnigma/slippy.git@master
+    python -m pip install "slippy[fftw] @ git+https://github.com/FrictionTribologyEnigma/slippy.git@master"
 
 **If you are working on linux you may have to replace 'python' with 'python3' in the installation commands.**
 
@@ -86,7 +90,13 @@ Slippy can run simulations on Nvidia GPUs, this is often much faster for large s
 functionality is not possible on all computers. Because of this we don't attempt to install the GPU backend with the
 requirements as this would make it impossible for many users to install slippy. In order to run models on the GPU you
 must also install cupy_, instructions for installing cupy can be found here_. This step is optional, if cupy is
-installed slippy will use the GPU by default, otherwise it will use the CPU backend.
+installed slippy will use the GPU by default, otherwise it will use the CPU backend (which requires pyfftw, installed
+with the ``[fftw]`` extra as shown above). With a current NVIDIA driver everything needed can be installed with pip,
+no system-wide CUDA toolkit is required (the ``[ctk]`` extra installs the CUDA runtime libraries):
+
+.. code-block:: bash
+
+    python -m pip install cupy-cuda12x[ctk]
 
 
 Citation
@@ -186,10 +196,10 @@ this process can repeat for the same step or the model can move on to the next s
 
 Documentation
 =============
-We are working on a detailed documentation website, for now there are detailed documentation strings with each function
-or class and examples_ for common problems. If you find these examples or documentation lacking, please consider
-contributing to the development of the documentation, your experience of using the functions without having developed
-them is invaluable as an indication of the problems new users are likely to face.
+API documentation is available at `slippy.readthedocs.io`_, there are also detailed documentation strings with each
+function or class and examples_ for common problems. If you find these examples or documentation lacking, please
+consider contributing to the development of the documentation, your experience of using the functions without having
+developed them is invaluable as an indication of the problems new users are likely to face.
 
 
 Contributing
@@ -202,6 +212,7 @@ Credits
 This package was created with Cookiecutter_.
 
 .. _Cookiecutter: https://github.com/audreyr/cookiecutter
+.. _slippy.readthedocs.io: https://slippy.readthedocs.io/en/latest/
 .. _cupy: https://docs.cupy.dev/en/stable/overview.html
 .. _here: https://docs.cupy.dev/en/stable/install.html
 .. _anaconda: https://www.anaconda.com/

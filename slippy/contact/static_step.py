@@ -215,15 +215,18 @@ class StaticStep(_ModelStep):
                                               periodic_axes=self._periodic_axes, )
         self._opt_func = opt_func
 
-        if self._method == 'auto':
+        method = self._method
+        if method == 'auto':
             if not np.isinf(opt_func.max_pressure):
                 if adhesion_model:
                     raise ValueError("Adhesion and maximum load not allowed")
-                self._method = 'double'
+                method = 'double'
             elif adhesion_model is not None:
-                self._method = 'rey'
+                method = 'rey'
             else:
-                self._method = 'pk'
+                method = 'pk'
+        # record what 'auto' resolved to without changing the configured method, so the step can be re-solved
+        self._last_method_used = method
 
         if self._unloading and 'contact_nodes' in previous_state:
             contact_nodes = previous_state['contact_nodes']
@@ -237,11 +240,11 @@ class StaticStep(_ModelStep):
             else:
                 load = self.normal_load
 
-            if self._method == 'pk':
+            if method == 'pk':
                 print('Solving contact by PK method')
                 opt_func.contact_nodes = None
                 opt_func.p_and_k(load)
-            elif self._method == 'rey':
+            elif method == 'rey':
                 print('Solving contact by Rey method')
                 opt_func.contact_nodes = None
                 opt_func.rey(target_load=load)
@@ -256,7 +259,7 @@ class StaticStep(_ModelStep):
                 interference = previous_state['interference'] + self.interference
             else:
                 interference = self.interference
-            if self._method == 'rey':
+            if method == 'rey':
                 # safe because of error checking in init
                 opt_func.rey(target_mean_gap=self.mean_gap)
             else:
@@ -267,6 +270,9 @@ class StaticStep(_ModelStep):
         current_state.update(opt_func.results)
         if converged is not None:
             current_state['converged'] = converged
+        elif 'converged' not in current_state:
+            # the brent / interference branches don't report convergence through results
+            current_state['converged'] = not opt_func.last_call_failed
         self.solve_sub_models(current_state)
         self.save_outputs(current_state, output_file)
 

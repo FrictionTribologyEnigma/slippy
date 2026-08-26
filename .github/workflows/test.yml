@@ -1,0 +1,43 @@
+name: tests
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: pip install flake8
+      - run: flake8 slippy --max-line-length 121
+
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ['3.12', '3.13', '3.14']
+        include:
+          # numba may lag new CPython releases, don't fail the build on 3.14
+          - python-version: '3.14'
+            experimental: true
+    continue-on-error: ${{ matrix.experimental || false }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install package
+        run: pip install -e .[dev]
+      - name: Install pyfftw (CPU FFT backend)
+        # no pyfftw wheel yet on some new python versions, tests skip without it
+        continue-on-error: true
+        run: pip install pyfftw
+      - name: Run tests
+        run: pytest slippy -v

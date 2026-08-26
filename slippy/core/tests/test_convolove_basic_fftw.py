@@ -1,9 +1,12 @@
 import numpy as np
 import numpy.testing as npt
+import pytest
 
 import slippy
 import slippy.core as c
 from scipy.signal import fftconvolve
+
+pytest.importorskip('pyfftw')
 
 e_im = c.elastic_influence_matrix_spatial
 
@@ -46,7 +49,7 @@ def test_circ_convolve_location():
             loc_result = np.argmax(slippy_result)
             err_msg = f'Circular convolution, location of load dosn\'t match displacement' \
                       f'for loads shape: {l_s} and IM shape: {im_s} \n ' \
-                      f'expected: {np.unravel_index(loc_load,l_s)}, found: {np.unravel_index(loc_result,l_s)}'
+                      f'expected: {np.unravel_index(loc_load, l_s)}, found: {np.unravel_index(loc_result, l_s)}'
             assert loc_load == loc_result, err_msg
 
 
@@ -65,7 +68,7 @@ def test_non_circ_convolve_location():
             loc_result = np.argmax(slippy_result)
             err_msg = f'Non circular convolution, location of load dosn\'t match displacement' \
                       f'for loads shape: {l_s} and IM shape: {im_s} \n ' \
-                      f'expected: {np.unravel_index(loc_load,l_s)}, found: {np.unravel_index(loc_result,l_s)}'
+                      f'expected: {np.unravel_index(loc_load, l_s)}, found: {np.unravel_index(loc_result, l_s)}'
             assert loc_load == loc_result, err_msg
 
 

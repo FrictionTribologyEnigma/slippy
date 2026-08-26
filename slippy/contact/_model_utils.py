@@ -150,7 +150,9 @@ def get_gap_from_model(model, interference: float = 0,
             sub_1 = s1.profile[int(slice_y[0]):int(slice_y[1]), int(slice_x[0]):int(slice_x[1])]
         # interpolate using the required technique
         # return sub_1, contact_points_2, extent_1y, extent_1x, slice_x, slice_y
-        sub_2 = s2.interpolate(*contact_points_2, mode=mode, remake_interpolator=True)
+        # the cached interpolator is invalidated when the profile changes (profile setter and wear
+        # method), remaking it here on every time step is not needed
+        sub_2 = s2.interpolate(*contact_points_2, mode=mode)
 
     else:  # model.surface_2 is not descrete
         if not model.surface_2.is_analytic:
@@ -170,9 +172,9 @@ def get_gap_from_model(model, interference: float = 0,
         contact_points_1, contact_points_2 = contact_points_2, contact_points_1
 
     point_wise_interference = -sub_2 - sub_1
-    point_wise_interference -= min(point_wise_interference.flatten()) + interference
     if not point_wise_interference.size:
         raise ValueError("Surfaces are no longer in contact, off set too large")
+    point_wise_interference -= min(point_wise_interference.flatten()) + interference
     if _return_sub:
         return sub_1, sub_2
     return point_wise_interference, contact_points_1, contact_points_2

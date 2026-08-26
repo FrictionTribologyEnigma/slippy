@@ -293,8 +293,8 @@ class IterSemiSystem(_ModelStep):
         self._provides = None
 
         base_provides = {'just_touching_gap', 'surface_1_points', 'surface_2_points', 'off_set', 'time_step', 'time',
-                         'interference', 'total_normal_load', 'pressure', 'nd_pressure', 'loads',
-                         'surface_1_displacement', 'surface_2_displacement', 'total_displacement', 'converged',
+                         'interference', 'total_normal_load', 'pressure', 'nd_pressure', 'loads_z',
+                         'surface_1_displacement_z', 'surface_2_displacement_z', 'total_displacement_z', 'converged',
                          'gap', 'nd_gap', 'rolling_speed'}
 
         provides = base_provides.union(reynolds_solver.provides).union(reynolds_solver.requires)
@@ -353,8 +353,15 @@ class IterSemiSystem(_ModelStep):
                 self.__setattr__(name, self.__getattribute__(f'_{name}_upd')(relative_time))
 
     def solve(self, previous_state: dict, output_file):
+        # the Reynolds solver has no CUDA implementation, force the CPU path but always restore the flag
         cuda = slippy.CUDA
         slippy.CUDA = False
+        try:
+            return self._solve(previous_state, output_file)
+        finally:
+            slippy.CUDA = cuda
+
+    def _solve(self, previous_state: dict, output_file):
         start_time = previous_state['time']
         gs = self.model.surface_1.grid_spacing
 
@@ -409,11 +416,11 @@ class IterSemiSystem(_ModelStep):
                 def loads_func(loads):
                     return solve_normal_loading(loads_z=loads, model=self.model,
                                                 deflections='z', current_state=time_step_current_state)[0]['z']
-            # sort out initial guess
-            if i >= 0:
+            # sort out initial guess: user supplied guess on the first time step, then warm start
+            if i > 0:
                 initial_guess = 'previous'
             else:
-                initial_guess = self.initial_guess
+                initial_guess = self._initial_guess
 
             if initial_guess is None:
                 initial_guess = [self.reynolds.dimensionalise_gap(0.01),
@@ -428,7 +435,7 @@ class IterSemiSystem(_ModelStep):
                     pressure = initial_guess[1] * np.ones_like(just_touching_gap)
                 else:
                     try:
-                        pressure = np.asarray(initial_guess[1], dtype=np.float)
+                        pressure = np.asarray(initial_guess[1], dtype=float)
                         assert (pressure.shape == just_touching_gap.shape)
                     except ValueError:
                         raise ValueError('Initial guess for pressure could not be converted to a numeric array')
@@ -450,7 +457,7 @@ class IterSemiSystem(_ModelStep):
 
             if not (results_last_it['nd_pressure'] == 0).all():
                 # noinspection PyUnboundLocalVariable
-                results_last_it['total_displacement_z'] = loads_func(previous_state['pressure'])
+                results_last_it['total_displacement_z'] = loads_func(pressure)
 
             else:
                 results_last_it['total_displacement_z'] = np.zeros_like(just_touching_gap)
@@ -598,8 +605,6 @@ class IterSemiSystem(_ModelStep):
             self.save_outputs(current_state, output_file)
 
             previous_state = current_state
-
-        slippy.CUDA = cuda
 
         return current_state
 

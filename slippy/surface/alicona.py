@@ -113,7 +113,7 @@ def alicona_read(full_path: str):
             file.seek(tags['IconOffset'])
             icon = np.zeros([152, 150, 3], dtype='uint8')
             for i in range(3):
-                icon[:, :, i] = np.reshape(np.array(file.read(22800), dtype='uint8'), (152, 150))
+                icon[:, :, i] = np.reshape(np.frombuffer(file.read(22800), dtype='uint8'), (152, 150))
             data['Icon'] = icon
         else:
             try:
@@ -134,7 +134,7 @@ def alicona_read(full_path: str):
             if tags['TextureImageOffset'] == 0:
                 cols = (file.seek(0, 2) - tags['DepthImageOffset']) / (4 * rows)
             else:
-                cols = (tags['TextureImageOffset'] - - tags['DepthImageOffset']
+                cols = (tags['TextureImageOffset'] - tags['DepthImageOffset']
                         ) / (4 * rows)
 
             cols = int(round(cols))
@@ -166,12 +166,13 @@ def alicona_read(full_path: str):
 
             file.seek(tags['TextureImageOffset'])
 
-            texture_data = np.zeros([cols, rows, num_planes], dtype='uint8')
+            texture_data = np.zeros([rows, cols, num_planes], dtype='uint8')
 
             for plane in range(num_planes):
-                texture_data[:, :, plane] = np.reshape(np.array(file.read(cols * rows)), (cols, rows))
+                texture_data[:, :, plane] = np.reshape(np.frombuffer(file.read(cols * rows), dtype='uint8'),
+                                                       (rows, cols))
 
-            texture_data = texture_data[:tags['Cols'], :, :]
+            texture_data = texture_data[:, :tags['Cols'], :]
 
             if num_planes == 4:
                 data['TextureData'] = texture_data[:, :, 0:3]

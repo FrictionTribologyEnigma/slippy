@@ -10,7 +10,7 @@ Installing python
 
 It is recommended to install python by installing anaconda, this is a popular scientific python distribution. The latest version of anaconda can be found at: https://www.anaconda.com/distribution/.
 
-SlipPY requires that the >=3.6 version should be installed.
+SlipPY requires python 3.12 or newer.
 
 Making a virtual environment
 ----------------------------
@@ -23,7 +23,7 @@ When anaconda is installed there will be a program called anaconda prompt availa
 
 To make a new virtual environment and install python into it, type the following into the anaconda prompt, you can replace name_of_env with a descriptive name::
 
-	conda create -n name_of_env python==3.8 pip
+	conda create -n name_of_env python=3.13 pip
 
 When this environment is activated any packages installed will be installed only for this environment. The environment can be activated by typing the following::
 
@@ -36,9 +36,12 @@ Installing slippy
 
 Now that the environment is activated slippy can be installed by typing the following into the anaconda prompt::
 
-	python -m pip install slippy
+	python -m pip install slippy[fftw]
 
-This will install slippy and all of it's dependencies for the current environment.
+This will install slippy and all of it's dependencies for the current environment. The [fftw] extra installs pyfftw,
+which is needed to solve contact models on the CPU; without it only the surface analysis and analytical tools are
+available. Alternatively, models can be solved on Nvidia GPUs by installing cupy (see the readme for details), in
+which case the [fftw] extra is not required.
 
 Using slippy (recommendations)
 ------------------------------
