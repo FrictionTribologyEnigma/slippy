@@ -44,7 +44,6 @@ def memoize_components(static_method=True):
 
             @wraps(fn)
             def inner(component, *args, **kwargs):
-                nonlocal cache, spec, sig
                 new_spec = sig.bind(None, *args, **kwargs)
                 new_spec.apply_defaults()
                 try:
@@ -62,7 +61,6 @@ def memoize_components(static_method=True):
 
             @wraps(fn)
             def inner(self, components, *args, **kwargs):
-                nonlocal cache, spec, sig
                 if self.name not in cache:
                     cache[self.name] = []
                     spec[self.name] = []

@@ -23,7 +23,7 @@ When anaconda is installed there will be a program called anaconda prompt availa
 
 To make a new virtual environment and install python into it, type the following into the anaconda prompt, you can replace name_of_env with a descriptive name::
 
-	conda create -n name_of_env python==3.8 pip
+	conda create -n name_of_env python=3.13 pip
 
 When this environment is activated any packages installed will be installed only for this environment. The environment can be activated by typing the following::
 

@@ -14,6 +14,7 @@
    .. autosummary::
    
       ~PyramidSurface.__init__
+      ~PyramidSurface.convert_coordinates
       ~PyramidSurface.discretise
       ~PyramidSurface.find_summits
       ~PyramidSurface.get_acf
@@ -26,6 +27,7 @@
       ~PyramidSurface.height
       ~PyramidSurface.interpolate
       ~PyramidSurface.low_pass_filter
+      ~PyramidSurface.max_shape
       ~PyramidSurface.mesh
       ~PyramidSurface.resample
       ~PyramidSurface.rotate
@@ -48,16 +50,17 @@
       ~PyramidSurface.extent
       ~PyramidSurface.fft
       ~PyramidSurface.grid_spacing
-      ~PyramidSurface.invert_surface
       ~PyramidSurface.is_analytic
       ~PyramidSurface.is_discrete
       ~PyramidSurface.mask
       ~PyramidSurface.material
+      ~PyramidSurface.moving_surface
       ~PyramidSurface.profile
       ~PyramidSurface.psd
       ~PyramidSurface.shape
       ~PyramidSurface.size
       ~PyramidSurface.surface_type
       ~PyramidSurface.unworn_profile
+      ~PyramidSurface.wear_volumes
    
    

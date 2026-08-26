@@ -18,6 +18,9 @@
       ~Elastic.influence_matrix
       ~Elastic.loads_from_surface_displacement
       ~Elastic.speed_of_sound
+      ~Elastic.sss_influence_matrices_normal
+      ~Elastic.sss_influence_matrices_tangential_x
+      ~Elastic.sss_influence_matrices_tangential_y
    
    
 
@@ -33,7 +36,10 @@
       ~Elastic.Lam
       ~Elastic.M
       ~Elastic.density
+      ~Elastic.fft
       ~Elastic.material_type
+      ~Elastic.spatial
       ~Elastic.v
+      ~Elastic.name
    
    

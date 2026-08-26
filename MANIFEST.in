@@ -5,8 +5,9 @@ include LICENSE
 include README.rst
 include requirements.txt
 
-recursive-include tests *
+recursive-include doc *.rst conf.py Makefile make.bat *.jpg *.png *.gif
 recursive-exclude * __pycache__
 recursive-exclude * *.py[co]
 
-recursive-include docs *.rst conf.py Makefile make.bat *.jpg *.png *.gif
+# large sample data files used by the tests, not shipped
+exclude slippy/data/*.al3d slippy/data/*.txt

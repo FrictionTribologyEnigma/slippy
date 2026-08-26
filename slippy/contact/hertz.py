@@ -432,7 +432,6 @@ def _root_tensile(system, is_none, max_tensile_stress):
     system = system.copy()
 
     def inner(value):
-        nonlocal system
         system[is_none] = abs(value)
         return (1 - 2 * system['v1']) * ((6 * system['load'] * (1 / ((1 - system['v1'] ** 2) / system['e1'] +
                                                                      (1 - system['v2'] ** 2) / system['e2'])) ** 2 /

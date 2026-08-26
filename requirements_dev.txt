@@ -1,18 +1,9 @@
-sympy
-scikit-image
-matplotlib
-numpy<1.21,>=1.17
-scipy
-numba>=0.48.0
-wheel>=0.33.6
-flake8>=3.7.8
-pyfftw
-tinydb
+# install the package with its dev extras instead of using this file directly:
+#     pip install -e .[dev,fftw]
+-e .[dev,fftw]
 
+# release tooling
 bump2version>=0.5.11
-flake8>=3.7.8
-tox>=3.14.0
-Sphinx>=1.8.5
-
-pytest>=4.6.5
-pytest-runner>=5.1
+Sphinx>=7
+build
+twine

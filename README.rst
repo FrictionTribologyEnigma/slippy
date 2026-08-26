@@ -11,8 +11,8 @@
 .. |pypi| image:: https://img.shields.io/pypi/v/slippy.svg
         :target: https://pypi.python.org/pypi/slippy
 
-.. |citest| image:: https://img.shields.io/travis/FrictionTribologyEnigma/slippy.svg
-        :target: https://travis-ci.com/FrictionTribologyEnigma/slippy
+.. |citest| image:: https://github.com/FrictionTribologyEnigma/slippy/actions/workflows/test.yml/badge.svg
+        :target: https://github.com/FrictionTribologyEnigma/slippy/actions/workflows/test.yml
 
 .. |docs| image:: https://readthedocs.org/projects/slippy/badge/?version=latest
         :target: https://slippy.readthedocs.io/en/latest/?badge=latest
@@ -48,7 +48,7 @@ activate the environment, by running the following in the **anaconda prompt**:
 
 .. code-block:: bash
 
-    conda create -n name_of_env python==3.8 pip
+    conda create -n name_of_env python=3.13 pip
     conda activate name_of_env
 
 Once activated, you should see the name of the environment in brackets in the command prompt. Packages are only

@@ -27,8 +27,12 @@
 
    .. autosummary::
    
-      ~ContactModel.adhesion
       ~ContactModel.log_file_name
       ~ContactModel.lubricant_model
+      ~ContactModel.steps
+      ~ContactModel.surface_1
+      ~ContactModel.surface_2
+      ~ContactModel.current_step
+      ~ContactModel.current_step_start_time
    
    

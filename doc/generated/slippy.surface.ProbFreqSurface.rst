@@ -14,6 +14,7 @@
    .. autosummary::
    
       ~ProbFreqSurface.__init__
+      ~ProbFreqSurface.convert_coordinates
       ~ProbFreqSurface.discretise
       ~ProbFreqSurface.find_summits
       ~ProbFreqSurface.get_acf
@@ -26,6 +27,7 @@
       ~ProbFreqSurface.height
       ~ProbFreqSurface.interpolate
       ~ProbFreqSurface.low_pass_filter
+      ~ProbFreqSurface.max_shape
       ~ProbFreqSurface.mesh
       ~ProbFreqSurface.resample
       ~ProbFreqSurface.rotate
@@ -48,16 +50,17 @@
       ~ProbFreqSurface.extent
       ~ProbFreqSurface.fft
       ~ProbFreqSurface.grid_spacing
-      ~ProbFreqSurface.invert_surface
       ~ProbFreqSurface.is_analytic
       ~ProbFreqSurface.is_discrete
       ~ProbFreqSurface.mask
       ~ProbFreqSurface.material
+      ~ProbFreqSurface.moving_surface
       ~ProbFreqSurface.profile
       ~ProbFreqSurface.psd
       ~ProbFreqSurface.shape
       ~ProbFreqSurface.size
       ~ProbFreqSurface.surface_type
       ~ProbFreqSurface.unworn_profile
+      ~ProbFreqSurface.wear_volumes
    
    

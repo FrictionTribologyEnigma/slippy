@@ -14,6 +14,7 @@
    .. autosummary::
    
       ~RoundSurface.__init__
+      ~RoundSurface.convert_coordinates
       ~RoundSurface.discretise
       ~RoundSurface.find_summits
       ~RoundSurface.get_acf
@@ -26,6 +27,7 @@
       ~RoundSurface.height
       ~RoundSurface.interpolate
       ~RoundSurface.low_pass_filter
+      ~RoundSurface.max_shape
       ~RoundSurface.mesh
       ~RoundSurface.resample
       ~RoundSurface.rotate
@@ -48,16 +50,18 @@
       ~RoundSurface.extent
       ~RoundSurface.fft
       ~RoundSurface.grid_spacing
-      ~RoundSurface.invert_surface
       ~RoundSurface.is_analytic
       ~RoundSurface.is_discrete
       ~RoundSurface.mask
       ~RoundSurface.material
+      ~RoundSurface.moving_surface
       ~RoundSurface.profile
       ~RoundSurface.psd
       ~RoundSurface.shape
       ~RoundSurface.size
       ~RoundSurface.surface_type
       ~RoundSurface.unworn_profile
+      ~RoundSurface.wear_volumes
+      ~RoundSurface.radius
    
    

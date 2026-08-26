@@ -14,6 +14,7 @@
    .. autosummary::
    
       ~DiscFreqSurface.__init__
+      ~DiscFreqSurface.convert_coordinates
       ~DiscFreqSurface.discretise
       ~DiscFreqSurface.find_summits
       ~DiscFreqSurface.get_acf
@@ -26,6 +27,7 @@
       ~DiscFreqSurface.height
       ~DiscFreqSurface.interpolate
       ~DiscFreqSurface.low_pass_filter
+      ~DiscFreqSurface.max_shape
       ~DiscFreqSurface.mesh
       ~DiscFreqSurface.resample
       ~DiscFreqSurface.rotate
@@ -48,16 +50,17 @@
       ~DiscFreqSurface.extent
       ~DiscFreqSurface.fft
       ~DiscFreqSurface.grid_spacing
-      ~DiscFreqSurface.invert_surface
       ~DiscFreqSurface.is_analytic
       ~DiscFreqSurface.is_discrete
       ~DiscFreqSurface.mask
       ~DiscFreqSurface.material
+      ~DiscFreqSurface.moving_surface
       ~DiscFreqSurface.profile
       ~DiscFreqSurface.psd
       ~DiscFreqSurface.shape
       ~DiscFreqSurface.size
       ~DiscFreqSurface.surface_type
       ~DiscFreqSurface.unworn_profile
+      ~DiscFreqSurface.wear_volumes
    
    
