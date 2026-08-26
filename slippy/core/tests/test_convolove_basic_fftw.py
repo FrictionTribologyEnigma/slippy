@@ -1,9 +1,12 @@
 import numpy as np
 import numpy.testing as npt
+import pytest
 
 import slippy
 import slippy.core as c
 from scipy.signal import fftconvolve
+
+pytest.importorskip('pyfftw')
 
 e_im = c.elastic_influence_matrix_spatial
 

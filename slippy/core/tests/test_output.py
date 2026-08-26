@@ -33,7 +33,7 @@ def test_array_reading():
         for dtype in dtypes:
             for size, shape in zip(sizes, shapes):
                 for order in ['C', 'F']:
-                    array = np.reshape(np.arange(size, dtype=dtype), newshape=shape)
+                    array = np.reshape(np.arange(size, dtype=dtype), shape)
                     if order == 'F':
                         array = np.asfortranarray(array)
                     output_w.write({'time': i, 'array': array})

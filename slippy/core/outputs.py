@@ -72,7 +72,7 @@ class OutputSaver:
         db_filename = os.path.join(slippy.OUTPUT_DIR, self.model_name + '.sdb')
         if os.path.exists(db_filename):
             os.remove(db_filename)
-        self.data_file = tinydb.TinyDB(db_filename, 'w')
+        self.data_file = tinydb.TinyDB(db_filename)
         self.array_file = zipfile.ZipFile(os.path.join(slippy.OUTPUT_DIR, self.model_name + '.sar'), 'w')
         self.in_context = True
         return self
@@ -437,8 +437,7 @@ class _ArrayReader:
             raise ValueError("Data in this file has been modified, unable to read")
         self.shape = eval(shape)
         self.dtype_name = entry_string[hashes[2] + 1:]
-        # noinspection PyUnresolvedReferences
-        self.dtype = np.__getattribute__(self.dtype_name)
+        self.dtype = np.dtype(self.dtype_name)
         self._array = None
 
     @property
@@ -449,7 +448,8 @@ class _ArrayReader:
 
     def _fill_array(self):
         with zipfile.ZipFile(self.file_name, 'r') as file:
-            self._array = np.frombuffer(file.read('a' + self.file_num), dtype=self.dtype).reshape(self.shape)
+            # copy: frombuffer returns a read-only view of the bytes object
+            self._array = np.frombuffer(file.read('a' + self.file_num), dtype=self.dtype).reshape(self.shape).copy()
 
     def __array__(self):
         return self.array

@@ -3,6 +3,9 @@ import slippy.core as core
 import numpy as np
 import numpy.testing as npt
 import itertools
+import pytest
+
+pytest.importorskip('pyfftw')
 
 
 def test_basic_multi_convolve_fftw():

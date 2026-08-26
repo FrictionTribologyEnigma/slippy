@@ -428,7 +428,7 @@ class IterSemiSystem(_ModelStep):
                     pressure = initial_guess[1] * np.ones_like(just_touching_gap)
                 else:
                     try:
-                        pressure = np.asarray(initial_guess[1], dtype=np.float)
+                        pressure = np.asarray(initial_guess[1], dtype=float)
                         assert (pressure.shape == just_touching_gap.shape)
                     except ValueError:
                         raise ValueError('Initial guess for pressure could not be converted to a numeric array')

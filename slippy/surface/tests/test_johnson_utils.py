@@ -3,7 +3,7 @@ Johnson utils tests
 """
 import numpy as np
 import numpy.testing as npt
-from scipy.stats._continuous_distns import _norm_cdf
+from scipy.stats import norm
 
 import slippy.surface._johnson_utils as j_util
 
@@ -44,7 +44,7 @@ def test_johnson_fit():
 
 
 def test_johnson_quantile_fit():
-    quantile_pts = np.array(_norm_cdf([-1.5, -0.5, 0.5, 1.5]))
+    quantile_pts = np.array(norm.cdf([-1.5, -0.5, 0.5, 1.5]))
     test_quantiles = [[1, 1.2, 1.4, 10],
                       [1, 1.2, 1.4, 3],
                       [-2, -1, 1, 2]]

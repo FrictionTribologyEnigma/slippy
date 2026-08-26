@@ -1,18 +1,13 @@
-import warnings
-
 import numpy as np
 import numpy.testing as npt
+import pytest
 
 import slippy
 import slippy.contact as c
 import slippy.surface as s
 
-try:
-    import cupy as cp
-    slippy.CUDA = True
-except ImportError:
-    cp = None
-    slippy.CUDA = False
+pytest.importorskip('cupy')
+slippy.CUDA = True
 
 steel = c.Elastic('Steel', {'E': 200e9, 'v': 0.3})
 aluminum = c.Elastic('Aluminum', {'E': 70e9, 'v': 0.33})
@@ -22,11 +17,6 @@ def test_hertz_agreement_pk_static_load_cuda():
     """ Test that the load controlled static step gives approximately the same answer as the
     analytical hertz solver
     """
-    try:
-        import cupy  # noqa: F401
-        slippy.CUDA = True
-    except ImportError:
-        return
     # make surfaces
     flat_surface = s.FlatSurface(shift=(0, 0))
     round_surface = s.RoundSurface((1, 1, 1), extent=(0.006, 0.006), shape=(255, 255), generate=True)
@@ -65,11 +55,6 @@ def test_hertz_agreement_pk_static_load_cuda_spatial_im():
     """ Test that the load controlled static step gives approximately the same answer as the
     analytical hertz solver
     """
-    try:
-        import cupy  # noqa: F401
-        slippy.CUDA = True
-    except ImportError:
-        return
     # make surfaces
     flat_surface = s.FlatSurface(shift=(0, 0))
     round_surface = s.RoundSurface((1, 1, 1), extent=(0.006, 0.006), shape=(255, 255), generate=True)
@@ -110,11 +95,6 @@ def test_hertz_agreement_double_static_load_cuda():
     """ Test that the load controlled static step gives approximately the same answer as the
     analytical hertz solver
     """
-    try:
-        import cupy  # noqa: F401
-        slippy.CUDA = True
-    except ImportError:
-        return
     # make surfaces
     flat_surface = s.FlatSurface(shift=(0, 0))
     round_surface = s.RoundSurface((1, 1, 1), extent=(0.006, 0.006), shape=(255, 255), generate=True)
@@ -151,12 +131,6 @@ def test_hertz_agreement_double_static_load_cuda():
 
 def test_hertz_agreement_static_interference_cuda():
     """Tests that the static normal interference step agrees with the analytical hertz solution"""
-    try:
-        import cupy  # noqa: F401
-        slippy.CUDA = True
-    except ImportError:
-        warnings.warn("Could not import cupy, could not test the CUDA fft backend")
-        return
     flat_surface = s.FlatSurface(shift=(0, 0))
     round_surface = s.RoundSurface((1, 1, 1), extent=(0.006, 0.006), shape=(255, 255), generate=True)
     # set materials

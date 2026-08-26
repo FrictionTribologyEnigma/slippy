@@ -1,10 +1,12 @@
 import numpy as np
 import numpy.testing as npt
-import warnings
+import pytest
 
 import slippy
 import slippy.contact as c  # noqa: E402
 import slippy.surface as s  # noqa: E402
+
+pytest.importorskip('pyfftw')
 
 steel = c.Elastic('Steel_2', {'E': 200e9, 'v': 0.3})
 aluminum = c.Elastic('Aluminum_2', {'E': 70e9, 'v': 0.33})
@@ -15,12 +17,6 @@ def test_hertz_agreement_pk_static_load_fftw():
     analytical hertz solver
 
     """
-    try:
-        import pyfftw  # noqa: F401
-    except ImportError:
-        warnings.warn("Could not import pyfftw, could not test the fftw backend")
-        return
-
     with slippy.OverRideCuda():
         # make surfaces
         flat_surface = s.FlatSurface(shift=(0, 0))
@@ -63,12 +59,6 @@ def test_hertz_agreement_rey_static_load_fftw():
     analytical hertz solver
 
     """
-    try:
-        import pyfftw  # noqa: F401
-    except ImportError:
-        warnings.warn("Could not import pyfftw, could not test the fftw backend")
-        return
-
     with slippy.OverRideCuda():
         # make surfaces
         flat_surface = s.FlatSurface(shift=(0, 0))
@@ -113,12 +103,6 @@ def test_hertz_agreement_pk_static_load_fftw_spatial_im():
     analytical hertz solver
 
     """
-    try:
-        import pyfftw  # noqa: F401
-    except ImportError:
-        warnings.warn("Could not import pyfftw, could not test the fftw backend")
-        return
-
     with slippy.OverRideCuda():
         # make surfaces
         flat_surface = s.FlatSurface(shift=(0, 0))
@@ -159,12 +143,6 @@ def test_hertz_agreement_double_static_load_fftw():
     analytical hertz solver
 
     """
-    try:
-        import pyfftw  # noqa: F401
-    except ImportError:
-        warnings.warn("Could not import pyfftw, could not test the fftw backend")
-        return
-
     with slippy.OverRideCuda():
         # make surfaces
         flat_surface = s.FlatSurface(shift=(0, 0))
@@ -203,13 +181,6 @@ def test_hertz_agreement_double_static_load_fftw():
 
 
 def test_hertz_agreement_static_interference_fftw():
-    try:
-        import pyfftw  # noqa: F401
-        slippy.CUDA = False
-    except ImportError:
-        warnings.warn("Could not import pyfftw, could not test the fftw backend")
-        return
-
     with slippy.OverRideCuda():
         """Tests that the static normal interference step agrees with the analytical hertz solution"""
         flat_surface = s.FlatSurface(shift=(0, 0))

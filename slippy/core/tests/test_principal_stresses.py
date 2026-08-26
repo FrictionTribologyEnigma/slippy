@@ -3,6 +3,7 @@ from slippy.core import solve_cubic, get_derived_stresses
 from scipy.spatial.transform import Rotation as R
 import numpy as np
 import numpy.testing as npt
+import pytest
 
 # note these must be in order for comparison at end to work
 test_matrix = [[300,   200,  100],
@@ -59,10 +60,7 @@ def test_solve_cubic_numba():
 
 
 def test_solve_cubic_cuda():
-    try:
-        import cupy as cp
-    except ImportError:
-        return
+    cp = pytest.importorskip('cupy')
     dtypes = ['float64', 'float32']
     for dtype in dtypes:
         # designed to test all branches of the algo
