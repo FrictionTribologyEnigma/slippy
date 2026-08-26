@@ -91,12 +91,12 @@ functionality is not possible on all computers. Because of this we don't attempt
 requirements as this would make it impossible for many users to install slippy. In order to run models on the GPU you
 must also install cupy_, instructions for installing cupy can be found here_. This step is optional, if cupy is
 installed slippy will use the GPU by default, otherwise it will use the CPU backend (which requires pyfftw, installed
-with the ``[fftw]`` extra as shown above). If you don't have the CUDA toolkit installed system-wide, the runtime
-libraries can be installed with pip alongside the cupy wheel, for example for CUDA 12.x:
+with the ``[fftw]`` extra as shown above). With a current NVIDIA driver everything needed can be installed with pip,
+no system-wide CUDA toolkit is required (the ``[ctk]`` extra installs the CUDA runtime libraries):
 
 .. code-block:: bash
 
-    python -m pip install cupy-cuda12x nvidia-cublas-cu12 nvidia-cufft-cu12 nvidia-curand-cu12 nvidia-cusparse-cu12 nvidia-cusolver-cu12 nvidia-cuda-nvrtc-cu12 nvidia-cuda-runtime-cu12
+    python -m pip install cupy-cuda12x[ctk]
 
 
 Citation
