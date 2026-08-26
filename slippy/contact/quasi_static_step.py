@@ -410,7 +410,7 @@ class QuasiStaticStep(_ModelStep):
                 brackets = (0, upper)
             print(f'Bounds adjusted using cache to: {brackets}')
             print(f'Interference tolerance set to {self._r_tol_outer} Relative')
-            opt_func.brent(0, upper)
+            opt_func.brent(*brackets)
 
         # noinspection PyProtectedMember
 

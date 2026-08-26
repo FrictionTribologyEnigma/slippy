@@ -1,4 +1,5 @@
 import abc
+import functools
 import typing
 import numpy as np
 import slippy
@@ -249,21 +250,12 @@ class _ModelStep(_StepABC):
         missing_outputs_copy = missing_outputs.copy()
 
         for mo in missing_outputs_copy:
+            param = None
             if mo.startswith('surface') and ';' not in mo:
                 try:
-                    exec('param = self.model.' + mo)
-                except IndexError as e:
+                    param = functools.reduce(getattr, mo.split('.'), self.model)
+                except (AttributeError, IndexError) as e:
                     print(f"Output {mo}, {str(e)}")
-                    param = None
-                except AttributeError as e:
-                    print(f"Output {mo}, {str(e)}")
-                    param = None
-                except SyntaxError as e:
-                    print(f"Output {mo}, {str(e)}")
-                    param = None
-                except Exception as e:
-                    print(f"Output {mo}, {str(e)}")
-                    param = None
             if param is not None:
                 expanded_state[mo] = param
                 missing_outputs.remove(mo)
@@ -280,7 +272,7 @@ class _ModelStep(_StepABC):
 
     def solve_sub_models(self, current_state: dict):
         print('## Solving sub models')
-        if self.provides != set(current_state) and not slippy.ERROR_IF_MISSING_MODEL:
+        if self.provides != set(current_state) and slippy.ERROR_IF_MISSING_MODEL:
             missing = self.provides-set(current_state)
             unexpected = set(current_state)-self.provides
             raise ValueError(f"Step {self.name} dosn't provide what it should or provides things which are not "
@@ -292,11 +284,11 @@ class _ModelStep(_StepABC):
             self._current_state_debug = current_state
             print(f"Sub model {model.name}:")
             found_params = model.solve(current_state)
-            if model.provides != set(found_params) and not slippy.ERROR_IF_MISSING_SUB_MODEL:
-                unexpected = self.provides - set(current_state)
-                missing = set(current_state) - self.provides
+            if model.provides != set(found_params) and slippy.ERROR_IF_MISSING_SUB_MODEL:
+                missing = model.provides - set(found_params)
+                unexpected = set(found_params) - model.provides
                 raise ValueError(f"Sub model {model.name} dosn't provide what it should or provides things which are "
-                                 f"not declared, \nprovides = {self.provides} \nresults: {set(current_state)}"
+                                 f"not declared, \nprovides = {model.provides} \nresults: {set(found_params)}"
                                  f"\nMissing from results = {missing}"
                                  f"\nUnexpected in results = {unexpected}"
                                  f"\nTo suppress this error set slippy.ERROR_IF_MISSING_SUB_MODEL to False")

@@ -170,9 +170,9 @@ def get_gap_from_model(model, interference: float = 0,
         contact_points_1, contact_points_2 = contact_points_2, contact_points_1
 
     point_wise_interference = -sub_2 - sub_1
-    point_wise_interference -= min(point_wise_interference.flatten()) + interference
     if not point_wise_interference.size:
         raise ValueError("Surfaces are no longer in contact, off set too large")
+    point_wise_interference -= min(point_wise_interference.flatten()) + interference
     if _return_sub:
         return sub_1, sub_2
     return point_wise_interference, contact_points_1, contact_points_2

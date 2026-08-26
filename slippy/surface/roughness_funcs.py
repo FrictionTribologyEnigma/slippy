@@ -177,11 +177,11 @@ def roughness(profile_in: {np.ndarray, _SurfaceABC}, parameter_name: {str, typin
     no_mask = ['sdr', 'str', 'sal']
 
     if mask is not None:
-        if type(mask) is float:
+        if isinstance(mask, (float, np.floating)):
             if np.isnan(mask):
                 mask = ~np.isnan(profile)
             else:
-                mask = ~profile == mask
+                mask = ~(profile == mask)
         else:
             mask = np.asarray(mask, dtype=bool)
             if not mask.shape == profile.shape:
@@ -421,11 +421,11 @@ def get_height_of_mat_vr(ratio: float, profile: np.ndarray, void=False, mask=Non
     p = np.asarray(profile)
 
     if mask is not None:
-        if type(mask) is float:
+        if isinstance(mask, (float, np.floating)):
             if np.isnan(mask):
                 mask = ~np.isnan(p)
             else:
-                mask = ~p == mask
+                mask = ~(p == mask)
         else:
             mask = np.asarray(mask, dtype=bool)
             if not mask.shape == p.shape:
@@ -516,11 +516,11 @@ def get_mat_vr(height: float, profile: np.ndarray, void: bool = False, mask: {fl
         raise ValueError(msg)
 
     if mask is not None:
-        if type(mask) is float:
+        if isinstance(mask, (float, np.floating)):
             if np.isnan(mask):
                 mask = ~np.isnan(p)
             else:
-                mask = ~p == mask
+                mask = ~(p == mask)
         else:
             mask = np.asarray(mask, dtype=bool)
             if not mask.shape == p.shape:
@@ -666,11 +666,11 @@ def find_summits(profile, grid_spacing: float = None, mask: typing.Union[np.ndar
     profile, grid_spacing = _check_surface(profile, grid_spacing)
 
     if mask is not None:
-        if type(mask) is float:
+        if isinstance(mask, (float, np.floating)):
             if np.isnan(mask):
                 mask = ~np.isnan(profile)
             else:
-                mask = ~profile == mask
+                mask = ~(profile == mask)
         else:
             mask = np.asarray(mask, dtype=bool)
             if not mask.shape == profile.shape:

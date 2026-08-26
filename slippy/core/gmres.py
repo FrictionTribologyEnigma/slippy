@@ -11,6 +11,8 @@ try:
         """ Find the given's rotation matrix
         """
         t = cp.sqrt(a ** 2 + b ** 2)
+        if t == 0:
+            return 1.0, 0.0
         c = a / t
         s = b / t
         return c, s
@@ -35,15 +37,14 @@ try:
         H = cp.zeros((m + 1, m))
         cs = cp.zeros(m)
         sn = cp.zeros(m)
-        e1 = cp.zeros(n)
-        e1[0] = 1.0
         while True:
             r = b - f(x)
             if precon:
                 r = m_inv(r)
             norm_r = cp.linalg.norm(r)
             V[:, 0] = r / norm_r
-            s = norm_r * e1
+            s = cp.zeros(m + 1)
+            s[0] = norm_r
             for i in range(m):
                 w = f(V[:, i])
                 if precon:
@@ -52,7 +53,8 @@ try:
                     H[k, i] = cp.dot(w, V[:, k])
                     w = w - H[k, i] * V[:, k]
                 H[i + 1, i] = cp.linalg.norm(w)
-                V[:, i + 1] = w / H[i + 1, i]
+                if H[i + 1, i] != 0:  # zero on lucky breakdown, error below will be 0 so solve and exit
+                    V[:, i + 1] = w / H[i + 1, i]
                 for k in range(i):
                     temp = cs[k] * H[k, i] + sn[k] * H[k + 1, i]
                     H[k + 1, i] = -sn[k] * H[k, i] + cs[k] * H[k + 1, i]
@@ -78,8 +80,7 @@ try:
             if precon:
                 r = m_inv(r)
             error = cp.linalg.norm(r) / norm_b
-            if i + 1 < n:
-                s[i + 1] = cp.linalg.norm(r)
+            s[m] = cp.linalg.norm(r)
             if error <= tol:
                 break
             if max_it is not None and it_num >= max_it:
@@ -98,13 +99,15 @@ def _rotmat(a: float, b: float) -> (float, float):
     """ Find the given's rotation matrix
     """
     t = np.sqrt(a**2 + b**2)
+    if t == 0:
+        return 1.0, 0.0
     c = a/t
     s = b/t
     return c, s
 
 
-def _fftw_gmres(f: typing.Callable, x: np.ndarray, b: np.ndarray, restart: int, max_it: int, tol: float,
-                m_inv: typing.Callable = None):
+def _cpu_gmres(f: typing.Callable, x: np.ndarray, b: np.ndarray, restart: int, max_it: int, tol: float,
+               m_inv: typing.Callable = None):
     x = np.array(x)
     n = x.size
     b = np.array(b)
@@ -123,15 +126,14 @@ def _fftw_gmres(f: typing.Callable, x: np.ndarray, b: np.ndarray, restart: int, 
     H = np.zeros((m + 1, m))
     cs = np.zeros(m)
     sn = np.zeros(m)
-    e1 = np.zeros(n)
-    e1[0] = 1.0
     while True:
         r = b - f(x)
         if precon:
             r = m_inv(r)
         norm_r = np.linalg.norm(r)
         V[:, 0] = r / norm_r
-        s = norm_r * e1
+        s = np.zeros(m + 1)
+        s[0] = norm_r
         for i in range(m):
             w = f(V[:, i])
             if precon:
@@ -140,7 +142,8 @@ def _fftw_gmres(f: typing.Callable, x: np.ndarray, b: np.ndarray, restart: int, 
                 H[k, i] = np.dot(w, V[:, k])
                 w = w - H[k, i] * V[:, k]
             H[i + 1, i] = np.linalg.norm(w)
-            V[:, i + 1] = w / H[i + 1, i]
+            if H[i + 1, i] != 0:  # zero on lucky breakdown, error below will be 0 so solve and exit
+                V[:, i + 1] = w / H[i + 1, i]
             for k in range(i):
                 temp = cs[k] * H[k, i] + sn[k] * H[k + 1, i]
                 H[k + 1, i] = -sn[k] * H[k, i] + cs[k] * H[k + 1, i]
@@ -166,8 +169,7 @@ def _fftw_gmres(f: typing.Callable, x: np.ndarray, b: np.ndarray, restart: int, 
         if precon:
             r = m_inv(r)
         error = np.linalg.norm(r) / norm_b
-        if i + 1 < n:
-            s[i + 1] = np.linalg.norm(r)
+        s[m] = np.linalg.norm(r)
         if error <= tol:
             break
         if max_it is not None and it_num >= max_it:
@@ -224,5 +226,9 @@ def gmres(f: typing.Callable, x0, b, restart: int, max_it: int, tol: float,
     if slippy.CUDA and not override_cuda:
         x, _, _, failed = _cuda_gmres(f, x0, b, restart, max_it, tol, m_inv)
     else:
-        x, _, _, failed = _fftw_gmres(f, x0, b, restart, max_it, tol, m_inv)
+        x, _, _, failed = _cpu_gmres(f, x0, b, restart, max_it, tol, m_inv)
     return x, failed
+
+
+# the CPU implementation was previously (misleadingly) named _fftw_gmres, kept as an alias
+_fftw_gmres = _cpu_gmres

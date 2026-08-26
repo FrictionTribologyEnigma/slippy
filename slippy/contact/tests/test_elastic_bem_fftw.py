@@ -33,7 +33,7 @@ def test_hertz_agreement_pk_static_load_fftw():
 
         out = my_model.solve(skip_data_check=True)
 
-        assert my_step._method == 'pk'
+        assert my_step._last_method_used == 'pk'
 
         final_load = sum(out['loads_z'].flatten() * round_surface.grid_spacing ** 2)
 
