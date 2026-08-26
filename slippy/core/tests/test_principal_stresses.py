@@ -61,8 +61,9 @@ def test_solve_cubic_numba():
 
 def test_solve_cubic_cuda():
     cp = pytest.importorskip('cupy')
-    dtypes = ['float64', 'float32']
-    for dtype in dtypes:
+    # near repeated roots split by ~sqrt(machine eps), so single precision cannot hit the float64 tolerance
+    tolerances = {'float64': 1e-7, 'float32': 1e-3}
+    for dtype, atol in tolerances.items():
         # designed to test all branches of the algo
         b = cp.array([3, 2, 3, 3, 4, 4, 4, 0], dtype=dtype)
         c = cp.array([1, 4 / 3, 1, 4, 7 / 3, 7, 0, 0], dtype=dtype)
@@ -73,8 +74,8 @@ def test_solve_cubic_cuda():
             np_roots = np.roots(cp.asnumpy(coeffs))
             np_roots = np.sort(np.real(np_roots[(np.abs(np_roots) - np.abs(np.real(np_roots))) < 1e-7]))
             if len(roots) == len(np_roots):
-                npt.assert_allclose(cp.asnumpy(roots), np_roots, atol=1e-7)
+                npt.assert_allclose(cp.asnumpy(roots), np_roots, atol=atol)
             elif len(np_roots) == 1:
-                npt.assert_allclose(cp.asnumpy(roots), [np_roots[0]] * 3, atol=1e-7)
+                npt.assert_allclose(cp.asnumpy(roots), [np_roots[0]] * 3, atol=atol)
             else:
                 raise ValueError("This should never happen")
