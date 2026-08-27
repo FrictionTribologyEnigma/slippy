@@ -26,9 +26,42 @@ The _height method should take as arguments an array of x coordinates and an arr
 Materials
 ---------
 
-If the influence matrix for a material is known, then to add it into slippy the _IMMaterial base class can be sub classed.
-This requires the user to implement the __init__ and influence_matrix methods.
-Practically it is also useful to memoize the influence matrix to save computing it for every time step of a simulation.
+Materials in slippy are defined by their influence matrix: the surface displacements caused by a unit pressure on one
+grid cell. Two routes are available for adding a new material.
+
+**The recommended route: a frequency response function.** If the surface response of the material can be written in the
+frequency domain, u(q) = C(q) p(q) — true for any linear, homogeneous-in-plane half space model (layered, graded,
+surface tensed...) — sub class ``_FrequencyDomainMaterial`` from slippy.core and implement two methods:
+
+- ``__init__``, which should store the material parameters and call the super's init:
+
+    ``super().__init__(name, max_load=max_load)``
+
+- ``_frf(components, q_y, q_x, q_norm)``, which evaluates C on the supplied wavenumber grids and returns a dict with
+  one array per requested component. Components are named as load direction then displacement direction ('zz' is the
+  normal displacement from a normal load); normal contact solvers only request 'zz'. The zero frequency (q = 0) element
+  is handled for you: pass ``zero_frequency_value`` to the super init if your material has a finite compliance at
+  q = 0 (the default, matching the elastic half space, is 0).
+
+For reference, the elastic half space has C_zz(q) = 2 / (E* |q|), and ``SurfaceTensedMaterial``
+(slippy/core/surface_tensed_material.py) is a complete worked example in ~70 lines.
+
+**The general route.** Sub class ``_IMMaterial`` directly and implement ``_influence_matrix_spatial`` and/or
+``_influence_matrix_frequency`` (at least one is required, enforced at class creation). The base class provides the
+public ``influence_matrix`` method, including memoization, periodic strides and DC-term handling — do not override it.
+The two sub surface stress methods (``sss_influence_matrices_normal`` and ``sss_influence_matrices_tangential_x``) must
+be defined but may raise NotImplementedError if sub surface stresses are not available for your material.
+
+In both cases:
+
+- Material names must be unique per process; influence matrices are memoized by name and grid arguments, so treat all
+  parameters as immutable after construction — make a new instance rather than mutating.
+- Set ``max_load`` if the material should saturate at a maximum pressure (elastic-perfectly-plastic approximation,
+  pairs with the WearElasticPerfectlyPlastic sub model).
+- Add an entry for your material to the ``material_parameters`` dict in slippy/core/tests/test_materials.py: the test
+  suite automatically round-trip tests every registered material, and fails if parameters are missing. Materials which
+  only support normal loading should set ``'_directions': 'z'`` there, and materials with a zero DC compliance (the
+  default for frequency-only materials) should also set ``'_zero_mean': True``.
 
 Steps
 -----

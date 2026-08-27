@@ -1006,7 +1006,7 @@ def bccg(f: typing.Callable, b: np.ndarray, tol: float, max_it: int, x0: np.ndar
     b = xp.asarray(b)
     x = xp.clip(xp.asarray(x0), min_pressure, max_pressure)
     g = f(x) - b
-    msk_bnd_0 = xp.logical_and(x <= 0, g >= 0)
+    msk_bnd_0 = xp.logical_and(x <= min_pressure, g >= 0)
     msk_bnd_max = xp.logical_and(x >= max_pressure, g <= 0)
     n_bound = xp.sum(msk_bnd_0) + xp.sum(msk_bnd_max)
     n = b.size

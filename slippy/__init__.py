@@ -17,7 +17,9 @@ except ImportError:
 
 
 def asnumpy(obj):
-    if CUDA:
+    # decided by the type of the object rather than the CUDA flag: the flag can be toggled
+    # mid-session (OverRideCuda) while arrays made under the other setting are still around
+    if 'cupy' in type(obj).__module__:
         return cupy.asnumpy(obj)
     return numpy.asarray(obj)
 

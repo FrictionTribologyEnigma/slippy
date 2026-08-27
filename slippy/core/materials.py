@@ -356,7 +356,8 @@ class _IMMaterial(_MaterialABC):
 
         components = self.influence_matrix(component_names, grid_spacing, shape)
 
-        domain = slippy.xp.ones(displacements[load_dirs[0]].shape, dtype=bool)
+        # note: numpy regardless of backend, the cuda convolution functions convert their inputs
+        domain = np.ones(displacements[load_dirs[0]].shape, dtype=bool)
 
         if len(component_names) == 1:
             load_dir = load_dirs[0]
@@ -369,8 +370,9 @@ class _IMMaterial(_MaterialABC):
 
         loads, failed = bccg(conv_func, b, tol=tol, max_it=max_it, x0=np.zeros_like(b), min_pressure=-np.inf)
         full_loads = dict()
+        xp = slippy.xp if slippy.CUDA else np
         for i in range(len(load_dirs)):
-            full_loads[load_dirs[i]] = slippy.xp.zeros(shape)
+            full_loads[load_dirs[i]] = xp.zeros(shape)
             full_loads[load_dirs[i]][domain] = loads[i * size:(i + 1) * size]
 
         return full_loads
