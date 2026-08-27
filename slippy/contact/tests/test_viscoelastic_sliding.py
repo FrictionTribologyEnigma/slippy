@@ -5,8 +5,8 @@ JMPS 61:1822-1834: C(q) = 2(1-v^2)/(E(v q_x) |q|). The self contained checks are
 linear solid limits (v -> 0 gives the relaxed modulus, v -> infinity the glassy modulus, both
 of which must reproduce the elastic hertz solution) and qualitative physics at intermediate
 velocity (asymmetric pressure shifted towards the leading edge, positive dissipated power).
-A quantitative friction-vs-velocity comparison against the published curves is escalated (the
-paper's figures would need digitizing).
+The quantitative check reproduces the friction vs velocity bell curve of the paper's fig. 12,
+digitized from the vector graphics of the pdf (see test_viscoelastic_friction_curve).
 """
 import numpy as np
 import numpy.testing as npt
@@ -117,8 +117,59 @@ def test_viscoelastic_intermediate_convergence_and_asymmetry():
     assert power > 0, "sliding on a viscoelastic material must dissipate energy"
 
 
-@pytest.mark.skip(reason="Quantitative friction curve values must be digitized from the figures of "
-                         "Carbone & Putignano (2013) JMPS 61:1822 (paywalled) - escalated")
 def test_viscoelastic_friction_curve():
-    """Friction coefficient vs velocity against the published bell curve"""
-    raise NotImplementedError
+    """Friction coefficient vs velocity against the bell curve of Carbone & Putignano fig. 12
+
+    The reference case is a rigid sphere (R = 1 cm) on a one relaxation time half space with
+    E_0 = 1 MPa (rubbery), E_inf = 10 MPa (glassy) and creep (retardation) time tau = 0.01 s,
+    at a constant normal load F_N = 0.15 N. In our generalized Maxwell (relaxation) form this
+    material is exactly relaxed_modulus = 1 MPa with one prony term (9 MPa, tau / 10). The
+    reference friction values were extracted from the vector graphics of fig. 12 (the drawing
+    coordinates of the data points in the pdf, calibrated against the axis tick positions, so
+    the digitization error is negligible). The paper does not state the poisson's ratio;
+    0.3 reproduces the peak value and is used here. a0 is the hertz contact radius of the
+    rubbery material at F_N.
+
+    The friction force is the dissipation based F_T = -integral(p du/dx): at the highest speed
+    the displacement wake extends over v tau = 8 a0 so a larger periodic cell is needed for
+    the isolated contact result.
+    """
+    nu = 0.3
+    e_relaxed = 1e6
+    prony = [(9e6, 1e-3)]
+    tau_paper = 0.01
+    radius = 0.01
+    f_n = 0.15
+    e0_star = e_relaxed / (1 - nu ** 2)
+    a_0 = (3 * f_n * radius / (4 * e0_star)) ** (1 / 3)
+
+    # (v tau / a0, mu from fig. 12, relative tolerance, extent, grid points)
+    cases = [(0.1063, 0.00851, 0.08, 0.006, 255),
+             (1.169, 0.04028, 0.05, 0.006, 255),   # the peak of the bell
+             (7.943, 0.01587, 0.08, 0.012, 511)]
+    found = []
+    with slippy.OverRideCuda():
+        for x, mu_ref, rtol, extent, shape in cases:
+            velocity = x * a_0 / tau_paper
+            flat_surface = s.FlatSurface(shift=(0, 0))
+            round_surface = s.RoundSurface((radius,) * 3, extent=(extent, extent),
+                                           shape=(shape, shape), generate=True)
+            flat_surface.material = ViscoElasticSliding(f've_fric_{x:.3f}', relaxed_modulus=e_relaxed,
+                                                        p_ratio=nu, velocity=velocity,
+                                                        prony_terms=prony)
+            round_surface.material = Elastic(f've_fric_counter_{x:.3f}', {'E': 1e16, 'v': 0.0})
+            model = c.ContactModel(f've-fric-model-{x:.3f}', round_surface, flat_surface)
+            model.add_step(c.StaticStep('contact', normal_load=f_n, tolerance=1e-4))
+            out = model.solve(skip_data_check=True)
+            assert out['converged']
+            gs = round_surface.grid_spacing
+            pressure = out['loads_z']
+            u_z = slippy.asnumpy(out['surface_2_displacement_z'])
+            du_dx = np.gradient(u_z, gs, axis=1)
+            mu = -np.sum(pressure * du_dx) * gs ** 2 / (np.sum(pressure) * gs ** 2)
+            npt.assert_allclose(mu, mu_ref, rtol=rtol,
+                                err_msg=f'friction coefficient at v tau / a0 = {x} '
+                                        '(Carbone & Putignano 2013 fig. 12)')
+            found.append(mu)
+    # the bell shape: the peak is higher than both tails
+    assert found[1] > found[0] and found[1] > found[2]

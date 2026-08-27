@@ -13,7 +13,7 @@ import pytest
 import slippy
 import slippy.contact as c
 import slippy.surface as s
-from slippy.core import Elastic, PowerLawGradedElastic
+from slippy.core import Elastic, CoatedElastic, GradedCoatedElastic, PowerLawGradedElastic
 from slippy.core.tests._material_test_utils import assert_ims_match
 
 pytest.importorskip('pyfftw')
@@ -90,6 +90,93 @@ def test_graded_hertz_pressure_exponent():
     m_fit = np.polyfit(x, y, 1)[0]
     npt.assert_allclose(m_fit, (1 + k) / 2, rtol=0.08,
                         err_msg='graded pressure profile exponent should be (1+k)/2')
+
+
+def test_graded_coating_uniform_limit():
+    """A graded coating with constant modulus equals the homogeneous coating exactly
+
+    Sublayers of identical properties are exactly equivalent to one layer, so this holds to
+    machine precision at any sublayer count.
+    """
+    h = 0.02
+    graded = GradedCoatedElastic('graded_coat_uniform', lambda z: 100e9, 0.3, h,
+                                 {'E': 200e9, 'v': 0.25}, n_sublayers=7)
+    coated = CoatedElastic('graded_coat_uniform_ref', {'E': 100e9, 'v': 0.3}, h,
+                           {'E': 200e9, 'v': 0.25})
+    assert_ims_match(graded, coated, grid_spacing=(1e-4, 1e-4), span=(64, 64), rtol=1e-12,
+                     err_msg='uniform graded coating:')
+
+    graded_r = GradedCoatedElastic('graded_coat_uniform_rigid', lambda z: 100e9, 0.3, h,
+                                   'rigid', n_sublayers=7)
+    coated_r = CoatedElastic('graded_coat_uniform_rigid_ref', {'E': 100e9, 'v': 0.3}, h, 'rigid')
+    assert_ims_match(graded_r, coated_r, grid_spacing=(1e-4, 1e-4), span=(64, 64), rtol=1e-12,
+                     err_msg='uniform graded coating, rigid base:')
+
+
+def test_graded_coating_convergence():
+    """The response to an exponentially graded coating converges with the sublayer count
+
+    The piecewise homogeneous approximation converges to the continuously graded solution as
+    the number of sublayers grows (Ke & Wang 2006). The influence matrices are compared on a
+    fine reference (n = 80): the error must fall monotonically with n and be below 0.1% at
+    n = 40.
+    """
+    h = 0.005
+    modulus = 100e9
+
+    def graded_modulus(z):
+        return modulus * np.exp(np.log(3) * z / h)  # 100 -> 300 GPa through the coating
+
+    def im_for(n):
+        mat = GradedCoatedElastic(f'graded_coat_conv_{n}', graded_modulus, 0.3, h,
+                                  {'E': 300e9, 'v': 0.3}, n_sublayers=n)
+        return mat.influence_matrix(['zz'], (1e-4, 1e-4), (64, 64))['zz']
+
+    reference = im_for(80)
+    scale = np.max(np.abs(reference))
+    errors = [np.max(np.abs(im_for(n) - reference)) / scale for n in (5, 10, 20, 40)]
+    assert all(e1 > e2 for e1, e2 in zip(errors[:-1], errors[1:])), \
+        f'graded coating error should fall monotonically with the sublayer count: {errors}'
+    assert errors[-1] < 1e-3, \
+        f'graded coating response should be converged to 0.1% at 40 sublayers: {errors[-1]}'
+
+
+def test_graded_coating_full_solve_bounded():
+    """A full solve with a stiffening graded coating lies between the homogeneous bounds"""
+    h = 5e-4
+    total_load = 100.0
+
+    def graded_modulus(z):
+        return 100e9 * np.exp(np.log(3) * z / h)
+
+    def solve_with(material, tag):
+        flat_surface = s.FlatSurface(shift=(0, 0))
+        round_surface = s.RoundSurface((1, 1, 1), extent=(0.006, 0.006), shape=(255, 255),
+                                       generate=True)
+        flat_surface.material = material
+        round_surface.material = c.Elastic(f'graded_coat_counter_{tag}', {'E': 1e16, 'v': 0.0})
+        my_model = c.ContactModel(f'graded-coat-model-{tag}', round_surface, flat_surface)
+        my_model.add_step(c.StaticStep('contact', normal_load=total_load))
+        out = my_model.solve(skip_data_check=True)
+        return np.max(out['loads_z'])
+
+    with slippy.OverRideCuda():
+        peak_graded = solve_with(GradedCoatedElastic('graded_coat_solve', graded_modulus, 0.3, h,
+                                                     {'E': 300e9, 'v': 0.3}, n_sublayers=15),
+                                 'graded')
+        peak_soft = solve_with(CoatedElastic('graded_coat_soft', {'E': 100e9, 'v': 0.3}, h,
+                                             {'E': 300e9, 'v': 0.3}), 'soft')
+        peak_stiff = solve_with(Elastic('graded_coat_stiff', {'E': 300e9, 'v': 0.3}), 'stiff')
+    assert peak_soft < peak_graded < peak_stiff, \
+        "a stiffening graded coating should lie between its homogeneous bounds"
+
+
+@pytest.mark.skip(reason="Reference indentation values for exponential grading are in "
+                         "Giannakopoulos & Suresh (1997) Int. J. Solids Struct. 34:2357 part I "
+                         "(paywalled) - escalated")
+def test_graded_coating_vs_giannakopoulos():
+    """Exponential grading indentation against the published closed forms"""
+    raise NotImplementedError
 
 
 def test_graded_load_area_scaling():

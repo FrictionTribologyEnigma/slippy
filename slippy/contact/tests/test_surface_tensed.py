@@ -79,7 +79,7 @@ def test_surface_tension_stiffening():
 
 
 @pytest.mark.skip(reason="Quantitative values require Hajji (1978) J. Appl. Mech. 45:320-324, "
-                         "which is paywalled - escalated for the paper")
+                         "doi:10.1115/1.3424295, which is paywalled - escalated for the paper")
 def test_surface_tension_hajji():
     """Sphere indentation at finite tau_0 against Hajji's load-displacement relation"""
     raise NotImplementedError

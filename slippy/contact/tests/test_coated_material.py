@@ -120,8 +120,87 @@ def test_coating_peak_pressure_bounded():
     npt.assert_approx_equal(peak['thick'], hertz_compliant, 2)
 
 
-@pytest.mark.skip(reason="Reference values must be digitized from the figures of arXiv:1807.01885 "
-                         "(no tabulated results in the paper) - escalated")
-def test_coating_vs_li_pohrt():
-    """Dimensionless indentation results against the published curves"""
-    raise NotImplementedError
+def _solve_sphere_on_rigid_backed_coating(e_coat, v_coat, h, radius, interference, extent, tag):
+    flat_surface = s.FlatSurface(shift=(0, 0))
+    round_surface = s.RoundSurface((radius,) * 3, extent=(extent, extent), shape=(255, 255),
+                                   generate=True)
+    flat_surface.material = CoatedElastic(f'li_pohrt_{tag}', {'E': e_coat, 'v': v_coat}, h, 'rigid')
+    round_surface.material = Elastic(f'li_pohrt_counter_{tag}', {'E': 1e16, 'v': 0.0})  # ~rigid
+    my_model = c.ContactModel(f'li-pohrt-model-{tag}', round_surface, flat_surface)
+    my_model.add_step(c.StaticStep('contact', interference=interference))
+    out = my_model.solve(skip_data_check=True)
+    return np.sum(out['loads_z']) * round_surface.grid_spacing ** 2
+
+
+def test_coating_vs_li_pohrt_thin_layer():
+    """Indentation of a thin bonded layer against the closed form of Li, Pohrt et al. (2020)
+
+    For a parabolic indenter on a layer bonded to a rigid foundation with contact radius much
+    larger than the layer thickness, their eqs. 17-18 (non adhesive part) give
+    F = pi E~1 a^4 / (4 R h) with a^2 = 2 R d, i.e. F = pi E~1 R d^2 / h, where E~1 is the
+    confined (uniaxial strain) modulus of eq. 15. This is the Winkler limit of the coating FRF.
+    """
+    e_coat, v_coat = 10e9, 0.3
+    radius = 1.0
+    interference = 5e-7
+    contact_radius = np.sqrt(2 * radius * interference)  # 1 mm
+    h = contact_radius / 50  # a / h = 50
+    with slippy.OverRideCuda():
+        found_load = _solve_sphere_on_rigid_backed_coating(e_coat, v_coat, h, radius, interference,
+                                                           3 * contact_radius, 'thin')
+    confined_modulus = e_coat * (1 - v_coat) / ((1 + v_coat) * (1 - 2 * v_coat))
+    expected_load = np.pi * confined_modulus * radius * interference ** 2 / h
+    npt.assert_allclose(found_load, expected_load, rtol=0.03,
+                        err_msg='thin bonded layer load (Li, Pohrt et al. 2020 eq. 17-18)')
+
+
+def test_coating_vs_li_pohrt_thick_layer():
+    """Indentation of a thick bonded layer against the asymptotic series of Li, Pohrt et al.
+
+    For contact radius small compared to the layer thickness their eqs. 22-25 (non adhesive
+    part) give the finite thickness corrections to the hertz solution for a layer on a rigid
+    foundation as a series in epsilon = a / h:
+
+        F = (4 E1* a^3 / 3R)(1 - eps^3 8 a1 / 3 pi)
+        d = (a^2 / R)(1 - eps 4 a0/(3 pi) - eps^3 16 a1/(5 pi) + eps^4 32 a0 a1/(9 pi^2))
+
+    with a_m = (-1)^m / (2^2m (m!)^2) * integral(Lambda(u) u^2m, 0, inf) and Lambda given by
+    their eq. 25. The coefficients are evaluated here by direct numerical integration.
+    """
+    from scipy import integrate, optimize
+
+    e_coat, v_coat = 10e9, 0.3
+    radius = 1.0
+    interference = 5e-7
+    h = 2e-3  # roughly 2.8 contact radii: eps ~ 0.36
+    with slippy.OverRideCuda():
+        found_load = _solve_sphere_on_rigid_backed_coating(e_coat, v_coat, h, radius, interference,
+                                                           6e-3, 'thick')
+
+    big_l = 4 * v_coat - 3
+
+    def lam(u):
+        e2u = np.exp(-2 * u)
+        e4u = e2u * e2u
+        return ((2 * big_l * e4u - (big_l ** 2 + 1 + 4 * u + 4 * u ** 2) * e2u) /
+                (big_l - (big_l ** 2 + 1 + 4 * u ** 2) * e2u + big_l * e4u))
+
+    a_0 = integrate.quad(lam, 0, 50, limit=200)[0]
+    a_1 = -integrate.quad(lambda u: lam(u) * u ** 2, 0, 50, limit=200)[0] / 4
+
+    def depth_of_radius(a):
+        eps = a / h
+        return (a ** 2 / radius) * (1 - eps * 4 * a_0 / (3 * np.pi) - eps ** 3 * 16 * a_1 / (5 * np.pi)
+                                    + eps ** 4 * 32 * a_0 * a_1 / (9 * np.pi ** 2))
+
+    hertz_radius = np.sqrt(radius * interference)
+    a_solved = optimize.brentq(lambda a: depth_of_radius(a) - interference,
+                               0.5 * hertz_radius, 3 * hertz_radius)
+    e_star = e_coat / (1 - v_coat ** 2)
+    expected_load = (4 * e_star * a_solved ** 3 / (3 * radius)) * \
+        (1 - (a_solved / h) ** 3 * 8 * a_1 / (3 * np.pi))
+    # the rigid base makes the response stiffer than the hertz solution at the same depth
+    hertz_load = 4 / 3 * e_star * np.sqrt(radius) * interference ** 1.5
+    assert found_load > hertz_load
+    npt.assert_allclose(found_load, expected_load, rtol=0.03,
+                        err_msg='thick bonded layer load (Li, Pohrt et al. 2020 eq. 22-25)')

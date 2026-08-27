@@ -46,6 +46,8 @@ possible to add your own materials, see the extensions documentation.
    Elastic                      -- An isotropic elastic material
    Rigid                        -- The rigid material class\*
    CoatedElastic                -- An elastic coating bonded to an elastic or rigid substrate
+   MultiLayerElastic            -- A stack of elastic layers bonded to an elastic or rigid substrate
+   GradedCoatedElastic          -- A coating with depth varying modulus on an elastic or rigid substrate
    PowerLawGradedElastic        -- A functionally graded material, E(z) = E0 (z/c0)^k
    TransverselyIsotropicElastic -- A transversely isotropic material, symmetry axis normal to the surface
    SurfaceTensedMaterial        -- An elastic half space with surface tension
@@ -116,7 +118,8 @@ https://github.com/FrictionTribologyEnigma/SlipPY/tree/master/examples
 """
 
 # from .adhesion_models import *
-from slippy.core import Rigid, rigid, Elastic, CoatedElastic, PowerLawGradedElastic, TransverselyIsotropicElastic, \
+from slippy.core import Rigid, rigid, Elastic, CoatedElastic, MultiLayerElastic, GradedCoatedElastic, \
+    PowerLawGradedElastic, TransverselyIsotropicElastic, \
     SurfaceTensedMaterial, ViscoElasticSliding, elastic_influence_matrix_spatial, OutputRequest, OutputReader, \
     OutputSaver, read_output, guess_loads_from_displacement, bccg, plan_convolve, plan_multi_convolve
 from .hertz import hertz_full, solve_hertz_line, solve_hertz_point
@@ -131,7 +134,8 @@ from .quasi_static_step import QuasiStaticStep
 from . import sub_models
 
 __all__ = ['hertz_full', 'solve_hertz_line', 'solve_hertz_point', 'Lubricant',
-           'lubricant_models', 'IterSemiSystem', 'Elastic', 'Rigid', 'rigid', 'CoatedElastic',
+           'lubricant_models', 'IterSemiSystem', 'Elastic', 'Rigid', 'rigid', 'CoatedElastic', 'MultiLayerElastic',
+           'GradedCoatedElastic',
            'PowerLawGradedElastic', 'TransverselyIsotropicElastic', 'SurfaceTensedMaterial', 'ViscoElasticSliding',
            'elastic_influence_matrix_spatial',
            'ContactModel', 'OutputRequest', 'OutputReader', 'OutputSaver', 'read_output',
